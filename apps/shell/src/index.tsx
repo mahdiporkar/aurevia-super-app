@@ -15,10 +15,10 @@ function RemoteHost({panel,manifest,locale}:{panel:PanelManifest;manifest:Effect
 function App(){
   const[locale,setLocale]=useState<Locale>('fa-IR'),[manifest,setManifest]=useState<EffectiveManifest>(),[selected,setSelected]=useState<string>(),[error,setError]=useState('');
   useEffect(()=>{
-    fetch('/api/v1/me/manifest',{credentials:'same-origin',headers:{'X-Correlation-ID':crypto.randomUUID()}})
-      .then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json()})
+    fetch('/api/v1/me/manifest',{credentials:'same-origin',redirect:'manual',headers:{'X-Correlation-ID':crypto.randomUUID()}})
+      .then(r=>{if(r.status===401||r.status===302||r.type==='opaqueredirect'){window.location.assign('/oauth2/authorization/public-iam');throw new Error('AUTH_REDIRECT')}if(!r.ok)throw new Error(String(r.status));return r.json()})
       .then((m:EffectiveManifest)=>{setManifest(m);setSelected(m.panels[0]?.slug)})
-      .catch(e=>setError(e instanceof Error?e.message:String(e)));
+      .catch(e=>{if(!(e instanceof Error&&e.message==='AUTH_REDIRECT'))setError(e instanceof Error?e.message:String(e))});
   },[]);
   const panel=manifest?.panels.find(p=>p.slug===selected);
   return <ConfigProvider direction={direction(locale)} locale={locale==='fa-IR'?faIR:enUS}><SHManifestProvider initial={manifest??empty}><Layout style={{minHeight:'100vh'}}><Layout.Header style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><Typography.Title level={3} style={{color:'white',margin:0}}>{t(locale,'appName')}</Typography.Title><Button onClick={()=>setLocale(locale==='fa-IR'?'en-US':'fa-IR')}>{t(locale,'language')}</Button></Layout.Header><Layout><Layout.Sider><Menu theme="dark" selectedKeys={selected?[selected]:[]} onSelect={({key})=>setSelected(key)} items={(manifest?.panels??[]).map(p=>({key:p.slug,label:locale==='fa-IR'?p.nameFa:p.nameEn}))}/></Layout.Sider><Layout.Content style={{padding:24}}>{error?<Alert type="error" message={error}/>:!manifest?<Spin tip={t(locale,'loading')}/>:panel?<RemoteBoundary message={t(locale,'remoteUnavailable')}><RemoteHost panel={panel} manifest={manifest} locale={locale}/></RemoteBoundary>:<Typography.Title level={2}>{t(locale,'appName')}</Typography.Title>}</Layout.Content></Layout></Layout></SHManifestProvider></ConfigProvider>;

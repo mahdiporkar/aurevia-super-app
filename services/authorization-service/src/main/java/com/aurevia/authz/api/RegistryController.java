@@ -28,17 +28,17 @@ public class RegistryController {
     outbox("panel",id,"PANEL_CREATED",p.code()); return Map.of("id",id,"version",0);
   }
   @PutMapping("/panels/{id}") @Transactional
-  public Map<String,Object> updatePanel(@PathVariable UUID id,@RequestParam long version,@Valid @RequestBody PanelWrite p){
+  public Map<String,Object> updatePanel(@PathVariable("id") UUID id,@RequestParam("version") long version,@Valid @RequestBody PanelWrite p){
     int n=db.sql("update panel set code=:code,name_fa=:fa,name_en=:en,slug=:slug,remote_entry_path=:remote,exposed_module=:module,route_base_path=:route,semantic_version=:semver,contract_version=:contract,integrity=:integrity,active=:active,sort_order=:sort,version=version+1,updated_at=now() where id=:id and version=:version")
       .param("id",id).param("version",version).param("code",p.code()).param("fa",p.nameFa()).param("en",p.nameEn()).param("slug",p.slug()).param("remote",p.remoteEntry()).param("module",p.exposedModule()).param("route",p.routeBasePath()).param("semver",p.semanticVersion()).param("contract",p.contractVersion()).param("integrity",p.integrity()).param("active",p.active()).param("sort",p.sortOrder()).update();
     if(n==0)throw new OptimisticLockingFailureException("panel changed or missing"); outbox("panel",id,"PANEL_UPDATED",p.code()); return Map.of("id",id,"version",version+1);
   }
   @DeleteMapping("/panels/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional
-  public void archivePanel(@PathVariable UUID id,@RequestParam long version){
+  public void archivePanel(@PathVariable("id") UUID id,@RequestParam("version") long version){
     int n=db.sql("update panel set active=false,version=version+1,updated_at=now() where id=:id and version=:version").param("id",id).param("version",version).update();
     if(n==0)throw new OptimisticLockingFailureException("panel changed or missing"); outbox("panel",id,"PANEL_ARCHIVED",id.toString());
   }
-  @GetMapping("/audit") public List<Map<String,Object>> audit(@RequestParam(defaultValue="100") int limit){return db.sql("select * from audit_event order by occurred_at desc limit :limit").param("limit",Math.min(Math.max(limit,1),500)).query().listOfRows();}
+  @GetMapping("/audit") public List<Map<String,Object>> audit(@RequestParam(name="limit",defaultValue="100") int limit){return db.sql("select * from audit_event order by occurred_at desc limit :limit").param("limit",Math.min(Math.max(limit,1),500)).query().listOfRows();}
   private void outbox(String type,UUID id,String event,String key){
     db.sql("insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key) values(:type,:id,:event,jsonb_build_object('key',cast(:key as text)),:idem)").param("type",type).param("id",id).param("event",event).param("key",key).param("idem",event+":"+id+":"+UUID.randomUUID()).update();
   }

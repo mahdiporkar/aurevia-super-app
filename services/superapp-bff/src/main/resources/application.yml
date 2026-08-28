@@ -1,5 +1,6 @@
 server:
   port: ${BFF_PORT:8081}
+  forward-headers-strategy: framework
   reactive.session.cookie:
     name: AUREVIA_SESSION
     http-only: true
@@ -22,7 +23,12 @@ spring:
       authorization-grant-type: authorization_code
       redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
       scope: openid,profile,email
-    provider.public-iam.issuer-uri: ${OIDC_ISSUER:http://localhost:8180/realms/aurevia}
+    provider.public-iam:
+      authorization-uri: ${OIDC_AUTHORIZATION_URI:http://localhost:8180/realms/aurevia/protocol/openid-connect/auth}
+      token-uri: ${OIDC_TOKEN_URI:http://localhost:8180/realms/aurevia/protocol/openid-connect/token}
+      jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/aurevia/protocol/openid-connect/certs}
+      user-info-uri: ${OIDC_USER_INFO_URI:http://localhost:8180/realms/aurevia/protocol/openid-connect/userinfo}
+      user-name-attribute: preferred_username
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
 aurevia:
   token-vault:
