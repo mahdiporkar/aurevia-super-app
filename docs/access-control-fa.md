@@ -118,12 +118,13 @@ UI می‌تواند دکمه یا route را بر اساس این manifest پن
 
 ## انتصاب گزارش یا داشبورد به کاربر
 
-1. asset با `POST /api/v1/admin/superset-assets` ثبت می‌شود.
-2. سرویس هم‌زمان یک `EXTERNAL_RESOURCE` فرزند `external_resource:superset-public` می‌سازد.
-3. action `view` به resource متصل می‌شود.
-4. با API grant، action `view` آن resource به user داده می‌شود.
-5. `GET /api/v1/reports` فقط assetهای publish‌شده و grant مستقیم فعال/منقضی‌نشده کاربر را برمی‌گرداند.
-6. کلیک روی گزارش runtime عملیاتی را از tunnel امن باز می‌کند.
+1. Admin MFE فهرست Dashboard و Chart را از API زنده Operation Superset دریافت می‌کند.
+2. دارایی انتخاب‌شده با `POST /api/v1/admin/superset-assets` در درخت ثبت می‌شود.
+3. سرویس یک `EXTERNAL_RESOURCE` فرزند `external_resource:superset-public` می‌سازد.
+4. actionهای `view`، `update` و `admin` به resource متصل می‌شوند.
+5. سطح‌های UI به‌ترتیب به `viewer/view`، `editor/update` و `manager/admin` نگاشت می‌شوند.
+6. `GET /api/v1/reports` assetهای publish‌شده با هرکدام از این سطوح فعال را برمی‌گرداند.
+7. کلیک روی گزارش runtime عملیاتی را از tunnel امن باز می‌کند.
 
 ## policy ساختاریافته
 

@@ -47,12 +47,30 @@ public class SupersetAssetController {
         join authorization_grant g
           on g.subject_type = 'USER' and g.subject_id = u.id and g.status = 'ACTIVE'
         join resource r on r.id = g.resource_id
-        join action a on a.id = g.action_id and a.action_key = 'view'
+        join action a on a.id = g.action_id and a.action_key in ('view', 'update', 'admin')
         join superset_asset sa on sa.resource_id = r.id and sa.published = true
         where u.external_id = :subject
           and (g.expires_at is null or g.expires_at > now())
         order by sa.title
         """).param("subject", subject).query().listOfRows();
+  }
+
+  @GetMapping("/superset-assets/{assetId}/grants")
+  public List<Map<String, Object>> assetGrants(@PathVariable("assetId") UUID assetId) {
+    return database.sql("""
+        select g.id, g.subject_id as user_id, u.username, u.display_name,
+               a.action_key, g.relation, g.expires_at
+        from superset_asset sa
+        join authorization_grant g
+          on g.resource_id = sa.resource_id
+         and g.subject_type = 'USER'
+         and g.status = 'ACTIVE'
+        join app_user u on u.id = g.subject_id
+        join action a on a.id = g.action_id
+        where sa.id = :assetId
+          and (g.expires_at is null or g.expires_at > now())
+        order by u.username, a.action_key
+        """).param("assetId", assetId).query().listOfRows();
   }
 
   @PostMapping("/superset-assets")
@@ -63,9 +81,6 @@ public class SupersetAssetController {
     UUID assetId = UUID.randomUUID();
     UUID parentId = database.sql("""
         select id from resource where resource_key = 'external_resource:superset-public'
-        """).query(UUID.class).single();
-    UUID viewActionId = database.sql("""
-        select id from action where action_key = 'view'
         """).query(UUID.class).single();
     String resourceKey = "external_resource:superset-public:" + request.assetType().toLowerCase()
         + ":" + request.externalId();
@@ -88,10 +103,11 @@ public class SupersetAssetController {
         .update();
 
     database.sql("""
-        insert into resource_action(resource_id, action_id) values (:resource, :action)
+        insert into resource_action(resource_id, action_id)
+        select :resource, id from action where action_key in ('view', 'update', 'admin')
+        on conflict do nothing
         """)
         .param("resource", resourceId)
-        .param("action", viewActionId)
         .update();
 
     database.sql("""

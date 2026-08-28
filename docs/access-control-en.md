@@ -95,12 +95,13 @@ The shell may hide routes and controls using this manifest. UI hiding is not a s
 
 ## Assigning a Superset report or dashboard
 
-1. Register the asset with `POST /api/v1/admin/superset-assets`.
-2. The service creates an `EXTERNAL_RESOURCE` below `external_resource:superset-public`.
-3. It attaches the `view` action.
-4. Grant that resource/action to the selected user.
-5. `/api/v1/reports` returns published assets with a valid direct user grant.
-6. Opening the asset uses the secured Operation Superset tunnel.
+1. Admin MFE loads dashboards and charts from the live Operation Superset API.
+2. Register the selected asset with `POST /api/v1/admin/superset-assets`.
+3. The service creates an `EXTERNAL_RESOURCE` below `external_resource:superset-public`.
+4. It attaches `view`, `update`, and `admin` actions.
+5. UI levels map to `viewer/view`, `editor/update`, and `manager/admin`.
+6. `/api/v1/reports` accepts any of these active levels for a published asset.
+7. Opening the asset uses the secured Operation Superset tunnel.
 
 ## Structured policy
 
