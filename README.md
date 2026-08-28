@@ -2,6 +2,14 @@
 
 Production-shaped, Persian-first enterprise super-app monorepo. The browser talks only to the same-origin BFF; tokens remain encrypted on the server. Authorization is evaluated by the Authorization Service and OpenFGA. Token Exchange is deliberately absent.
 
+## Documentation
+
+- [راهنمای جامع فارسی](docs/README-fa.md)
+- [Architecture](docs/architecture.md)
+- [Access-control model (فارسی)](docs/access-control-fa.md)
+- [Code reference (فارسی)](docs/code-reference-fa.md)
+- [Operations and troubleshooting (فارسی)](docs/operations-fa.md)
+
 ## Pinned toolchain
 
 - Node.js 22.14.0 / npm 10.9.2
@@ -42,4 +50,3 @@ On Windows use `mvnw.cmd verify`. No real credentials or external deployment are
 - Only Authorization Service writes OpenFGA relationships.
 - Missing route/action/session/policy information denies access.
 - Public and Operation Superset are separate; Operation Superset has no browser route.
-
