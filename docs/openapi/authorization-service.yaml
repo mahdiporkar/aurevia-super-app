@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info: {title: Aurevia Internal Authorization Service, version: 0.1.0}
+paths:
+  /internal/v1/authorize/check:
+    post:
+      security: [{workloadIdentity: []}]
+      responses: {'200': {description: ALLOW or DENY decision}}
+  /internal/v1/subjects/{id}/manifest:
+    get:
+      security: [{workloadIdentity: []}]
+      parameters: [{in: path, name: id, required: true, schema: {type: string}}]
+      responses: {'200': {description: Effective UI manifest}}
+components: {securitySchemes: {workloadIdentity: {type: mutualTLS}}}

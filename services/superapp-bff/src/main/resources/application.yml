@@ -1,0 +1,40 @@
+server:
+  port: ${BFF_PORT:8081}
+  reactive.session.cookie:
+    name: AUREVIA_SESSION
+    http-only: true
+    secure: true
+    same-site: lax
+spring:
+  application.name: superapp-bff
+  data.redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:change-me}
+    ssl.enabled: ${REDIS_TLS:false}
+  session:
+    timeout: 30m
+    redis.namespace: aurevia:session
+  security.oauth2.client:
+    registration.public-iam:
+      client-id: ${OIDC_CLIENT_ID:aurevia-bff}
+      client-secret: ${OIDC_CLIENT_SECRET:change-me}
+      authorization-grant-type: authorization_code
+      redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+      scope: openid,profile,email
+    provider.public-iam.issuer-uri: ${OIDC_ISSUER:http://localhost:8180/realms/aurevia}
+management.endpoints.web.exposure.include: health,info,metrics,prometheus
+aurevia:
+  token-vault:
+    namespace: aurevia:token-vault
+    key-id: ${TOKEN_VAULT_KEY_ID:missing}
+    key-base64: ${TOKEN_VAULT_KEY_BASE64:missing}
+  authorization-service:
+    base-url: ${AUTHORIZATION_URL:https://authorization-service:8082}
+    username: ${AUTH_INTERNAL_USER:bff}
+    password: ${AUTH_INTERNAL_PASSWORD:change-me}
+  gateway:
+    base-url: ${OPERATION_GATEWAY_URL:https://operation-gateway:8443}
+    mtls-key-store: ${GATEWAY_MTLS_KEYSTORE:}
+    mtls-key-store-password: ${GATEWAY_MTLS_KEYSTORE_PASSWORD:}
+# No token exchange is configured or permitted. The outbound adapter forwards the current Public IAM token unchanged.

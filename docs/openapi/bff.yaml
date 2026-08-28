@@ -1,0 +1,7 @@
+openapi: 3.0.3
+info: {title: Aurevia Browser BFF, version: 0.1.0}
+paths:
+  /api/v1/me: {get: {responses: {'200': {description: Authenticated identity projection}}}}
+  /api/v1/me/manifest: {get: {responses: {'200': {description: Short-lived effective manifest}, '401': {description: Missing or expired session}}}}
+  /api/v1/authorization/check-batch: {post: {description: UI optimization only; never a backend authorization substitute, responses: {'200': {description: Decisions}}}}
+  /auth/logout: {post: {responses: {'204': {description: Session and token vault record removed}}}}

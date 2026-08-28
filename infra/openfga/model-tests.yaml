@@ -1,0 +1,27 @@
+name: aurevia-authorization-model
+model_file: ./model.fga
+tuples:
+  - user: user:alice
+    relation: member
+    object: group:hr
+  - user: group:hr#member
+    relation: assignee
+    object: role:hr-viewer
+  - user: role:hr-viewer#assignee
+    relation: viewer
+    object: resource:hr.employee
+  - user: user:bob
+    relation: viewer
+    object: external_resource:superset-public_dashboard_sales
+tests:
+  - name: group-role-and-direct-grants
+    check:
+      - user: user:alice
+        object: resource:hr.employee
+        assertions: { can_view: true, can_edit: false }
+      - user: user:bob
+        object: external_resource:superset-public_dashboard_sales
+        assertions: { can_view: true, can_share: false }
+      - user: user:unrelated
+        object: resource:hr.employee
+        assertions: { can_view: false }

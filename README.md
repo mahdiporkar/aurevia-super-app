@@ -1,0 +1,45 @@
+# Aurevia Super App
+
+Production-shaped, Persian-first enterprise super-app monorepo. The browser talks only to the same-origin BFF; tokens remain encrypted on the server. Authorization is evaluated by the Authorization Service and OpenFGA. Token Exchange is deliberately absent.
+
+## Pinned toolchain
+
+- Node.js 22.14.0 / npm 10.9.2
+- Java 21
+- Spring Boot 3.5.5
+- Webpack 5 Module Federation
+- PostgreSQL 17, Redis 8, OpenFGA 1.8 (container tags are pinned in Compose)
+
+## Repository
+
+```text
+apps/                         shell and four independently built MFEs
+packages/                     UI authorization, contracts, translations
+services/                     Java BFF and Authorization Service
+infra/                        Compose, proxies, IAM, policy and databases
+tests/                        end-to-end, security and contract tests
+docs/                         ADRs, diagrams, threat model and runbooks
+```
+
+## Local commands
+
+Copy `.env.example` to `.env` and replace every `change-me` value before startup.
+
+```bash
+npm ci
+npm run infra:up
+./mvnw verify
+npm run build && npm test
+```
+
+On Windows use `mvnw.cmd verify`. No real credentials or external deployment are needed. See [architecture](docs/architecture.md) for boundaries and request flows.
+
+## Security invariants
+
+- The browser receives only an opaque, Secure, HttpOnly session cookie.
+- Browser applications use relative same-origin URLs and never receive bearer tokens.
+- The BFF forwards the unchanged Public IAM access token to the operational gateway over mTLS.
+- Only Authorization Service writes OpenFGA relationships.
+- Missing route/action/session/policy information denies access.
+- Public and Operation Superset are separate; Operation Superset has no browser route.
+

@@ -1,0 +1,21 @@
+server:
+  port: ${AUTHORIZATION_PORT:8082}
+spring:
+  application.name: authorization-service
+  datasource:
+    url: ${AUTH_DB_URL:jdbc:postgresql://localhost:5432/aurevia_auth}
+    username: ${POSTGRES_AUTH_USER:aurevia}
+    password: ${POSTGRES_AUTH_PASSWORD:change-me}
+  jpa:
+    open-in-view: false
+    hibernate.ddl-auto: validate
+  flyway.enabled: true
+management.endpoints.web.exposure.include: health,info,metrics,prometheus
+aurevia:
+  internal:
+    username: ${AUTH_INTERNAL_USER:bff}
+    password: ${AUTH_INTERNAL_PASSWORD:change-me}
+  openfga:
+    base-url: ${OPENFGA_URL:http://localhost:8080}
+    store-id: ${OPENFGA_STORE_ID:bootstrap-required}
+    model-id: ${OPENFGA_MODEL_ID:}

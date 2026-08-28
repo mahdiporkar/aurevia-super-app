@@ -1,0 +1,21 @@
+stages: [validate, test, build, security]
+variables: {MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository", npm_config_cache: ".npm"}
+cache: {paths: [.m2/repository, .npm]}
+frontend:
+  image: node:22.14.0-bookworm-slim
+  stage: test
+  script: [npm ci, npm run typecheck, npm test, npm run build, npm audit --omit=dev]
+  artifacts: {paths: [apps/*/dist], expire_in: 1 week}
+backend:
+  image: maven:3.9.16-eclipse-temurin-21
+  stage: test
+  script: [mvn -B verify]
+compose:
+  image: docker:29.1.2-cli
+  stage: validate
+  script: [docker compose -f infra/docker-compose/compose.yml config --quiet]
+sbom:
+  image: anchore/syft:v1.31.0
+  stage: security
+  script: [syft dir:. -o cyclonedx-json=sbom.cdx.json]
+  artifacts: {paths: [sbom.cdx.json]}

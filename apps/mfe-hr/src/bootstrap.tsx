@@ -1,0 +1,3 @@
+import React from'react';import{createRoot}from'react-dom/client';import{Card,Table,Tag}from'antd';import type{RemoteContext,RemoteModule}from'@aurevia/contracts';export const contractVersion='1' as const;
+const employees=[{id:'e-101',name:'سارا احمدی',department:'منابع انسانی',scope:'تهران'},{id:'e-102',name:'علی رضایی',department:'توسعه نرم‌افزار',scope:'تهران'}];
+export const mount:RemoteModule['mount']=(el:HTMLElement,ctx:RemoteContext)=>{const root=createRoot(el);root.render(<Card title="کارکنان"><Tag color="blue">محدوده داده: واحد سازمانی کاربر</Tag><Table rowKey="id" dataSource={employees} columns={[{title:'نام',dataIndex:'name'},{title:'دپارتمان',dataIndex:'department'},{title:'شعبه',dataIndex:'scope'}]}/></Card>);return()=>root.unmount()};

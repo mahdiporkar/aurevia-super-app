@@ -1,0 +1,2 @@
+import React from'react';import{createRoot}from'react-dom/client';import{Card,Empty,Input,Tag}from'antd';import type{RemoteContext,RemoteModule}from'@aurevia/contracts';export const contractVersion='1' as const;
+export const mount:RemoteModule['mount']=(el:HTMLElement,_ctx:RemoteContext)=>{const root=createRoot(el);root.render(<Card title="گزارش‌ها"><Input.Search aria-label="جستجوی گزارش" placeholder="جستجو"/><Tag color="green">Public Superset</Tag><Empty description="گزارش مجازی در دسترس نیست"/></Card>);return()=>root.unmount()};

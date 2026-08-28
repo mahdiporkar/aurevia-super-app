@@ -1,0 +1,3 @@
+import React from'react';import{createRoot}from'react-dom/client';import{Card,List,Typography}from'antd';import type{RemoteContext,RemoteModule}from'@aurevia/contracts';
+export const contractVersion='1' as const;const sections=['Overview','Microfrontends','Resources & actions','Users & directory groups','Roles & grants','Policies','Proxy routes','Superset assets','Audit'];
+export const mount:RemoteModule['mount']=(el:HTMLElement,_ctx:RemoteContext)=>{const root=createRoot(el);root.render(<Card title="مدیریت"><Typography.Paragraph>مرکز مدیریت منابع و مجوزها</Typography.Paragraph><List dataSource={sections} renderItem={x=><List.Item>{x}</List.Item>}/></Card>);return()=>root.unmount()};
