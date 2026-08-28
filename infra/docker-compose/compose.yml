@@ -63,25 +63,50 @@ services:
     environment: {POSTGRES_DB: superset_public, POSTGRES_USER: superset_public, POSTGRES_PASSWORD: "${PUBLIC_SUPERSET_DB_PASSWORD:-change-me}"}
     volumes: [public-superset-db:/var/lib/postgresql/data]
     networks: [public-data]
+    healthcheck: {test: [CMD-SHELL, "pg_isready -U superset_public -d superset_public"], interval: 5s, timeout: 3s, retries: 20}
+  public-superset-init:
+    profiles: [superset]
+    image: aurevia/superset:5.0.0-postgres
+    build: {context: ../.., dockerfile: infra/superset/Dockerfile}
+    command: [sh, -c, "superset db upgrade && (superset fab create-admin --username admin --firstname Aurevia --lastname Admin --email admin@aurevia.local --password $${SUPERSET_ADMIN_PASSWORD} || true) && superset init"]
+    environment: {SUPERSET_SECRET_KEY: "${PUBLIC_SUPERSET_SECRET_KEY:-change-me-public}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_public:${PUBLIC_SUPERSET_DB_PASSWORD:-change-me}@public-superset-db:5432/superset_public", SUPERSET_ADMIN_PASSWORD: "${PUBLIC_SUPERSET_ADMIN_PASSWORD:-local-change-me}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
+    volumes: [../superset-public/superset_config.py:/app/pythonpath/superset_config.py:ro]
+    depends_on: {public-superset-db: {condition: service_healthy}}
+    networks: [public-data]
   public-superset:
     profiles: [superset]
-    image: apache/superset:5.0.0
-    environment: {SUPERSET_SECRET_KEY: "${PUBLIC_SUPERSET_SECRET_KEY:-change-me-public}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
+    image: aurevia/superset:5.0.0-postgres
+    build: {context: ../.., dockerfile: infra/superset/Dockerfile}
+    command: [superset, run, -h, 0.0.0.0, -p, "8088", --with-threads]
+    environment: {SUPERSET_SECRET_KEY: "${PUBLIC_SUPERSET_SECRET_KEY:-change-me-public}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_public:${PUBLIC_SUPERSET_DB_PASSWORD:-change-me}@public-superset-db:5432/superset_public", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
     volumes: [../superset-public/superset_config.py:/app/pythonpath/superset_config.py:ro]
-    depends_on: [public-superset-db]
+    depends_on: {public-superset-init: {condition: service_completed_successfully}}
     networks: [public-services, public-data]
+    healthcheck: {test: [CMD-SHELL, "curl -f http://localhost:8088/health || exit 1"], interval: 10s, timeout: 5s, retries: 30}
   operation-superset-db:
     profiles: [superset]
     image: postgres:17.6-alpine
     environment: {POSTGRES_DB: superset_operation, POSTGRES_USER: superset_operation, POSTGRES_PASSWORD: "${OPERATION_SUPERSET_DB_PASSWORD:-change-me}"}
     volumes: [operation-superset-db:/var/lib/postgresql/data]
     networks: [operation-services]
+    healthcheck: {test: [CMD-SHELL, "pg_isready -U superset_operation -d superset_operation"], interval: 5s, timeout: 3s, retries: 20}
+  operation-superset-init:
+    profiles: [superset]
+    image: aurevia/superset:5.0.0-postgres
+    build: {context: ../.., dockerfile: infra/superset/Dockerfile}
+    command: [sh, -c, "superset db upgrade && (superset fab create-admin --username admin --firstname Aurevia --lastname Admin --email admin@aurevia.local --password $${SUPERSET_ADMIN_PASSWORD} || true) && superset init"]
+    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@operation-superset-db:5432/superset_operation", SUPERSET_ADMIN_PASSWORD: "${OPERATION_SUPERSET_ADMIN_PASSWORD:-local-change-me}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
+    volumes: [../superset-operation/superset_config.py:/app/pythonpath/superset_config.py:ro]
+    depends_on: {operation-superset-db: {condition: service_healthy}}
+    networks: [operation-services]
   operation-superset:
     profiles: [superset]
-    image: apache/superset:5.0.0
-    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
+    image: aurevia/superset:5.0.0-postgres
+    build: {context: ../.., dockerfile: infra/superset/Dockerfile}
+    command: [superset, run, -h, 0.0.0.0, -p, "8088", --with-threads]
+    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@operation-superset-db:5432/superset_operation", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
     volumes: [../superset-operation/superset_config.py:/app/pythonpath/superset_config.py:ro]
-    depends_on: [operation-superset-db]
+    depends_on: {operation-superset-init: {condition: service_completed_successfully}}
     networks: [operation-services]
     # No public network and no host port.
   nginx:
