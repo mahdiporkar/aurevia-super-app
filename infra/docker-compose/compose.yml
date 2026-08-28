@@ -54,35 +54,18 @@ services:
   operation-gateway:
     image: nginx:1.29.1-alpine
     volumes: [../mock-operation/gateway.conf:/etc/nginx/conf.d/default.conf:ro]
-    depends_on: [mock-hr, mock-finance]
+    depends_on:
+      mock-hr: {condition: service_started}
+      mock-finance: {condition: service_started}
+      operation-superset: {condition: service_started, required: false}
     networks: [operation-services, bff-egress]
     # Deliberately no host port: only the BFF network can reach this gateway.
-  public-superset-db:
-    profiles: [superset]
-    image: postgres:17.6-alpine
-    environment: {POSTGRES_DB: superset_public, POSTGRES_USER: superset_public, POSTGRES_PASSWORD: "${PUBLIC_SUPERSET_DB_PASSWORD:-change-me}"}
-    volumes: [public-superset-db:/var/lib/postgresql/data]
-    networks: [public-data]
-    healthcheck: {test: [CMD-SHELL, "pg_isready -U superset_public -d superset_public"], interval: 5s, timeout: 3s, retries: 20}
-  public-superset-init:
-    profiles: [superset]
-    image: aurevia/superset:5.0.0-postgres
-    build: {context: ../.., dockerfile: infra/superset/Dockerfile}
-    command: [sh, -c, "superset db upgrade && (superset fab create-admin --username admin --firstname Aurevia --lastname Admin --email admin@aurevia.local --password $${SUPERSET_ADMIN_PASSWORD} || true) && superset init"]
-    environment: {SUPERSET_SECRET_KEY: "${PUBLIC_SUPERSET_SECRET_KEY:-change-me-public}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_public:${PUBLIC_SUPERSET_DB_PASSWORD:-change-me}@public-superset-db:5432/superset_public", SUPERSET_ADMIN_PASSWORD: "${PUBLIC_SUPERSET_ADMIN_PASSWORD:-local-change-me}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
-    volumes: [../superset-public/superset_config.py:/app/pythonpath/superset_config.py:ro]
-    depends_on: {public-superset-db: {condition: service_healthy}}
-    networks: [public-data]
   public-superset:
     profiles: [superset]
-    image: aurevia/superset:5.0.0-postgres
-    build: {context: ../.., dockerfile: infra/superset/Dockerfile}
-    command: [superset, run, -h, 0.0.0.0, -p, "8088", --with-threads]
-    environment: {SUPERSET_SECRET_KEY: "${PUBLIC_SUPERSET_SECRET_KEY:-change-me-public}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_public:${PUBLIC_SUPERSET_DB_PASSWORD:-change-me}@public-superset-db:5432/superset_public", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
-    volumes: [../superset-public/superset_config.py:/app/pythonpath/superset_config.py:ro]
-    depends_on: {public-superset-init: {condition: service_completed_successfully}}
-    networks: [public-services, public-data]
-    healthcheck: {test: [CMD-SHELL, "curl -f http://localhost:8088/health || exit 1"], interval: 10s, timeout: 5s, retries: 30}
+    image: aurevia/superset-public-assets:5.0.0
+    build: {context: ../.., dockerfile: infra/superset-public/Dockerfile}
+    networks: [public-services]
+    healthcheck: {test: [CMD-SHELL, "wget -qO- http://127.0.0.1:8088/health"], interval: 10s, timeout: 5s, retries: 20}
   operation-superset-db:
     profiles: [superset]
     image: postgres:17.6-alpine
@@ -125,4 +108,4 @@ networks:
   public-data: {internal: true}
   bff-egress: {internal: true}
   operation-services: {internal: true}
-volumes: {auth-db: {}, openfga-db: {}, redis-data: {}, keycloak-db: {}, public-superset-db: {}, operation-superset-db: {}}
+volumes: {auth-db: {}, openfga-db: {}, redis-data: {}, keycloak-db: {}, operation-superset-db: {}}

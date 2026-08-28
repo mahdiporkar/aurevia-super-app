@@ -40,7 +40,7 @@ aurevia:
     username: ${AUTH_INTERNAL_USER:bff}
     password: ${AUTH_INTERNAL_PASSWORD:change-me}
   gateway:
-    base-url: ${OPERATION_GATEWAY_URL:https://operation-gateway:8443}
+    base-url: ${OPERATION_GATEWAY_URL:http://operation-gateway:80}
     mtls-key-store: ${GATEWAY_MTLS_KEYSTORE:}
     mtls-key-store-password: ${GATEWAY_MTLS_KEYSTORE_PASSWORD:}
 # No token exchange is configured or permitted. The outbound adapter forwards the current Public IAM token unchanged.
