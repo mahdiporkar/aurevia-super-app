@@ -11,13 +11,14 @@
 3. [مرجع کد، فایل‌به‌فایل](code-reference-fa.md)
 4. [راهنمای خواندن کد به ترتیب اجرا](code-walkthrough-fa.md)
 5. [معماری Authorization Engine](authorization-engine-fa.md)
-5. [عملیات، تست و عیب‌یابی](operations-fa.md)
-6. [معماری فنی](architecture.md)
-7. [حاکمیت Git و دسترسی](git-governance-fa.md)
-6. [مدل تهدید](threat-model.md)
-7. [نمودار پایگاه داده](er-diagram.md)
-8. [تصمیم‌های معماری](adr/)
-9. [قراردادهای OpenAPI](openapi/)
+6. [مرجع جامع معماری و OpenFGA](architecture-openfga-complete-fa.md)
+7. [عملیات، تست و عیب‌یابی](operations-fa.md)
+8. [معماری فنی](architecture.md)
+9. [حاکمیت Git و دسترسی](git-governance-fa.md)
+10. [مدل تهدید](threat-model.md)
+11. [نمودار پایگاه داده](er-diagram.md)
+12. [تصمیم‌های معماری](adr/)
+13. [قراردادهای OpenAPI](openapi/)
 
 ## نقشه مستندات
 
@@ -27,6 +28,7 @@
 | درخواست از مرورگر تا سرویس عملیاتی چگونه حرکت می‌کند؟ | [guide-fa.md](guide-fa.md#جریان-درخواست) |
 | کاربر، گروه، نقش، منبع و action چه تفاوتی دارند؟ | [access-control-fa.md](access-control-fa.md) |
 | موتور مجوزدهی دقیقاً چگونه تصمیم می‌گیرد؟ | [authorization-engine-fa.md](authorization-engine-fa.md) |
+| معماری کامل، همه سطوح OpenFGA و محدودیت‌های فعلی چیست؟ | [architecture-openfga-complete-fa.md](architecture-openfga-complete-fa.md) |
 | branch، review، CI و دسترسی Git چگونه مدیریت می‌شود؟ | [git-governance-fa.md](git-governance-fa.md) |
 | دسترسی یک گزارش Superset چگونه داده می‌شود؟ | [access-control-fa.md](access-control-fa.md#انتصاب-گزارش-یا-داشبورد-به-کاربر) |
 | هر فایل Java/React/Infra چه مسئولیتی دارد؟ | [code-reference-fa.md](code-reference-fa.md) |

@@ -10,6 +10,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [Access-control model (فارسی)](docs/access-control-fa.md)
 - [Code reference (فارسی)](docs/code-reference-fa.md)
 - [Authorization Engine architecture (فارسی)](docs/authorization-engine-fa.md)
+- [Complete architecture and OpenFGA reference (فارسی)](docs/architecture-openfga-complete-fa.md)
 - [Git governance and repository access (فارسی)](docs/git-governance-fa.md)
 - [Operations and troubleshooting (فارسی)](docs/operations-fa.md)
 

@@ -31,6 +31,14 @@
 
 ## Micro Frontendها
 
+هر MFE دو حالت اجرا دارد:
+
+- `src/bootstrap.tsx` قرارداد `RemoteModule.mount` را برای اجرای داخل Shell صادر می‌کند.
+- `src/index.ts`، ماژول `standalone.ts` را به‌صورت async بارگذاری می‌کند تا shared dependencyهای Module Federation زودتر از initialization مصرف نشوند.
+- `src/standalone.ts` همان `mount` را با context محلی روی `#root` اجرا می‌کند.
+- `webpack.config.cjs` هم `remoteEntry.js` و هم `index.html` مستقل را تولید می‌کند.
+- `infra/mfe/nginx.conf` فایل‌ها را با CORS لازم برای remote entry سرو و routeهای SPA را به `index.html` fallback می‌کند.
+
 ### Admin
 
 - `bootstrap.tsx`: mount مستقل Admin MFE و اتصال صفحه‌ها.
@@ -50,7 +58,7 @@ Admin APIها از prefix `/api/v1/admin` استفاده می‌کنند. mutati
 
 ### HR و Finance
 
-فعلاً نمونه‌های کوچک برای اثبات استقلال build و Module Federation هستند. منطق عملیاتی باید از route registry و BFF عبور کند و نباید مستقیم gateway را فراخوانی کند.
+هر دو MFE صفحه‌های دامنه، stateهای loading/error/empty، فرم mutation و guardهای نمایشی دارند. درخواست‌های HR از `/hr-micro/api/v1` و درخواست‌های Finance از `/finance-micro/api/v1` عبور می‌کنند؛ مقصد عملیاتی مستقیماً در frontend تعریف نمی‌شود و BFF آن را از route registry resolve می‌کند.
 
 ## packageهای مشترک
 
@@ -178,6 +186,10 @@ grant برای USER/GROUP/ROLE ساخته می‌شود، action به relation �
 - `V7__groups_roles_and_admin_grant.sql`: گروه‌ها، نقش‌ها و bootstrap مجوز admin.
 - `V8__operational_route_catalog.sql`: resource/action و routeهای عملیاتی HR/Finance.
 - `V9__panel_authorization_and_route_operations.sql`: resource مجزای هر panel، فیلتر manifest، operationهای کامل HR/Finance و bootstrap outbox.
+- `V10__absolute_mfe_urls.sql`: تبدیل Remote Entry پنل‌ها به URL کامل و قابل مدیریت.
+- `V11__api_resource_type.sql`: افزودن نوع هفتم `API_RESOURCE` به enum پایگاه داده.
+- `V12__complete_demo_resource_tree.sql`: درخت نمونه شامل هر هفت نوع resource و actionهای متصل.
+- `V13__resource_parent_outbox.sql`: bootstrap رویدادهای parent برای projection در OpenFGA.
 
 ترتیب migrationها قرارداد است؛ migration اجراشده را ویرایش نکنید، migration جدید بسازید.
 
@@ -204,6 +216,10 @@ grant برای USER/GROUP/ROLE ساخته می‌شود، action به relation �
 - `infra/keycloak/realm-aurevia.json`: realm، client و کاربران توسعه.
 - `infra/openfga/model.fga`: typeها، relationها و permissionهای مشتق‌شده.
 - `infra/openfga/model-tests.yaml`: اثبات grant گروه/Role، مستقیم و default deny.
+- `services/authorization-service/Dockerfile`: build چندمرحله‌ای Authorization Service با Java 21 و health tooling.
+- `services/superapp-bff/Dockerfile`: build چندمرحله‌ای BFF با Java 21 و health tooling.
+
+مرجع کامل relationها، permissionها، mapping هفت نوع resource، Redis cache، outbox و محدودیت‌های جاری در [معماری جامع OpenFGA](architecture-openfga-complete-fa.md) قرار دارد.
 
 ## تست‌ها
 
