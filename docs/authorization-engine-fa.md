@@ -41,7 +41,7 @@ role:<role-key>#assignee
 
 ## مدل resource و action
 
-resource یک نام canonical و type دارد: `APPLICATION`, `MODULE`, `PAGE`, `UI_COMPONENT`, `BUSINESS_RESOURCE` یا `EXTERNAL_RESOURCE`. `parent_id` hierarchy کاتالوگ را نگه می‌دارد؛ inheritance فقط وقتی معتبر است که صریحاً در model یا evaluator تعریف شده باشد.
+resource یک نام canonical و یکی از هفت type دارد: `APPLICATION`, `MODULE`, `PAGE`, `UI_COMPONENT`, `API_RESOURCE`, `BUSINESS_RESOURCE` یا `EXTERNAL_RESOURCE`. `parent_id` hierarchy کاتالوگ را نگه می‌دارد و رابطه `parent` از طریق outbox در OpenFGA Store ثبت می‌شود. مدل OpenFGA ارث‌بری مجوز از والد را صریحاً تعریف می‌کند.
 
 action واژگان business است؛ مانند `view`, `list`, `create`, `update`, `approve`, `reject`, `admin`. جدول `resource_action` مشخص می‌کند کدام action روی کدام resource معتبر است. grant برای ترکیب نامعتبر نباید ساخته شود.
 

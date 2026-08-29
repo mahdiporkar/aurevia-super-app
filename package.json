@@ -10,6 +10,10 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev": "npm run dev --workspace=@aurevia/shell",
+    "dev:mfe:admin": "npm run dev --workspace=@aurevia/mfe-admin",
+    "dev:mfe:hr": "npm run dev --workspace=@aurevia/mfe-hr",
+    "dev:mfe:finance": "npm run dev --workspace=@aurevia/mfe-finance",
+    "dev:mfe:reports": "npm run dev --workspace=@aurevia/mfe-reports",
     "clean": "npm run clean --workspaces --if-present",
     "infra:up": "docker compose -f infra/docker-compose/compose.yml up -d",
     "infra:down": "docker compose -f infra/docker-compose/compose.yml down"

@@ -10,33 +10,43 @@ type role
     define assignee: [user, group#member]
 type application
   relations
+    define parent: [application]
     define viewer: [user, group#member, role#assignee]
     define manager: [user, group#member, role#assignee]
-    define can_view: viewer or manager
-    define can_manage: manager
+    define can_view: viewer or manager or can_view from parent
+    define can_create: manager or can_create from parent
+    define can_edit: manager or can_edit from parent
+    define can_delete: manager or can_delete from parent
+    define can_share: manager or can_share from parent
+    define can_export: manager or can_export from parent
+    define can_manage: manager or can_manage from parent
 type resource
   relations
-    define parent: [resource]
+    define parent: [application, resource, external_resource]
     define viewer: [user, group#member, role#assignee]
     define creator: [user, group#member, role#assignee]
     define editor: [user, group#member, role#assignee]
     define deleter: [user, group#member, role#assignee]
     define manager: [user, group#member, role#assignee]
-    define can_view: viewer or editor or manager
-    define can_create: creator or manager
-    define can_edit: editor or manager
-    define can_delete: deleter or manager
-    define can_manage: manager
+    define can_view: viewer or editor or manager or can_view from parent
+    define can_create: creator or manager or can_create from parent
+    define can_edit: editor or manager or can_edit from parent
+    define can_delete: deleter or manager or can_delete from parent
+    define can_share: manager or can_share from parent
+    define can_export: manager or can_export from parent
+    define can_manage: manager or can_manage from parent
 type external_resource
   relations
-    define parent: [resource]
+    define parent: [application, resource, external_resource]
     define viewer: [user, group#member, role#assignee]
     define editor: [user, group#member, role#assignee]
     define sharer: [user, group#member, role#assignee]
     define exporter: [user, group#member, role#assignee]
     define manager: [user, group#member, role#assignee]
-    define can_view: viewer or editor or manager
-    define can_edit: editor or manager
-    define can_share: sharer or manager
-    define can_export: exporter or manager
-    define can_manage: manager
+    define can_view: viewer or editor or manager or can_view from parent
+    define can_create: manager or can_create from parent
+    define can_edit: editor or manager or can_edit from parent
+    define can_delete: manager or can_delete from parent
+    define can_share: sharer or manager or can_share from parent
+    define can_export: exporter or manager or can_export from parent
+    define can_manage: manager or can_manage from parent

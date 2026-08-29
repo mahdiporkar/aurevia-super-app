@@ -10,6 +10,11 @@ spring:
     open-in-view: false
     hibernate.ddl-auto: validate
   flyway.enabled: true
+  data.redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:change-me}
+    ssl.enabled: ${REDIS_TLS:false}
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
 aurevia:
   internal:
@@ -19,3 +24,6 @@ aurevia:
     base-url: ${OPENFGA_URL:http://localhost:8080}
     store-id: ${OPENFGA_STORE_ID:bootstrap-required}
     model-id: ${OPENFGA_MODEL_ID:}
+    cache:
+      namespace: ${OPENFGA_CACHE_NAMESPACE:aurevia:openfga:check}
+      ttl: ${OPENFGA_CACHE_TTL:5s}

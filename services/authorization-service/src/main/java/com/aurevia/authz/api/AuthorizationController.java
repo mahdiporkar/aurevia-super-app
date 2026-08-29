@@ -72,12 +72,23 @@ public class AuthorizationController {
         join resource r on r.id=eg.resource_id join action a on a.id=eg.action_id
         """).param("id",id).query().listOfRows();
     Map<String,List<String>> permissions=new java.util.LinkedHashMap<>(); rows.forEach(r->permissions.computeIfAbsent((String)r.get("resource_key"),k->new java.util.ArrayList<>()).add((String)r.get("action_key")));
-    String version="manifest-"+Integer.toHexString((panels.toString()+permissions).hashCode());
-    return ResponseEntity.ok().eTag("\""+version+"\"").cacheControl(org.springframework.http.CacheControl.noCache()).body(new Manifest(version, Instant.now().plusSeconds(60), List.copyOf(panels), permissions));
+    var catalog=db.sql("select id,parent_id,resource_key,type,name_fa,name_en,owner_domain,classification from resource where status='ACTIVE' order by resource_key").query().listOfRows();
+    var byId=new java.util.HashMap<UUID,Map<String,Object>>();catalog.forEach(resource->byId.put((UUID)resource.get("id"),resource));
+    var included=new java.util.LinkedHashSet<UUID>();
+    catalog.stream().filter(resource->permissions.containsKey(resource.get("resource_key"))).forEach(resource->{
+      UUID cursor=(UUID)resource.get("id");
+      while(cursor!=null&&included.add(cursor)){var node=byId.get(cursor);cursor=node==null?null:(UUID)node.get("parent_id");}
+    });
+    var resourceTree=catalog.stream().filter(resource->included.contains(resource.get("id"))).map(resource->{
+      Map<String,Object> node=new java.util.LinkedHashMap<>();node.putAll(resource);
+      node.put("actions",permissions.getOrDefault((String)resource.get("resource_key"),List.of()));return node;
+    }).toList();
+    String version="manifest-"+Integer.toHexString((panels.toString()+permissions+resourceTree).hashCode());
+    return ResponseEntity.ok().eTag("\""+version+"\"").cacheControl(org.springframework.http.CacheControl.noCache()).body(new Manifest(version, Instant.now().plusSeconds(60), List.copyOf(panels), permissions,resourceTree));
   }
 
   public record CheckRequest(@NotBlank String subjectId, @NotBlank String issuer,
       @NotBlank String resource, @NotBlank String action, Map<String,Object> context, @NotBlank String correlationId) {}
   public record Decision(String result, String reasonCode, String modelVersion, String decisionId, Map<String,Object> obligations) {}
-  public record Manifest(String version, Instant expiresAt, List<Object> panels, Map<String,List<String>> permissions) {}
+  public record Manifest(String version, Instant expiresAt, List<Object> panels, Map<String,List<String>> permissions,List<Map<String,Object>> resourceTree) {}
 }

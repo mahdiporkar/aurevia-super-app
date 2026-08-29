@@ -143,7 +143,11 @@ export function PanelsView() {
           <Form.Item name="slug" label="Slug" rules={required}><Input /></Form.Item>
           <Form.Item name="name_fa" label="نام فارسی" rules={required}><Input /></Form.Item>
           <Form.Item name="name_en" label="نام انگلیسی" rules={required}><Input /></Form.Item>
-          <Form.Item name="remote_entry_path" label="Remote Entry" rules={required}><Input style={{ width: 300 }} /></Form.Item>
+          <Form.Item name="remote_entry_path" label="آدرس کامل Remote Entry" rules={[
+            ...required,
+            { type: 'url', message: 'آدرس کامل با http:// یا https:// وارد کنید' },
+            { validator: (_, value) => !value || /^https?:\/\//i.test(value) ? Promise.resolve() : Promise.reject(new Error('فقط http و https مجاز است')) },
+          ]} extra="مثال: http://localhost:3001/remoteEntry.js"><Input placeholder="http://localhost:3001/remoteEntry.js" style={{ width: 390 }} /></Form.Item>
           <Form.Item name="exposed_module" label="Exposed Module" rules={required}><Input /></Form.Item>
           <Form.Item name="route_base_path" label="مسیر پایه" rules={required}><Input /></Form.Item>
           <Form.Item name="semantic_version" label="نسخه" rules={required}><Input /></Form.Item>

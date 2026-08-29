@@ -2,6 +2,7 @@ package com.aurevia.authz.api;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -42,5 +43,7 @@ public class RegistryController {
   private void outbox(String type,UUID id,String event,String key){
     db.sql("insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key) values(:type,:id,:event,jsonb_build_object('key',cast(:key as text)),:idem)").param("type",type).param("id",id).param("event",event).param("key",key).param("idem",event+":"+id+":"+UUID.randomUUID()).update();
   }
-  public record PanelWrite(@NotBlank String code,@NotBlank String nameFa,@NotBlank String nameEn,@NotBlank String slug,@NotBlank String remoteEntry,@NotBlank String exposedModule,@NotBlank String routeBasePath,@NotBlank String semanticVersion,@NotBlank String contractVersion,String integrity,boolean active,int sortOrder){}
+  public record PanelWrite(@NotBlank String code,@NotBlank String nameFa,@NotBlank String nameEn,@NotBlank String slug,
+      @NotBlank @Pattern(regexp="https?://.+", message="remoteEntry must be a complete http(s) URL") String remoteEntry,
+      @NotBlank String exposedModule,@NotBlank String routeBasePath,@NotBlank String semanticVersion,@NotBlank String contractVersion,String integrity,boolean active,int sortOrder){}
 }

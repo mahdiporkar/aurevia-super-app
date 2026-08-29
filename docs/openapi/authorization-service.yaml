@@ -13,7 +13,7 @@ paths:
     get:
       operationId: effectiveManifest
       parameters: [{in: path, name: id, required: true, schema: {type: string}}]
-      responses: {'200': {description: Effective USER/GROUP/ROLE manifest}}
+      responses: {'200': {description: Effective panels, permissions, and authorized resource tree with ancestors}}
   /internal/v1/identity/login-sync:
     post: {operationId: synchronizeLoginIdentity, responses: {'200': {description: Identity projection synchronized}}}
   /internal/v1/routes/resolve:
@@ -29,6 +29,18 @@ paths:
       parameters: [{$ref: '#/components/parameters/Actor'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GrantWrite'}}}}
       responses: {'201': {description: Grant and outbox event created}, '403': {description: Admin permission required}, '409': {description: Active grant exists}}
+  /internal/v1/registry/resource-tree:
+    get: {operationId: resourceTree, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Complete seven-type resource catalog with actions and grant counts}}}
+  /internal/v1/registry/resource-types:
+    get: {operationId: resourceTypes, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Supported resource type names}}}
+  /internal/v1/registry/subjects/{type}/{id}/grants:
+    get:
+      operationId: subjectGrants
+      parameters:
+        - {$ref: '#/components/parameters/Actor'}
+        - {in: path, name: type, required: true, schema: {type: string, enum: [USER, GROUP, ROLE]}}
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+      responses: {'200': {description: Active direct grants for the selected subject}}
   /internal/v1/registry/grants/{id}:
     delete:
       operationId: revokeGrant

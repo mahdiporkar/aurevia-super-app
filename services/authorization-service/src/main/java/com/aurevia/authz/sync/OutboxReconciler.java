@@ -39,8 +39,8 @@ public class OutboxReconciler {
         markApplied(id);
         return;
       }
-      boolean write = event.equals("GRANT_WRITE") || event.equals("ROLE_ASSIGNMENT_WRITE");
-      boolean delete = event.equals("GRANT_DELETE") || event.equals("ROLE_ASSIGNMENT_DELETE");
+      boolean write = event.equals("GRANT_WRITE") || event.equals("ROLE_ASSIGNMENT_WRITE") || event.equals("RESOURCE_PARENT_WRITE");
+      boolean delete = event.equals("GRANT_DELETE") || event.equals("ROLE_ASSIGNMENT_DELETE") || event.equals("RESOURCE_PARENT_DELETE");
       if (!write && !delete) {
         retry(id, "No projection adapter for event " + event);
         return;

@@ -22,6 +22,7 @@
 - `MODULE`
 - `PAGE`
 - `UI_COMPONENT`
+- `API_RESOURCE`
 - `BUSINESS_RESOURCE`
 - `EXTERNAL_RESOURCE`
 
@@ -37,7 +38,7 @@ application:aurevia
     └── external_resource:superset-public:dashboard:welcome-dashboard
 ```
 
-در schema فعلی PostgreSQL parent ثبت می‌شود، اما inheritance خودکار grant از parent در queryهای manifest پیاده نشده است. inheritance رابطه‌ای باید در OpenFGA یا evaluator مشخص اجرا شود.
+والد هم در PostgreSQL و هم به‌صورت tuple در OpenFGA Store ثبت می‌شود. مدل OpenFGA ارث‌بری مجوزهای والد را صریحاً اعمال می‌کند و manifest مؤثر فقط گره‌های مجاز و ancestorهای لازم برای نمایش درخت را برمی‌گرداند.
 
 ## actionها و سطوح عملیاتی
 

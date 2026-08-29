@@ -13,13 +13,13 @@ services:
     networks: [public-data]
     healthcheck: {test: [CMD-SHELL, "pg_isready -U openfga"], interval: 5s, timeout: 3s, retries: 20}
   openfga-migrate:
-    image: openfga/openfga:v1.8.16
+    image: openfga/openfga:v1.18.1
     command: migrate
     environment: {OPENFGA_DATASTORE_ENGINE: postgres, OPENFGA_DATASTORE_URI: "postgres://openfga:${OPENFGA_DB_PASSWORD:-change-me}@openfga-db:5432/openfga?sslmode=disable"}
     depends_on: {openfga-db: {condition: service_healthy}}
     networks: [public-data]
   openfga:
-    image: openfga/openfga:v1.8.16
+    image: openfga/openfga:v1.18.1
     command: run
     environment: {OPENFGA_DATASTORE_ENGINE: postgres, OPENFGA_DATASTORE_URI: "postgres://openfga:${OPENFGA_DB_PASSWORD:-change-me}@openfga-db:5432/openfga?sslmode=disable", OPENFGA_HTTP_ADDR: "0.0.0.0:8080", OPENFGA_PLAYGROUND_ENABLED: "false"}
     depends_on: {openfga-migrate: {condition: service_completed_successfully}}
@@ -97,12 +97,24 @@ services:
     volumes:
       - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ../../apps/shell/dist:/usr/share/nginx/html:ro
-      - ../../apps/mfe-admin/dist:/srv/mfe/admin:ro
-      - ../../apps/mfe-hr/dist:/srv/mfe/hr:ro
-      - ../../apps/mfe-finance/dist:/srv/mfe/finance:ro
-      - ../../apps/mfe-reports/dist:/srv/mfe/reports:ro
     ports: ["8443:8080"]
     networks: [public-services]
+  mfe-admin:
+    image: nginx:1.29.1-alpine
+    volumes: [../mfe/nginx.conf:/etc/nginx/conf.d/default.conf:ro, ../../apps/mfe-admin/dist:/usr/share/nginx/html:ro]
+    ports: ["3001:8080"]
+  mfe-hr:
+    image: nginx:1.29.1-alpine
+    volumes: [../mfe/nginx.conf:/etc/nginx/conf.d/default.conf:ro, ../../apps/mfe-hr/dist:/usr/share/nginx/html:ro]
+    ports: ["3002:8080"]
+  mfe-finance:
+    image: nginx:1.29.1-alpine
+    volumes: [../mfe/nginx.conf:/etc/nginx/conf.d/default.conf:ro, ../../apps/mfe-finance/dist:/usr/share/nginx/html:ro]
+    ports: ["3003:8080"]
+  mfe-reports:
+    image: nginx:1.29.1-alpine
+    volumes: [../mfe/nginx.conf:/etc/nginx/conf.d/default.conf:ro, ../../apps/mfe-reports/dist:/usr/share/nginx/html:ro]
+    ports: ["3004:8080"]
 networks:
   public-services: {internal: false}
   public-data: {internal: true}

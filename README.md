@@ -21,7 +21,7 @@ Repository collaboration rules are in [CONTRIBUTING.md](CONTRIBUTING.md) and sec
 - Java 21
 - Spring Boot 3.5.5
 - Webpack 5 Module Federation
-- PostgreSQL 17, Redis 8, OpenFGA 1.8 (container tags are pinned in Compose)
+- PostgreSQL 17, Redis 8, OpenFGA 1.18 (container tags are pinned in Compose)
 
 ## Repository
 
@@ -45,6 +45,19 @@ npm run infra:up
 npm run build && npm test
 ```
 
+The microfrontends are served independently from the Shell. With Docker Compose,
+their default Remote Entry URLs are:
+
+- Admin: `http://localhost:3001/remoteEntry.js`
+- HR: `http://localhost:3002/remoteEntry.js`
+- Finance: `http://localhost:3003/remoteEntry.js`
+- Reports: `http://localhost:3004/remoteEntry.js`
+
+The Administration panel accepts a complete `http://` or `https://` Remote Entry
+URL. For local webpack development, run `dev:mfe:admin`, `dev:mfe:hr`,
+`dev:mfe:finance`, and `dev:mfe:reports` in separate terminals. Use an HTTPS
+Remote Entry URL when the Shell itself is deployed over HTTPS.
+
 On Windows use `mvnw.cmd verify`. No real credentials or external deployment are needed. See [architecture](docs/architecture.md) for boundaries and request flows.
 
 ## Security invariants
@@ -53,5 +66,7 @@ On Windows use `mvnw.cmd verify`. No real credentials or external deployment are
 - Browser applications use relative same-origin URLs and never receive bearer tokens.
 - The BFF forwards the unchanged Public IAM access token to the operational gateway over mTLS.
 - Only Authorization Service writes OpenFGA relationships.
+- OpenFGA is the authorization source of truth; Redis only caches check decisions for a short TTL and tuple writes invalidate the matching entry.
+- Access and refresh tokens are encrypted in the Redis-backed server-side Token Vault and never stored in the browser.
 - Missing route/action/session/policy information denies access.
 - Public and Operation Superset are separate; Operation Superset has no browser route.

@@ -16,7 +16,7 @@
 
 ## Resource tree
 
-Resources may point to a parent and use one of these types: `APPLICATION`, `MODULE`, `PAGE`, `UI_COMPONENT`, `BUSINESS_RESOURCE`, or `EXTERNAL_RESOURCE`.
+Resources may point to a parent and use one of seven types: `APPLICATION`, `MODULE`, `PAGE`, `UI_COMPONENT`, `API_RESOURCE`, `BUSINESS_RESOURCE`, or `EXTERNAL_RESOURCE`.
 
 ```text
 application:aurevia
@@ -28,7 +28,7 @@ application:aurevia
     └── external_resource:superset-public:dashboard:welcome-dashboard
 ```
 
-PostgreSQL stores the hierarchy. The current manifest query does not automatically inherit parent grants; inheritance must be explicitly modeled in OpenFGA or an evaluator.
+PostgreSQL stores the catalog hierarchy and the outbox projects every parent edge into OpenFGA. The authorization model explicitly inherits permissions from parent resources, while the effective manifest returns authorized nodes plus the ancestors needed to render the tree.
 
 ## Relationships and derived permissions
 

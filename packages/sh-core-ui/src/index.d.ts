@@ -1,37 +1,28 @@
 import React, { type PropsWithChildren, type ReactNode } from 'react';
 import type { EffectiveManifest, PresentationMode } from '@aurevia/contracts';
+export type SHPolicyState = 'loading' | 'missing' | 'expired' | 'stale' | 'unknown' | 'denied' | 'allowed';
+export type SHPolicyDecision = {
+    allowed: boolean;
+    state: SHPolicyState;
+    mode?: PresentationMode;
+};
 type ManifestState = {
     manifest?: EffectiveManifest;
     loading: boolean;
     replace: (next: EffectiveManifest) => void;
+    clear: () => void;
+    setLoading: (loading: boolean) => void;
 };
-export declare function SHCoreProvider(props: PropsWithChildren): import("react/jsx-runtime").JSX.Element;
+export declare function evaluateSHPolicy(manifest: EffectiveManifest | undefined, loading: boolean, resource: string, action: string, now?: number): SHPolicyDecision;
+export declare function SHCoreProvider({ manifest, children }: PropsWithChildren<{
+    manifest?: EffectiveManifest;
+}>): import("react/jsx-runtime").JSX.Element;
 export declare function SHManifestProvider({ initial, children }: {
     initial?: EffectiveManifest;
     children: ReactNode;
 }): import("react/jsx-runtime").JSX.Element;
 export declare function useSHManifest(): ManifestState;
-export declare function useSHPolicy(resource: string, action: string): {
-    allowed: boolean;
-    state: "loading";
-    mode?: undefined;
-} | {
-    allowed: boolean;
-    state: "missing";
-    mode?: undefined;
-} | {
-    allowed: boolean;
-    state: "expired";
-    mode?: undefined;
-} | {
-    allowed: boolean;
-    state: "unknown";
-    mode?: undefined;
-} | {
-    allowed: boolean;
-    state: "allowed" | "denied";
-    mode: PresentationMode | undefined;
-};
+export declare function useSHPolicy(resource: string, action: string, _context?: Record<string, unknown>): SHPolicyDecision;
 export declare function SHAccessDenied({ children }: {
     children?: ReactNode;
 }): import("react/jsx-runtime").JSX.Element;
