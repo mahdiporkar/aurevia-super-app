@@ -117,7 +117,7 @@ npm ci
 
 ```powershell
 npm run build
-docker compose -f infra/docker-compose/compose.yml up -d --build
+npm run infra:up
 ```
 
 برای تست Java در ویندوز:
@@ -134,6 +134,14 @@ Super App: http://localhost:8443/
 Keycloak:  http://localhost:8180/
 Superset runtime: http://localhost:8443/reports-runtime/superset/welcome/
 ```
+
+در محیط محلی، `SUPERSET_LOAD_EXAMPLES=yes` باعث می‌شود init یک‌بارمصرف Superset دیتاست‌ها، chartها و dashboardهای رسمی نمونه را بارگذاری کند. فقط init به شبکه bootstrap egress متصل است؛ Superset عملیاتی همچنان پورت عمومی و egress ندارد. برای محیط غیردمو این گزینه را `no` کنید.
+
+## قرارداد Manifest برای تیم توسعه
+
+پس از login، Shell با `GET /api/v1/me/manifest` و `credentials: same-origin` manifest مؤثر را دریافت می‌کند. پاسخ شامل `version`، `expiresAt`، پنل‌های مجاز، permissionهای مؤثر USER/GROUP/ROLE و `resourceTree` است. شرح کامل request، نمونه JSON، ETag/TTL، قرارداد `RemoteModule.mount`، componentهای `SHCan`/`SHAction`/`SHRouteGuard` و چک‌لیست افزودن قابلیت جدید در بخش [Manifest developer guide](../README.md#manifest-developer-guide) قرار دارد.
+
+manifest فقط کنترل نمایشی است. نمایش دکمه یا route به معنی مجازبودن API نیست و BFF باید هر درخواست محافظت‌شده را دوباره با Authorization Service/OpenFGA بررسی کند.
 
 ## داده و مالکیت
 

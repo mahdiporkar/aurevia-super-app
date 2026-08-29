@@ -15,8 +15,8 @@
     "dev:mfe:finance": "npm run dev --workspace=@aurevia/mfe-finance",
     "dev:mfe:reports": "npm run dev --workspace=@aurevia/mfe-reports",
     "clean": "npm run clean --workspaces --if-present",
-    "infra:up": "docker compose -f infra/docker-compose/compose.yml up -d",
-    "infra:down": "docker compose -f infra/docker-compose/compose.yml down"
+    "infra:up": "docker compose --env-file .env --profile superset -f infra/docker-compose/compose.yml up -d",
+    "infra:down": "docker compose --env-file .env --profile superset -f infra/docker-compose/compose.yml down"
   },
   "devDependencies": {
     "@types/react": "19.1.11",

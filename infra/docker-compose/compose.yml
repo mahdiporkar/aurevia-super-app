@@ -125,11 +125,11 @@ services:
     profiles: [superset]
     image: aurevia/superset:5.0.0-postgres
     build: {context: ../.., dockerfile: infra/superset/Dockerfile}
-    command: [sh, -c, "superset db upgrade && (superset fab create-admin --username admin --firstname Aurevia --lastname Admin --email admin@aurevia.local --password $${SUPERSET_ADMIN_PASSWORD} || true) && superset init"]
-    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@operation-superset-db:5432/superset_operation", SUPERSET_ADMIN_PASSWORD: "${OPERATION_SUPERSET_ADMIN_PASSWORD:-local-change-me}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
+    command: [sh, -c, "superset db upgrade && (superset fab create-admin --username admin --firstname Aurevia --lastname Admin --email admin@aurevia.local --password $${SUPERSET_ADMIN_PASSWORD} || true) && superset init && if [ \"$${SUPERSET_LOAD_EXAMPLES:-yes}\" = \"yes\" ]; then superset load-examples; fi"]
+    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@operation-superset-db:5432/superset_operation", SUPERSET_ADMIN_PASSWORD: "${OPERATION_SUPERSET_ADMIN_PASSWORD:-local-change-me}", SUPERSET_LOAD_EXAMPLES: "${SUPERSET_LOAD_EXAMPLES:-yes}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
     volumes: [../superset-operation/superset_config.py:/app/pythonpath/superset_config.py:ro]
     depends_on: {operation-superset-db: {condition: service_healthy}}
-    networks: [operation-services]
+    networks: [operation-services, superset-bootstrap-egress]
   operation-superset:
     profiles: [superset]
     image: aurevia/superset:5.0.0-postgres
@@ -170,4 +170,5 @@ networks:
   public-data: {internal: true}
   bff-egress: {internal: true}
   operation-services: {internal: true}
+  superset-bootstrap-egress: {internal: false}
 volumes: {auth-db: {}, openfga-db: {}, redis-data: {}, keycloak-db: {}, operation-superset-db: {}}
