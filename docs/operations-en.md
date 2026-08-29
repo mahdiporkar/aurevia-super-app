@@ -95,7 +95,7 @@ These are root-relative Superset endpoints. The runtime document uses `Referrer-
 
 - The asset must be published.
 - The current user must have an active, non-expired direct `view` grant on its backing resource.
-- The current report query does not yet include Role/Group grants; see the documented production gaps.
+- Verify the effective USER/GROUP/ROLE permissions and backing-resource grants.
 
 ## Backup and recovery
 
@@ -112,6 +112,6 @@ Restore source-of-truth databases first, rebuild the OpenFGA projection, then st
 - No real secret is committed.
 - Images and dependencies are pinned and scanned.
 - New migrations are backward-compatible.
-- Admin authorization gaps are closed before production.
+- Verify the administrator actor has an active `application:aurevia/admin` grant and `X-Actor` propagation.
 - Operation Superset has no public published port.
 - Public Superset has no DWH credentials.

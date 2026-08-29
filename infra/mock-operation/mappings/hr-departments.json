@@ -1,0 +1,1 @@
+{"request":{"method":"GET","urlPath":"/api/v1/departments"},"response":{"status":200,"headers":{"Content-Type":"application/json"},"jsonBody":{"items":[{"id":"dep-hr","name":"Human Resources","orgUnit":"tehran"},{"id":"dep-dev","name":"Software Development","orgUnit":"tehran"}],"enforcedScope":{"orgUnit":"tehran"}}}}

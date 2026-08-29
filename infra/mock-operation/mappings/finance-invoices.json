@@ -1,0 +1,1 @@
+{"request":{"method":"GET","urlPath":"/api/v1/invoices"},"response":{"status":200,"headers":{"Content-Type":"application/json"},"jsonBody":{"items":[{"id":"INV-1405-001","supplier":"Aurevia Services","amount":45000000,"status":"OPEN"}]}}}

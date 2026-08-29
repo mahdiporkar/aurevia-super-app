@@ -1,0 +1,8 @@
+# Default repository owner and mandatory security-sensitive review areas.
+* @mahdiporkar
+/services/authorization-service/ @mahdiporkar
+/services/superapp-bff/src/main/java/com/aurevia/bff/security/ @mahdiporkar
+/infra/openfga/ @mahdiporkar
+/infra/keycloak/ @mahdiporkar
+/infra/nginx/ @mahdiporkar
+/.github/ @mahdiporkar

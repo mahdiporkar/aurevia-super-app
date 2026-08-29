@@ -1,7 +1,26 @@
 openapi: 3.0.3
-info: {title: Aurevia Browser BFF, version: 0.1.0}
+info: {title: Aurevia Browser BFF, version: 0.2.0}
+servers: [{url: /, description: Same-origin ingress}]
 paths:
-  /api/v1/me: {get: {responses: {'200': {description: Authenticated identity projection}}}}
-  /api/v1/me/manifest: {get: {responses: {'200': {description: Short-lived effective manifest}, '401': {description: Missing or expired session}}}}
-  /api/v1/authorization/check-batch: {post: {description: UI optimization only; never a backend authorization substitute, responses: {'200': {description: Decisions}}}}
-  /auth/logout: {post: {responses: {'204': {description: Session and token vault record removed}}}}
+  /api/v1/csrf:
+    get: {responses: {'200': {description: CSRF header name and token}}}
+  /api/v1/me:
+    get: {security: [{browserSession: []}], responses: {'200': {description: Current principal}, '401': {description: Login required}}}
+  /api/v1/me/manifest:
+    get: {security: [{browserSession: []}], responses: {'200': {description: Effective UI manifest}}}
+  /api/v1/admin/{path}:
+    parameters: [{in: path, name: path, required: true, schema: {type: string}}]
+    get: {security: [{browserSession: []}], responses: {'200': {description: Registry response}, '403': {description: Admin required}}}
+    post: {security: [{browserSession: [], csrf: []}], responses: {'200': {description: Registry response}, '403': {description: Admin required}}}
+    put: {security: [{browserSession: [], csrf: []}], responses: {'200': {description: Registry response}}}
+    delete: {security: [{browserSession: [], csrf: []}], responses: {'204': {description: Mutation accepted}}}
+  /hr-micro/{path}:
+    parameters: [{in: path, name: path, required: true, schema: {type: string}}]
+    get: {security: [{browserSession: []}], responses: {'200': {description: Authorized upstream response}, '403': {description: Denied}, '404': {description: Unregistered operation}}}
+  /finance-micro/{path}:
+    parameters: [{in: path, name: path, required: true, schema: {type: string}}]
+    post: {security: [{browserSession: [], csrf: []}], responses: {'200': {description: Authorized upstream response}, '403': {description: Denied}, '413': {description: Body too large}}}
+components:
+  securitySchemes:
+    browserSession: {type: apiKey, in: cookie, name: AUREVIA_SESSION}
+    csrf: {type: apiKey, in: header, name: X-CSRF-TOKEN}

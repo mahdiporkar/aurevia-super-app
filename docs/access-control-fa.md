@@ -150,14 +150,12 @@ field/operator ناشناخته، context ناقص یا خطای parse همگی 
 - `enforceOrgScope` فقط ردیف‌های واحد سازمانی کاربر را نگه می‌دارد.
 - `enforcePaymentApproval` مانع می‌شود سازنده یک پرداخت همان پرداخت را تأیید کند؛ این همان Separation of Duties است.
 
-## شکاف‌های فعلی که باید قبل از Production بسته شوند
+## الزامات استقرار Production
 
-1. `AdminProxyController` فعلاً هر کاربر authenticated را عبور می‌دهد و `admin` را صریح check نمی‌کند.
-2. query مربوط به manifest همه panelهای فعال را برمی‌گرداند و panel-level filtering ندارد.
-3. query گزارش‌ها فقط grant مستقیم `USER` را می‌بیند؛ grantهای Role و Group را پوشش نمی‌دهد.
-4. `AccessAdminController` هنگام grant/revoke رکورد outbox برای OpenFGA نمی‌سازد؛ همگام‌سازی کامل PostgreSQL و OpenFGA لازم است.
-5. `OpenFgaRelationshipAdapter` در محیط خطا default-deny دارد، ولی rollout، retry و drift reconciliation باید operationally پایش شوند.
-6. endpointهای داخلی از Basic Auth مشترک استفاده می‌کنند؛ Production باید mTLS/secret rotation و network policy داشته باشد.
-7. UI authorization جایگزین enforcement سمت API نیست.
-
-این موارد «نقص مستندات» نیستند؛ وضعیت واقعی کد در نسخه فعلی‌اند.
+- admin registry با `X-Actor` و grant فعال `application:aurevia/admin` محافظت می‌شود.
+- grant مستقیم USER و grantهای GROUP/ROLE در manifest مؤثر محاسبه می‌شوند.
+- grant/revoke در همان transaction رکورد outbox می‌سازد و reconciler آن را idempotent در OpenFGA اعمال می‌کند.
+- خطاهای OpenFGA default-deny هستند؛ backlog، retry و drift باید alert عملیاتی داشته باشند.
+- Basic Auth داخلی فقط bootstrap محلی است؛ Production به mTLS، secret rotation و network policy نیاز دارد.
+- UI authorization جایگزین enforcement سمت API نیست.
+- نمایش panel باید با permission سطح panel/application هم‌راستا بماند؛ افزودن panel جدید بدون resource/action متناظر پذیرفته نیست.

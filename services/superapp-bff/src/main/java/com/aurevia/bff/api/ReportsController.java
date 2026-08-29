@@ -30,6 +30,7 @@ public class ReportsController {
   Mono<List<Map>> reports(Principal principal) {
     return authorizationClient.get()
         .uri("/internal/v1/registry/subjects/{subject}/superset-assets", principal.getName())
+        .header("X-Actor", principal.getName())
         .retrieve()
         .bodyToFlux(Map.class)
         .collectList();

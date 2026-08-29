@@ -1,1 +1,1 @@
-{"name":"@aurevia/mfe-finance","version":"0.1.0","private":true,"dependencies":{"@aurevia/contracts":"*","antd":"5.27.1","react":"19.1.1","react-dom":"19.1.1"},"scripts":{"build":"webpack --mode production","dev":"webpack serve --mode development","typecheck":"tsc --noEmit"}}
+{"name":"@aurevia/mfe-finance","version":"0.1.0","private":true,"dependencies":{"@aurevia/contracts":"*","@aurevia/sh-core-ui":"*","antd":"5.27.1","react":"19.1.1","react-dom":"19.1.1"},"scripts":{"build":"webpack --mode production","dev":"webpack serve --mode development","typecheck":"tsc --noEmit"}}

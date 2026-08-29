@@ -77,6 +77,8 @@ Admin APIها از prefix `/api/v1/admin` استفاده می‌کنند. mutati
 - `TokenVaultCrypto`: رمزگذاری/رمزگشایی AES-GCM و key id.
 - `TokenVaultService`: ذخیره token record با TTL در Redis و نگهداری handle در session.
 - `RefreshCoordinator`: هماهنگ‌کردن refresh هم‌زمان برای جلوگیری از چند refresh موازی.
+- `TokenRefreshService`: refresh پیش‌دستانه، single-flight و یک retry کنترل‌شده پس از 401.
+- `OidcLoginSuccessHandler`: sync هویت/گروه، ذخیره vault، تعویض session id و redirect نهایی.
 - `VaultLogoutHandler`: حذف token vault هنگام logout.
 
 ### Controllerها
@@ -88,6 +90,7 @@ Admin APIها از prefix `/api/v1/admin` استفاده می‌کنند. mutati
 | `AdminProxyController` | `/api/v1/admin/**` | proxy کنترل‌پلین به Authorization Service |
 | `ReportsController` | `/api/v1/reports` | assetهای گزارش مجاز کاربر |
 | `OperationSupersetProxyController` | `/api/v1/superset/**` | tunnel امن Superset به Gateway عملیاتی |
+| `OperationalProxyController` | `/hr-micro/**`, `/finance-micro/**` | route resolution، check، token refresh و proxy محدودشده عملیاتی |
 
 ### `OperationSupersetProxyController.java` به ترتیب اجرا
 
@@ -109,6 +112,7 @@ Admin APIها از prefix `/api/v1/admin` استفاده می‌کنند. mutati
 - `RouteNormalizer`: جلوگیری از path traversal و مقصد خارج از allowlist.
 - `ProxyRetryPolicy`: retry محدود برای عملیات idempotent و خطاهای transient.
 - `AuthorizationServiceClient`: client داخلی manifest/authorization.
+- `GatewayWebClientConfiguration`: allowlist مقصد و پیکربندی اختیاری PKCS12/mTLS برای gateway.
 
 ## Authorization Service
 
@@ -120,7 +124,15 @@ Admin APIها از prefix `/api/v1/admin` استفاده می‌کنند. mutati
 
 - `/authorize/check`: OpenFGA relationship check و Decision.
 - `/authorize/check-batch`: اجرای چند check.
-- `/subjects/{id}/manifest`: ترکیب panelهای active با grant مستقیم و Role فعال، ETag و TTL یک دقیقه.
+- `/subjects/{id}/manifest`: ترکیب permissionهای USER، GROUP و ROLE فعال، ETag و TTL یک دقیقه.
+
+### identity و route registry
+
+- `IdentitySyncController`: upsert هویت OIDC و جایگزینی idempotent snapshot عضویت گروه‌ها در login.
+- `IdentityAdminController`: فهرست گروه/نقش، ساخت نقش و assign/revoke نقش برای USER/GROUP.
+- `RouteResolutionController`: longest-prefix resolution با مرز path segment و اتصال method/pattern به resource/action.
+- `AdminAuthorizationInterceptor`: الزام grant فعال admin برای تمام registry endpointهای مدیریتی.
+- `WebMvcConfiguration`: نصب interceptor و تعریف استثناهای صریح endpointهای subject-facing.
 
 ### `RegistryController`
 
@@ -138,7 +150,7 @@ Admin APIها از prefix `/api/v1/admin` استفاده می‌کنند. mutati
 - grant مستقیم و revoke منطقی.
 - audit تغییرات مدیریتی.
 
-این فایل در نسخه فعلی بیش‌ازحد فشرده است. رفتار آن در [access-control-fa.md](access-control-fa.md) توضیح داده شده و refactor formatting بدون تغییر رفتار توصیه می‌شود.
+grant برای USER/GROUP/ROLE ساخته می‌شود، action به relation نگاشت می‌شود و write/delete در outbox قرار می‌گیرد. رفتار کامل در [access-control-fa.md](access-control-fa.md) توضیح داده شده است.
 
 ### `SupersetAssetController`
 
@@ -161,6 +173,11 @@ Admin APIها از prefix `/api/v1/admin` استفاده می‌کنند. mutati
 - `V2__bootstrap_catalog.sql`: چهار panel، actionها و resourceهای پایه.
 - `V3__development_users_and_actions.sql`: کاربران توسعه و اتصال actionها.
 - `V4__superset_report_catalog.sql`: dashboard نمونه و grantهای اولیه.
+- `V5__superset_access_levels.sql`: سطح‌های گزارش.
+- `V6__active_grant_uniqueness.sql`: یکتایی grant فعال.
+- `V7__groups_roles_and_admin_grant.sql`: گروه‌ها، نقش‌ها و bootstrap مجوز admin.
+- `V8__operational_route_catalog.sql`: resource/action و routeهای عملیاتی HR/Finance.
+- `V9__panel_authorization_and_route_operations.sql`: resource مجزای هر panel، فیلتر manifest، operationهای کامل HR/Finance و bootstrap outbox.
 
 ترتیب migrationها قرارداد است؛ migration اجراشده را ویرایش نکنید، migration جدید بسازید.
 

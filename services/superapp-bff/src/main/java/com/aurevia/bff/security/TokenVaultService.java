@@ -12,8 +12,15 @@ import reactor.core.publisher.Mono;
 /** Redis-backed server-side token vault. Only an opaque handle belongs in the browser session. */
 @Service
 public class TokenVaultService {
-  public record Tokens(String accessToken, String refreshToken, Instant expiresAt) {}
-  private record EncryptedTokens(String accessToken, String refreshToken, Instant expiresAt) {}
+  public record Tokens(String accessToken, String refreshToken, Instant expiresAt,
+      Instant vaultExpiresAt) {
+    public Tokens(String accessToken, String refreshToken, Instant expiresAt) {
+      this(accessToken, refreshToken, expiresAt,
+          refreshToken == null ? expiresAt : expiresAt.plus(Duration.ofMinutes(30)));
+    }
+  }
+  private record EncryptedTokens(String accessToken, String refreshToken, Instant expiresAt,
+      Instant vaultExpiresAt) {}
   private final ReactiveStringRedisTemplate redis;
   private final TokenVaultCrypto crypto;
   private final ObjectMapper json;
@@ -31,17 +38,21 @@ public class TokenVaultService {
     return write(handle,tokens).thenReturn(handle);
   }
   public Mono<Void> write(String handle, Tokens tokens) {
-    if (tokens.expiresAt().isBefore(Instant.now())) return Mono.error(new IllegalArgumentException("expired token"));
+    Instant vaultExpiry = tokens.vaultExpiresAt() == null ? tokens.expiresAt() : tokens.vaultExpiresAt();
+    if (vaultExpiry.isBefore(Instant.now())) {
+      return Mono.error(new IllegalArgumentException("expired token vault record"));
+    }
     try {
       var value=json.writeValueAsString(new EncryptedTokens(crypto.encrypt(tokens.accessToken()),
-          tokens.refreshToken()==null?null:crypto.encrypt(tokens.refreshToken()),tokens.expiresAt()));
-      Duration ttl=Duration.between(Instant.now(),tokens.expiresAt()).plus(Duration.ofMinutes(5));
+          tokens.refreshToken()==null?null:crypto.encrypt(tokens.refreshToken()),tokens.expiresAt(),
+          vaultExpiry));
+      Duration ttl=Duration.between(Instant.now(),vaultExpiry).plus(Duration.ofMinutes(5));
       return redis.opsForValue().set(key(handle),value,ttl).flatMap(ok -> ok?Mono.empty():Mono.error(new IllegalStateException("vault write failed")));
     } catch(Exception e){ return Mono.error(new IllegalStateException("vault serialization failed",e)); }
   }
   public Mono<Tokens> read(String handle) {
     return redis.opsForValue().get(key(handle)).switchIfEmpty(Mono.error(new TokenNotFoundException()))
-      .map(value -> { try { var v=json.readValue(value,EncryptedTokens.class); return new Tokens(crypto.decrypt(v.accessToken()),v.refreshToken()==null?null:crypto.decrypt(v.refreshToken()),v.expiresAt()); }
+      .map(value -> { try { var v=json.readValue(value,EncryptedTokens.class); return new Tokens(crypto.decrypt(v.accessToken()),v.refreshToken()==null?null:crypto.decrypt(v.refreshToken()),v.expiresAt(),v.vaultExpiresAt()==null?v.expiresAt():v.vaultExpiresAt()); }
         catch(Exception e){throw new IllegalStateException("vault record invalid",e);} });
   }
   public Mono<Boolean> delete(String handle){return redis.delete(key(handle)).map(n->n>0);}

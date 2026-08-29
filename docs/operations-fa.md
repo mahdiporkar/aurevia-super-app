@@ -97,7 +97,7 @@ public image باید علاوه بر `/app/superset/static`، مسیر Flask-Ap
 - asset باید `published=true` باشد.
 - user باید grant مستقیم active برای action `view` روی resource همان asset داشته باشد.
 - `expires_at` نباید گذشته باشد.
-- در نسخه فعلی query گزارش Role/Group را لحاظ نمی‌کند؛ بخش شکاف‌ها در سند دسترسی را ببینید.
+- دسترسی مؤثر USER/GROUP/ROLE را در manifest و grantهای منبع بررسی کنید.
 
 ## backup و بازیابی
 
@@ -117,6 +117,6 @@ restore باید ابتدا DBهای منبع حقیقت، سپس OpenFGA projec
 - imageها با digest/tag قطعی ساخته شوند.
 - migration جدید backward-compatible باشد.
 - SBOM و dependency scan اجرا شود.
-- Admin authorization gap پیش از Production بسته شود.
+- grant فعال `application:aurevia/admin` برای actor مدیر و ارسال `X-Actor` را بررسی کنید.
 - Operation Superset نباید port publish عمومی داشته باشد.
 - public Superset نباید DB/DWH credential داشته باشد.

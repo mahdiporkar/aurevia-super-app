@@ -1,0 +1,1 @@
+{"request":{"method":"POST","urlPath":"/api/v1/invoices"},"response":{"status":201,"headers":{"Content-Type":"application/json"},"jsonBody":{"id":"INV-1405-002","status":"OPEN"}}}

@@ -1,13 +1,71 @@
 openapi: 3.0.3
-info: {title: Aurevia Internal Authorization Service, version: 0.1.0}
+info: {title: Aurevia Internal Authorization Service, version: 0.2.0}
+security: [{workloadIdentity: []}]
 paths:
   /internal/v1/authorize/check:
     post:
-      security: [{workloadIdentity: []}]
+      operationId: checkAuthorization
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CheckRequest'}}}}
       responses: {'200': {description: ALLOW or DENY decision}}
+  /internal/v1/authorize/check-batch:
+    post: {operationId: checkAuthorizationBatch, responses: {'200': {description: Decisions in request order}}}
   /internal/v1/subjects/{id}/manifest:
     get:
-      security: [{workloadIdentity: []}]
+      operationId: effectiveManifest
       parameters: [{in: path, name: id, required: true, schema: {type: string}}]
-      responses: {'200': {description: Effective UI manifest}}
-components: {securitySchemes: {workloadIdentity: {type: mutualTLS}}}
+      responses: {'200': {description: Effective USER/GROUP/ROLE manifest}}
+  /internal/v1/identity/login-sync:
+    post: {operationId: synchronizeLoginIdentity, responses: {'200': {description: Identity projection synchronized}}}
+  /internal/v1/routes/resolve:
+    get:
+      operationId: resolveOperationalRoute
+      parameters:
+        - {in: query, name: path, required: true, schema: {type: string, pattern: '^/'}}
+        - {in: query, name: method, required: true, schema: {type: string}}
+      responses: {'200': {description: Resource/action and enforcement limits}, '404': {description: No registered operation}}
+  /internal/v1/registry/grants:
+    post:
+      operationId: createGrant
+      parameters: [{$ref: '#/components/parameters/Actor'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/GrantWrite'}}}}
+      responses: {'201': {description: Grant and outbox event created}, '403': {description: Admin permission required}, '409': {description: Active grant exists}}
+  /internal/v1/registry/grants/{id}:
+    delete:
+      operationId: revokeGrant
+      parameters:
+        - {$ref: '#/components/parameters/Actor'}
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+      responses: {'204': {description: Grant archived and delete event enqueued}}
+  /internal/v1/registry/roles:
+    get: {operationId: listRoles, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Roles}}}
+    post: {operationId: createRole, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'201': {description: Role created}}}
+  /internal/v1/registry/role-assignments:
+    get: {operationId: listRoleAssignments, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Assignments}}}
+    post: {operationId: assignRole, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'201': {description: Role assigned}}}
+components:
+  securitySchemes:
+    workloadIdentity: {type: http, scheme: basic, description: Local bootstrap; production requires mTLS.}
+  parameters:
+    Actor: {in: header, name: X-Actor, required: true, schema: {type: string}}
+  schemas:
+    CheckRequest:
+      type: object
+      required: [subjectId, issuer, resource, action, correlationId]
+      properties:
+        subjectId: {type: string}
+        issuer: {type: string}
+        resource: {type: string}
+        action: {type: string}
+        context: {type: object, additionalProperties: true}
+        correlationId: {type: string}
+    GrantWrite:
+      type: object
+      required: [resourceId, actionId, relation]
+      properties:
+        userId: {type: string, format: uuid, deprecated: true}
+        subjectType: {type: string, enum: [USER, GROUP, ROLE]}
+        subjectId: {type: string, format: uuid}
+        resourceId: {type: string, format: uuid}
+        actionId: {type: string, format: uuid}
+        relation: {type: string}
+        expiresAt: {type: string, format: date-time, nullable: true}

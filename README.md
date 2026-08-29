@@ -9,7 +9,11 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [Architecture](docs/architecture.md)
 - [Access-control model (فارسی)](docs/access-control-fa.md)
 - [Code reference (فارسی)](docs/code-reference-fa.md)
+- [Authorization Engine architecture (فارسی)](docs/authorization-engine-fa.md)
+- [Git governance and repository access (فارسی)](docs/git-governance-fa.md)
 - [Operations and troubleshooting (فارسی)](docs/operations-fa.md)
+
+Repository collaboration rules are in [CONTRIBUTING.md](CONTRIBUTING.md) and security reporting is in [SECURITY.md](SECURITY.md).
 
 ## Pinned toolchain
 

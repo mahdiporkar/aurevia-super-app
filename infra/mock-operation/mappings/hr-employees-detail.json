@@ -1,0 +1,1 @@
+{"request":{"method":"GET","urlPathPattern":"/api/v1/employees/[^/]+"},"response":{"status":200,"headers":{"Content-Type":"application/json"},"jsonBody":{"id":"e-101","name":"Sara Ahmadi","departmentId":"dep-hr","positionId":"pos-hr-specialist","orgUnit":"tehran","status":"ACTIVE","enforcedScope":{"orgUnit":"tehran"}}}}

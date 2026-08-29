@@ -52,6 +52,51 @@ Nginx has no network route to Operation Superset. All dynamic Superset traffic t
 crosses the authenticated Java proxy and the Operation Gateway. Superset retains its own
 CSRF validation on that tunnel; Spring CSRF remains enabled for every other BFF mutation.
 
+## Operational API request flow
+
+```mermaid
+sequenceDiagram
+  participant U as Browser MFE
+  participant N as Nginx
+  participant B as BFF
+  participant A as Authorization Service
+  participant F as OpenFGA
+  participant R as Redis Token Vault
+  participant G as Operation Gateway
+  U->>N: /hr-micro or /finance-micro
+  N->>B: same-origin request + session + CSRF
+  B->>A: resolve(path, method)
+  A-->>B: resource, action, size and timeout limits
+  B->>A: authorize(subject, resource, action)
+  A->>F: relationship check
+  F-->>A: allow/deny
+  A-->>B: decision + reason
+  B->>R: read/refresh encrypted token
+  B->>G: original bearer + correlation id over configured mTLS
+  G-->>B: bounded response
+  B-->>U: allowlisted status, headers, and body
+```
+
+Route definitions are data, not user-provided destinations. `service_target` owns an allowlisted base URL; `proxy_route` owns a path prefix; `route_operation` binds HTTP method/pattern to a resource/action and request limit. Resolution requires a path-segment boundary and chooses the longest matching prefix.
+
+## Authorization control and data planes
+
+```mermaid
+flowchart TB
+  Admin[Admin MFE] --> BFFAdmin[BFF admin proxy]
+  BFFAdmin --> Guard[Admin actor interceptor]
+  Guard --> DB[(PostgreSQL source of truth)]
+  DB --> Outbox[(Transactional outbox)]
+  Outbox --> Reconciler
+  Reconciler --> OpenFGA[(Runtime relationship graph)]
+  Request[Operational request] --> Check[Authorization check]
+  Check --> OpenFGA
+  DB --> Manifest[Effective manifest: USER + GROUP + ROLE]
+  Manifest --> Shell[Shell presentation guards]
+```
+
+The control plane is eventually consistent with OpenFGA through idempotent outbox events. Runtime relationship failures deny access. UI manifest permissions improve presentation but never authorize an operational API by themselves. See [Authorization Engine architecture](authorization-engine-fa.md) for the complete model and failure semantics.
+
 ## Login sequence
 
 ```mermaid
@@ -73,3 +118,7 @@ sequenceDiagram
 ## Source-of-truth boundaries
 
 PostgreSQL owns control-plane metadata, identity projections, audit, policy definitions, synchronization state, and the transactional outbox. OpenFGA is the runtime relationship projection. Redis owns transient sessions and encrypted token records in separate namespaces. Panel is deployment metadata only; resource permissions are never stored in it.
+
+## Deployment and scaling
+
+BFF and Authorization Service are stateless apart from Redis/PostgreSQL and may be horizontally replicated. Outbox consumers coordinate with `FOR UPDATE SKIP LOCKED`. Redis must be shared by all BFF replicas. Database migrations run once before rolling application instances. Nginx is the only browser ingress; Operation Gateway and data services have no public browser route. Production requires TLS at ingress, verified mTLS to operational workloads, secret-manager injection, database backup/PITR, Redis HA, OpenFGA persistence, and metrics/alerts described in the runbooks.

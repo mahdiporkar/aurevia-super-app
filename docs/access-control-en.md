@@ -111,12 +111,12 @@ Allowed obligations are `rowFilters`, `allowedColumns`, `maskedColumns`, `maximu
 
 `OperationalRules` enforces organizational row scope and maker-checker separation for payment approval.
 
-## Current implementation gaps before production
+## Production deployment requirements
 
-1. `AdminProxyController` authenticates users but does not explicitly require the `admin` permission.
-2. The manifest currently returns every active panel instead of applying panel-level authorization.
-3. The report query supports direct USER grants only, not Role or Group grants.
-4. Grant/revoke operations do not yet create a complete OpenFGA synchronization outbox flow.
-5. OpenFGA drift, retry, and reconciliation require production monitoring.
-6. Internal APIs use shared Basic Auth; production requires mTLS, rotation, and network policies.
-7. UI authorization must never replace API enforcement.
+- The admin registry requires an authenticated `X-Actor` with an active `application:aurevia/admin` grant.
+- Effective manifest permissions combine direct USER grants with GROUP- and ROLE-derived grants.
+- Grant and revoke transactions enqueue idempotent OpenFGA projection events.
+- OpenFGA failures deny by default; backlog, retry, and drift require production alerting.
+- Shared internal Basic Auth is a local bootstrap mechanism; production requires mTLS, rotation, and network policies.
+- UI authorization never replaces API enforcement.
+- Every new panel must have a corresponding resource/action authorization design.

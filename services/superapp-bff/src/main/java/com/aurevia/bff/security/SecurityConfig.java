@@ -11,7 +11,8 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 
 @Configuration
 class SecurityConfig {
-  @Bean SecurityWebFilterChain security(ServerHttpSecurity http, VaultLogoutHandler vaultLogout) {
+  @Bean SecurityWebFilterChain security(ServerHttpSecurity http, VaultLogoutHandler vaultLogout,
+      OidcLoginSuccessHandler loginSuccess) {
     var supersetProxy = new PathPatternParserServerWebExchangeMatcher("/api/v1/superset/**");
     return http.authorizeExchange(a -> a
           .pathMatchers("/actuator/health/**", "/", "/auth/login", "/auth/callback").permitAll()
@@ -20,6 +21,7 @@ class SecurityConfig {
         .csrf(csrf -> csrf.requireCsrfProtectionMatcher(new AndServerWebExchangeMatcher(
             CsrfWebFilter.DEFAULT_CSRF_MATCHER,
             new NegatedServerWebExchangeMatcher(supersetProxy))))
-        .oauth2Login(o -> {}).logout(l -> l.logoutUrl("/auth/logout").logoutHandler(vaultLogout)).build();
+        .oauth2Login(o -> o.authenticationSuccessHandler(loginSuccess))
+        .logout(l -> l.logoutUrl("/auth/logout").logoutHandler(vaultLogout)).build();
   }
 }

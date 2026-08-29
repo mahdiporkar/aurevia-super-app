@@ -23,11 +23,31 @@ public class AccessAdminController {
  @GetMapping("/users") public List<Map<String,Object>> users(){return db.sql("select id,external_id,username,display_name,email,status,version from app_user order by username").query().listOfRows();}
  @PostMapping("/users") @ResponseStatus(HttpStatus.CREATED) @Transactional public Map<String,Object> createUser(@Valid @RequestBody UserWrite u){UUID id=UUID.randomUUID();db.sql("insert into app_user(id,issuer,external_id,username,display_name,email) values(:id,:issuer,:external,:username,:display,:email)").param("id",id).param("issuer",u.issuer()).param("external",u.externalId()).param("username",u.username()).param("display",u.displayName()).param("email",u.email()).update();audit("USER_REGISTERED","user",u.username());return Map.of("id",id,"version",0);}
  @GetMapping("/users/{id}/grants") public List<Map<String,Object>> grants(@PathVariable("id") UUID id){return db.sql("select g.id,g.resource_id,r.resource_key,r.name_fa,r.name_en,g.action_id,a.action_key,a.name_fa action_name_fa,g.relation,g.expires_at,g.status,g.version from authorization_grant g join resource r on r.id=g.resource_id join action a on a.id=g.action_id where g.subject_type='USER' and g.subject_id=:id and g.status='ACTIVE' order by r.resource_key,a.action_key").param("id",id).query().listOfRows();}
- @PostMapping("/grants") @ResponseStatus(HttpStatus.CREATED) @Transactional public Map<String,Object> grant(@Valid @RequestBody GrantWrite g){UUID id=UUID.randomUUID();db.sql("insert into authorization_grant(id,subject_type,subject_id,resource_id,action_id,relation,expires_at) values(:id,'USER',:subject,:resource,:action,:relation,:expires)").param("id",id).param("subject",g.userId()).param("resource",g.resourceId()).param("action",g.actionId()).param("relation",g.relation()).param("expires",g.expiresAt()).update();audit("GRANT_CREATED","grant",id.toString());return Map.of("id",id,"version",0);}
- @DeleteMapping("/grants/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional public void revoke(@PathVariable("id") UUID id){db.sql("update authorization_grant set status='ARCHIVED',version=version+1 where id=:id and status='ACTIVE'").param("id",id).update();audit("GRANT_REVOKED","grant",id.toString());}
+ @PostMapping("/grants") @ResponseStatus(HttpStatus.CREATED) @Transactional public Map<String,Object> grant(@Valid @RequestBody GrantWrite g){UUID id=UUID.randomUUID();String subjectType=g.subjectType()==null?"USER":g.subjectType().toUpperCase(Locale.ROOT);UUID subjectId=g.subjectId()!=null?g.subjectId():g.userId();if(subjectId==null||!Set.of("USER","GROUP","ROLE").contains(subjectType))throw new IllegalArgumentException("A valid USER, GROUP, or ROLE subject is required");db.sql("insert into authorization_grant(id,subject_type,subject_id,resource_id,action_id,relation,expires_at) values(:id,cast(:subjectType as subject_type),:subject,:resource,:action,:relation,:expires)").param("id",id).param("subjectType",subjectType).param("subject",subjectId).param("resource",g.resourceId()).param("action",g.actionId()).param("relation",g.relation()).param("expires",g.expiresAt()).update();enqueueGrant(id,"GRANT_WRITE",0);audit("GRANT_CREATED","grant",id.toString());return Map.of("id",id,"version",0);}
+ @DeleteMapping("/grants/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional public void revoke(@PathVariable("id") UUID id){enqueueGrant(id,"GRANT_DELETE",1);db.sql("update authorization_grant set status='ARCHIVED',version=version+1 where id=:id and status='ACTIVE'").param("id",id).update();audit("GRANT_REVOKED","grant",id.toString());}
+ private void enqueueGrant(UUID id,String event,long version){db.sql("""
+   insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
+   select 'grant',g.id,:event,
+     jsonb_build_object(
+       'user',case g.subject_type
+         when 'USER' then 'user:'||u.external_id
+         when 'GROUP' then 'group:'||dg.external_id||'#member'
+         when 'ROLE' then 'role:'||ar.role_key||'#assignee' end,
+       'relation',case a.action_key when 'view' then 'viewer' when 'create' then 'creator' when 'update' then 'editor' when 'admin' then 'manager' when 'approve' then 'editor' else g.relation end,
+       'object',case
+         when r.type='APPLICATION' then 'application:'||regexp_replace(r.resource_key,'^application:','')
+         when r.type='EXTERNAL_RESOURCE' then 'external_resource:'||regexp_replace(r.resource_key,'^external_resource:','')
+         else 'resource:'||r.resource_key end),
+     :event||':'||g.id||':'||cast(:version as text)
+   from authorization_grant g left join app_user u on g.subject_type='USER' and u.id=g.subject_id
+   left join directory_group dg on g.subject_type='GROUP' and dg.id=g.subject_id
+   left join application_role ar on g.subject_type='ROLE' and ar.id=g.subject_id
+   join resource r on r.id=g.resource_id join action a on a.id=g.action_id where g.id=:id
+   on conflict(idempotency_key) do nothing
+   """).param("id",id).param("event",event).param("version",version).update();}
  private void audit(String event,String type,String key){db.sql("insert into audit_event(actor_key,event_type,target_type,target_key,correlation_id) values('bff-admin',:event,:type,:key,:correlation)").param("event",event).param("type",type).param("key",key).param("correlation",UUID.randomUUID().toString()).update();}
  public record ResourceWrite(@NotBlank String resourceKey,@NotBlank String type,UUID parentId,@NotBlank String nameFa,@NotBlank String nameEn,String ownerDomain){}
  public record ActionWrite(@NotBlank String actionKey,@NotBlank String nameFa,@NotBlank String nameEn){}
  public record UserWrite(@NotBlank String issuer,@NotBlank String externalId,@NotBlank String username,String displayName,String email){}
- public record GrantWrite(@NotNull UUID userId,@NotNull UUID resourceId,@NotNull UUID actionId,@NotBlank String relation,Instant expiresAt){}
+ public record GrantWrite(UUID userId,String subjectType,UUID subjectId,@NotNull UUID resourceId,@NotNull UUID actionId,@NotBlank String relation,Instant expiresAt){}
 }

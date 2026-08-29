@@ -1,0 +1,1 @@
+{"request":{"method":"GET","urlPathPattern":"/api/v1/departments/[^/]+"},"response":{"status":200,"headers":{"Content-Type":"application/json"},"jsonBody":{"id":"dep-hr","name":"Human Resources","orgUnit":"tehran"}}}

@@ -19,8 +19,20 @@ public class AuthorizationController {
   public AuthorizationController(RelationshipAuthorizationPort relationships, JdbcClient db) { this.relationships = relationships; this.db=db; }
   @PostMapping("/authorize/check")
   public Decision check(@Valid @RequestBody CheckRequest request) {
-    boolean allowed = relationships.check("user:" + request.subjectId(), request.action(), request.resource());
+    boolean allowed = relationships.check("user:" + request.subjectId(),
+        permission(request.action()), request.resource());
     return new Decision(allowed ? "ALLOW" : "DENY", allowed ? "RELATIONSHIP_ALLOWED" : "NO_RELATIONSHIP", "configured-model", UUID.randomUUID().toString(), Map.of());
+  }
+
+  private static String permission(String action) {
+    return switch (action) {
+      case "list", "view" -> "can_view";
+      case "create" -> "can_create";
+      case "update", "approve", "reject" -> "can_edit";
+      case "delete" -> "can_delete";
+      case "admin", "manage" -> "can_manage";
+      default -> action.startsWith("can_") ? action : "unsupported_action";
+    };
   }
 
   @PostMapping("/authorize/check-batch")
@@ -30,8 +42,35 @@ public class AuthorizationController {
 
   @GetMapping("/subjects/{id}/manifest")
   public ResponseEntity<Manifest> manifest(@PathVariable("id") String id) {
-    var panels=db.sql("select id,code,slug,name_fa as \"nameFa\",name_en as \"nameEn\",remote_entry_path as \"remoteEntry\",exposed_module as \"exposedModule\",route_base_path as \"routeBasePath\",semantic_version as \"semanticVersion\",contract_version as \"contractVersion\",integrity from panel where active order by sort_order,code").query().listOfRows();
-    var rows=db.sql("select r.resource_key,a.action_key from app_user u join user_role_assignment ura on ura.user_id=u.id join authorization_grant g on g.subject_type='ROLE' and g.subject_id=ura.role_id and g.status='ACTIVE' join resource r on r.id=g.resource_id join action a on a.id=g.action_id where u.external_id=:id and (ura.expires_at is null or ura.expires_at>now()) and (g.expires_at is null or g.expires_at>now()) union select r.resource_key,a.action_key from app_user u join authorization_grant g on g.subject_type='USER' and g.subject_id=u.id and g.status='ACTIVE' join resource r on r.id=g.resource_id join action a on a.id=g.action_id where u.external_id=:id and (g.expires_at is null or g.expires_at>now())").param("id",id).query().listOfRows();
+    var panels=db.sql("select id,code,slug,name_fa as \"nameFa\",name_en as \"nameEn\",remote_entry_path as \"remoteEntry\",exposed_module as \"exposedModule\",route_base_path as \"routeBasePath\",semantic_version as \"semanticVersion\",contract_version as \"contractVersion\",integrity from panel where active order by sort_order,code").query().listOfRows().stream()
+        .filter(panel -> relationships.check("user:" + id, "can_view",
+            "application:aurevia/" + panel.get("slug"))).toList();
+    var rows=db.sql("""
+        with effective_roles as (
+          select ura.role_id from app_user u join user_role_assignment ura on ura.user_id=u.id
+          where (u.external_id=:id or u.username=:id) and (ura.expires_at is null or ura.expires_at>now())
+          union
+          select gra.role_id from app_user u join user_group_membership ugm on ugm.user_id=u.id
+          join group_role_assignment gra on gra.group_id=ugm.group_id
+          where (u.external_id=:id or u.username=:id) and (gra.expires_at is null or gra.expires_at>now())
+        ), effective_grants as (
+          select g.resource_id,g.action_id from effective_roles er join authorization_grant g
+            on g.subject_type='ROLE' and g.subject_id=er.role_id
+          where g.status='ACTIVE' and (g.expires_at is null or g.expires_at>now())
+          union
+          select g.resource_id,g.action_id from app_user u join authorization_grant g
+            on g.subject_type='USER' and g.subject_id=u.id
+          where (u.external_id=:id or u.username=:id) and g.status='ACTIVE'
+            and (g.expires_at is null or g.expires_at>now())
+          union
+          select g.resource_id,g.action_id from app_user u join user_group_membership ugm on ugm.user_id=u.id
+          join authorization_grant g on g.subject_type='GROUP' and g.subject_id=ugm.group_id
+          where (u.external_id=:id or u.username=:id) and g.status='ACTIVE'
+            and (g.expires_at is null or g.expires_at>now())
+        )
+        select r.resource_key,a.action_key from effective_grants eg
+        join resource r on r.id=eg.resource_id join action a on a.id=eg.action_id
+        """).param("id",id).query().listOfRows();
     Map<String,List<String>> permissions=new java.util.LinkedHashMap<>(); rows.forEach(r->permissions.computeIfAbsent((String)r.get("resource_key"),k->new java.util.ArrayList<>()).add((String)r.get("action_key")));
     String version="manifest-"+Integer.toHexString((panels.toString()+permissions).hashCode());
     return ResponseEntity.ok().eTag("\""+version+"\"").cacheControl(org.springframework.http.CacheControl.noCache()).body(new Manifest(version, Instant.now().plusSeconds(60), List.copyOf(panels), permissions));
