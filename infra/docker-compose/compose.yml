@@ -135,7 +135,7 @@ services:
     image: aurevia/superset:5.0.0-postgres
     build: {context: ../.., dockerfile: infra/superset/Dockerfile}
     command: [superset, run, -h, 0.0.0.0, -p, "8088", --with-threads]
-    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@operation-superset-db:5432/superset_operation", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
+    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@operation-superset-db:5432/superset_operation", SUPERSET_REMOTE_USER_ROLE: "${SUPERSET_REMOTE_USER_ROLE:-Gamma}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
     volumes: [../superset-operation/superset_config.py:/app/pythonpath/superset_config.py:ro]
     depends_on: {operation-superset-init: {condition: service_completed_successfully}}
     networks: [operation-services]
