@@ -21,7 +21,7 @@
 13. [ارسال امن توکن به Gateway و سرویس‌های عملیاتی](operational-token-forwarding-fa.md)
 14. [معماری Resource Catalog و دو Manifest](resource-catalog-manifest-architecture-fa.md)
 15. [Shell و بارگذاری Micro Frontendها](shell-runtime-and-mfe-loading-fa.md)
-16. [دموی دسترسی دو صفحه HR و Finance](two-page-openfga-demo-fa.md)
+16. [دموی دسترسی چندصفحه‌ای HR و Finance](two-page-openfga-demo-fa.md)
 17. [معماری فنی](architecture.md)
 18. [حاکمیت Git و دسترسی](git-governance-fa.md)
 19. [مدل تهدید](threat-model.md)

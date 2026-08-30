@@ -10,6 +10,7 @@ import {
   Input,
   Modal,
   Row,
+  Segmented,
   Select,
   Space,
   Spin,
@@ -325,13 +326,51 @@ function HrApplication({ context }: { context: RemoteContext }) {
     </Space>
   );
 }
+function HrReferencePage({ context, kind }: { context: RemoteContext; kind: "departments" | "positions" }) {
+  const [rows, setRows] = useState<Array<Department | Position>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    request<ListResponse<Department | Position>>(`/${kind}`)
+      .then((result) => setRows(result.items))
+      .catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)))
+      .finally(() => setLoading(false));
+  }, [kind]);
+  const fa = context.locale === "fa-IR";
+  const title = kind === "departments" ? (fa ? "واحدهای سازمانی" : "Departments") : (fa ? "سمت‌های سازمانی" : "Positions");
+  if (loading) return <Card><Spin /></Card>;
+  if (error) return <Alert type="error" showIcon message={error} />;
+  return <Space direction="vertical" size={18} style={{ width: "100%" }}>
+    <div><Typography.Title level={3}>{title}</Typography.Title><Typography.Text type="secondary">{fa ? "داده آزمایشی دریافت‌شده از سرویس عملیاتی HR" : "Demo data loaded from the operational HR service"}</Typography.Text></div>
+    <Row gutter={[16, 16]}><Col xs={24} md={12}><Card><Statistic title={fa ? "تعداد رکورد" : "Records"} value={rows.length} /></Card></Col><Col xs={24} md={12}><Card><Statistic title={fa ? "وضعیت سرویس" : "Service status"} value={fa ? "فعال" : "Online"} /></Card></Col></Row>
+    <Card><Table rowKey="id" dataSource={rows} pagination={false} columns={[
+      { title: "ID", dataIndex: "id" },
+      { title: fa ? "عنوان" : "Title", dataIndex: "name" },
+      ...(kind === "departments" ? [{ title: fa ? "واحد مکانی" : "Organization unit", dataIndex: "orgUnit", render: (value: string) => <Tag color="blue">{value}</Tag> }] : []),
+      { title: fa ? "وضعیت" : "Status", render: () => <Tag color="success">{fa ? "فعال" : "Active"}</Tag> },
+    ]} /></Card>
+  </Space>;
+}
+function HrWorkspace({ context }: { context: RemoteContext }) {
+  const [page, setPage] = useState("employees");
+  const fa = context.locale === "fa-IR";
+  const canView = (resource: string) => context.manifest.permissions[resource]?.includes("view") ?? false;
+  return <Space direction="vertical" size={18} style={{ width: "100%" }}>
+    <Segmented value={page} onChange={(value) => setPage(String(value))} options={[
+      { value: "employees", label: fa ? "کارکنان" : "Employees" },
+      ...(canView("page:hr.departments") ? [{ value: "departments", label: fa ? "واحدها" : "Departments" }] : []),
+      ...(canView("page:hr.positions") ? [{ value: "positions", label: fa ? "سمت‌ها" : "Positions" }] : []),
+    ]} />
+    {page === "employees" && <SHRouteGuard resource="page:hr.employee.list" action="view"><HrApplication context={context} /></SHRouteGuard>}
+    {page === "departments" && <SHRouteGuard resource="page:hr.departments" action="view"><HrReferencePage context={context} kind="departments" /></SHRouteGuard>}
+    {page === "positions" && <SHRouteGuard resource="page:hr.positions" action="view"><HrReferencePage context={context} kind="positions" /></SHRouteGuard>}
+  </Space>;
+}
 export const mount: RemoteModule["mount"] = (element, context) => {
   const root = createRoot(element);
   root.render(
     <SHManifestProvider initial={context.manifest}>
-      <SHRouteGuard resource="page:hr.employee.list" action="view">
-        <HrApplication context={context} />
-      </SHRouteGuard>
+      <HrWorkspace context={context} />
     </SHManifestProvider>,
   );
   return () => root.unmount();

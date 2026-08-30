@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Alert, Button, Card, Col, Empty, Form, InputNumber, Modal, Row, Space, Spin, Statistic, Table, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Col, Empty, Form, InputNumber, Modal, Row, Segmented, Space, Spin, Statistic, Table, Tag, Typography, message } from "antd";
 import type { RemoteContext, RemoteModule } from "@aurevia/contracts";
 import { SHAction, SHManifestProvider, SHRouteGuard } from "@aurevia/sh-core-ui";
 
 export const contractVersion = "1" as const;
 type Payment = { id: string; amount: number; maker: string; status: string };
+type Invoice = { id: string; supplier: string; amount: number; status: string };
+type Budget = { id: string; title: string; allocated: number; remaining: number };
 type ListResponse<T> = { items: T[] };
 const messages = {
   "fa-IR": { title: "مدیریت پرداخت‌ها", description: "صف پرداخت عملیاتی با کنترل دسترسی مستقل در OpenFGA", payments: "صف پرداخت", pending: "در انتظار تأیید", total: "مبلغ کل صف", amount: "مبلغ", status: "وضعیت", maker: "ایجادکننده", create: "پرداخت جدید", approve: "تأیید", reject: "رد", retry: "تلاش مجدد", loading: "در حال دریافت پرداخت‌ها…", error: "دریافت اطلاعات پرداخت ناموفق بود", empty: "پرداختی برای نمایش وجود ندارد", save: "ذخیره", cancel: "انصراف", saved: "عملیات با موفقیت انجام شد", required: "مبلغ الزامی است" },
@@ -71,9 +73,36 @@ function PaymentPage({ context }: { context: RemoteContext }) {
       </Modal>
     </Space>;
 }
+function FinanceReferencePage({ context, kind }: { context: RemoteContext; kind: "invoices" | "budgets" }) {
+  const [rows, setRows] = useState<Array<Invoice | Budget>>([]), [loading, setLoading] = useState(true), [error, setError] = useState("");
+  useEffect(() => {
+    request<ListResponse<Invoice | Budget>>(`/${kind}`).then(result => setRows(result.items)).catch(reason => setError(reason instanceof Error ? reason.message : String(reason))).finally(() => setLoading(false));
+  }, [kind]);
+  const fa = context.locale === "fa-IR";
+  const money = (value: number) => new Intl.NumberFormat(context.locale).format(value);
+  const title = kind === "invoices" ? (fa ? "صورتحساب‌ها" : "Invoices") : (fa ? "بودجه‌ها" : "Budgets");
+  if (loading) return <Card><Spin /></Card>;
+  if (error) return <Alert type="error" showIcon message={error} />;
+  const columns = kind === "invoices" ? [
+    { title: "ID", dataIndex: "id" }, { title: fa ? "تأمین‌کننده" : "Supplier", dataIndex: "supplier" }, { title: fa ? "مبلغ" : "Amount", dataIndex: "amount", render: money }, { title: fa ? "وضعیت" : "Status", dataIndex: "status", render: (value: string) => <Tag color="gold">{value}</Tag> },
+  ] : [
+    { title: "ID", dataIndex: "id" }, { title: fa ? "عنوان" : "Title", dataIndex: "title" }, { title: fa ? "مصوب" : "Allocated", dataIndex: "allocated", render: money }, { title: fa ? "باقی‌مانده" : "Remaining", dataIndex: "remaining", render: money },
+  ];
+  return <Space direction="vertical" size={18} style={{ width: "100%" }}><div><Typography.Title level={3}>{title}</Typography.Title><Typography.Text type="secondary">{fa ? "داده آزمایشی دریافت‌شده از سرویس عملیاتی Finance" : "Demo data loaded from the operational Finance service"}</Typography.Text></div><Row gutter={[16, 16]}><Col xs={24} md={12}><Card><Statistic title={fa ? "تعداد رکورد" : "Records"} value={rows.length} /></Card></Col><Col xs={24} md={12}><Card><Statistic title={fa ? "وضعیت سرویس" : "Service status"} value={fa ? "فعال" : "Online"} /></Card></Col></Row><Card><Table rowKey="id" dataSource={rows} pagination={false} columns={columns} /></Card></Space>;
+}
+function FinanceWorkspace({ context }: { context: RemoteContext }) {
+  const [page, setPage] = useState("payments");
+  const fa = context.locale === "fa-IR";
+  const canView = (resource: string) => context.manifest.permissions[resource]?.includes("view") ?? false;
+  return <Space direction="vertical" size={18} style={{ width: "100%" }}><Segmented value={page} onChange={value => setPage(String(value))} options={[
+    { value: "payments", label: fa ? "پرداخت‌ها" : "Payments" },
+    ...(canView("page:finance.invoices") ? [{ value: "invoices", label: fa ? "صورتحساب‌ها" : "Invoices" }] : []),
+    ...(canView("page:finance.budgets") ? [{ value: "budgets", label: fa ? "بودجه‌ها" : "Budgets" }] : []),
+  ]} />{page === "payments" && <SHRouteGuard resource="page:finance.payments" action="view"><PaymentPage context={context} /></SHRouteGuard>}{page === "invoices" && <SHRouteGuard resource="page:finance.invoices" action="view"><FinanceReferencePage context={context} kind="invoices" /></SHRouteGuard>}{page === "budgets" && <SHRouteGuard resource="page:finance.budgets" action="view"><FinanceReferencePage context={context} kind="budgets" /></SHRouteGuard>}</Space>;
+}
 
 export const mount: RemoteModule["mount"] = (element, context) => {
   const root = createRoot(element);
-  root.render(<SHManifestProvider initial={context.manifest}><SHRouteGuard resource="page:finance.payments" action="view"><PaymentPage context={context} /></SHRouteGuard></SHManifestProvider>);
+  root.render(<SHManifestProvider initial={context.manifest}><FinanceWorkspace context={context} /></SHManifestProvider>);
   return () => root.unmount();
 };

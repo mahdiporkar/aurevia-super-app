@@ -1,4 +1,4 @@
-# دموی دسترسی دو صفحه HR و Finance با OpenFGA
+# دموی دسترسی صفحات HR و Finance با OpenFGA
 
 این سناریو نشان می‌دهد که دسترسی Micro Frontend، صفحه و API سه کنترل مستقل هستند و مدیر می‌تواند از پنل Admin دسترسی یک شخص را اعطا یا لغو کند.
 
@@ -7,18 +7,22 @@
 | صفحه | Micro Frontend | Page Resource | API Resource اصلی |
 |---|---|---|---|
 | لیست کارکنان | HR | `page:hr.employee.list` | `business:hr.employee` |
+| واحدهای سازمانی | HR | `page:hr.departments` | `hr.department` |
+| سمت‌های سازمانی | HR | `page:hr.positions` | `hr.position` |
 | مدیریت پرداخت‌ها | Finance | `page:finance.payments` | `finance.payment` |
+| صورتحساب‌ها | Finance | `page:finance.invoices` | `finance.invoice` |
+| بودجه‌ها | Finance | `page:finance.budgets` | `finance.budget` |
 
-صفحه کارکنان برای داده‌های مرجع فرم از `hr.department` و `hr.position` نیز استفاده می‌کند. صفحه پرداخت فقط endpointهای `/payments` را فراخوانی می‌کند و دیگر به Invoice یا Budget وابسته نیست.
+چهار صفحه جدید داده‌های Fake را از سرویس عملیاتی دریافت می‌کنند: `/departments`، `/positions`، `/invoices` و `/budgets`. در نتیجه مسیر BFF، بررسی API در OpenFGA و Mock Service واقعاً اجرا می‌شود و داده صرفاً داخل React هاردکد نشده است.
 
 ## کاربران نمونه
 
 این کاربران فقط برای Local/Demo هستند و password مشترک آن‌ها `local-change-me` است:
 
-| کاربر | پنل HR | صفحه کارکنان | پنل Finance | صفحه پرداخت‌ها |
-|---|---:|---:|---:|---:|
-| `demo-full-access` | مجاز | مجاز | مجاز | مجاز |
-| `demo-hr-only` | مجاز | مجاز | غیرمجاز | غیرمجاز |
+| کاربر | سه صفحه HR | سه صفحه Finance |
+|---|---:|---:|
+| `demo-full-access` | مجاز | مجاز |
+| `demo-hr-only` | مجاز | غیرمجاز |
 
 کاربر دوم هیچ grant مالی ندارد. بنابراین Finance در `manifest.panels` او قرار نمی‌گیرد، Remote مالی load نمی‌شود و درخواست دستی به API مالی نیز در OpenFGA برابر DENY خواهد بود.
 
@@ -26,6 +30,7 @@
 
 ```text
 services/authorization-service/src/main/resources/db/migration/V29__two_page_access_demo.sql
+services/authorization-service/src/main/resources/db/migration/V30__four_additional_demo_pages.sql
 ```
 
 ## زنجیره کنترل دسترسی
