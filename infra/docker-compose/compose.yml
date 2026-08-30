@@ -125,7 +125,7 @@ services:
     profiles: [superset]
     image: aurevia/superset:5.0.0-postgres
     build: {context: ../.., dockerfile: infra/superset/Dockerfile}
-    command: [sh, -c, "superset db upgrade && (superset fab create-admin --username admin --firstname Aurevia --lastname Admin --email admin@aurevia.local --password $${SUPERSET_ADMIN_PASSWORD} || true) && superset init && if [ \"$${SUPERSET_LOAD_EXAMPLES:-yes}\" = \"yes\" ]; then superset load-examples; fi"]
+    command: [sh, -c, "superset db upgrade && (superset fab create-admin --username admin --firstname Aurevia --lastname Admin --email admin@aurevia.local --password $${SUPERSET_ADMIN_PASSWORD} || true) && superset init && DASHBOARD_COUNT=$$(python -c \"from sqlalchemy import create_engine,text; import os; e=create_engine(os.environ['SUPERSET_DATABASE_URI']); print(e.connect().execute(text('select count(*) from dashboards')).scalar())\") && if [ \"$${SUPERSET_LOAD_EXAMPLES:-yes}\" = \"yes\" ] && [ \"$${DASHBOARD_COUNT}\" = \"0\" ]; then superset load-examples; else echo \"Superset examples already loaded or disabled (dashboards=$${DASHBOARD_COUNT})\"; fi"]
     environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@operation-superset-db:5432/superset_operation", SUPERSET_ADMIN_PASSWORD: "${OPERATION_SUPERSET_ADMIN_PASSWORD:-local-change-me}", SUPERSET_LOAD_EXAMPLES: "${SUPERSET_LOAD_EXAMPLES:-yes}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
     volumes: [../superset-operation/superset_config.py:/app/pythonpath/superset_config.py:ro]
     depends_on: {operation-superset-db: {condition: service_healthy}}

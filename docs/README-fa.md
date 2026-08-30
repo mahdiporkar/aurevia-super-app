@@ -7,24 +7,26 @@
 ## مسیر پیشنهادی مطالعه
 
 1. [شروع، معماری و اجرای پروژه](guide-fa.md)
-2. [سطوح دسترسی و مدل مجوزدهی](access-control-fa.md)
-3. [مرجع کد، فایل‌به‌فایل](code-reference-fa.md)
-4. [راهنمای خواندن کد به ترتیب اجرا](code-walkthrough-fa.md)
-5. [معماری Authorization Engine](authorization-engine-fa.md)
-6. [مرجع جامع معماری و OpenFGA](architecture-openfga-complete-fa.md)
-7. [عملیات، تست و عیب‌یابی](operations-fa.md)
-8. [معماری فنی](architecture.md)
-9. [حاکمیت Git و دسترسی](git-governance-fa.md)
-10. [مدل تهدید](threat-model.md)
-11. [نمودار پایگاه داده](er-diagram.md)
-12. [تصمیم‌های معماری](adr/)
-13. [قراردادهای OpenAPI](openapi/)
+2. [راهنمای آموزشی صفر تا تسلط تیم فنی](technical-team-zero-to-production-fa.md)
+3. [سطوح دسترسی و مدل مجوزدهی](access-control-fa.md)
+4. [مرجع کد، فایل‌به‌فایل](code-reference-fa.md)
+5. [راهنمای خواندن کد به ترتیب اجرا](code-walkthrough-fa.md)
+6. [معماری Authorization Engine](authorization-engine-fa.md)
+7. [مرجع جامع معماری و OpenFGA](architecture-openfga-complete-fa.md)
+8. [عملیات، تست و عیب‌یابی](operations-fa.md)
+9. [معماری فنی](architecture.md)
+10. [حاکمیت Git و دسترسی](git-governance-fa.md)
+11. [مدل تهدید](threat-model.md)
+12. [نمودار پایگاه داده](er-diagram.md)
+13. [تصمیم‌های معماری](adr/)
+14. [قراردادهای OpenAPI](openapi/)
 
 ## نقشه مستندات
 
 | پرسش | سند |
 |---|---|
 | پروژه از چه اجزایی ساخته شده است؟ | [guide-fa.md](guide-fa.md) |
+| یک عضو جدید تیم چگونه پروژه را از صفر و آموزشی یاد بگیرد؟ | [technical-team-zero-to-production-fa.md](technical-team-zero-to-production-fa.md) |
 | درخواست از مرورگر تا سرویس عملیاتی چگونه حرکت می‌کند؟ | [guide-fa.md](guide-fa.md#جریان-درخواست) |
 | کاربر، گروه، نقش، منبع و action چه تفاوتی دارند؟ | [access-control-fa.md](access-control-fa.md) |
 | موتور مجوزدهی دقیقاً چگونه تصمیم می‌گیرد؟ | [authorization-engine-fa.md](authorization-engine-fa.md) |

@@ -6,6 +6,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 
 - [English complete guide](docs/README-en.md)
 - [راهنمای جامع فارسی](docs/README-fa.md)
+- [راهنمای آموزشی صفر تا تسلط تیم فنی](docs/technical-team-zero-to-production-fa.md)
 - [Architecture](docs/architecture.md)
 - [Access-control model (فارسی)](docs/access-control-fa.md)
 - [Code reference (فارسی)](docs/code-reference-fa.md)
