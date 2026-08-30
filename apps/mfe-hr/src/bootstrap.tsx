@@ -15,13 +15,12 @@ import {
   Spin,
   Statistic,
   Table,
-  Tabs,
   Tag,
   Typography,
   message,
 } from "antd";
 import type { RemoteContext, RemoteModule } from "@aurevia/contracts";
-import { SHAction, SHManifestProvider } from "@aurevia/sh-core-ui";
+import { SHAction, SHManifestProvider, SHRouteGuard } from "@aurevia/sh-core-ui";
 export const contractVersion = "1" as const;
 type Employee = {
   id: string;
@@ -38,6 +37,7 @@ type ListResponse<T> = { items: T[]; enforcedScope?: { orgUnit?: string } };
 const messages = {
   "fa-IR": {
     title: "منابع انسانی",
+    description: "صفحه کارکنان با کنترل مستقل صفحه، عملیات و فیلد حقوق در OpenFGA",
     employees: "کارکنان",
     departments: "واحدهای سازمانی",
     positions: "سمت‌ها",
@@ -64,6 +64,7 @@ const messages = {
   },
   "en-US": {
     title: "Human Resources",
+    description: "Employee page with independent OpenFGA page, action, and salary-field controls",
     employees: "Employees",
     departments: "Departments",
     positions: "Positions",
@@ -191,7 +192,10 @@ function HrApplication({ context }: { context: RemoteContext }) {
   const empty = <Empty description={copy.empty} />;
   return (
     <Space direction="vertical" size={18} style={{ width: "100%" }}>
-      <Typography.Title level={3}>{copy.title}</Typography.Title>
+      <div>
+        <Typography.Title level={3} style={{ marginBottom: 4 }}>{copy.employees}</Typography.Title>
+        <Typography.Text type="secondary">{copy.description}</Typography.Text>
+      </div>
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
           <Card>
@@ -218,13 +222,7 @@ function HrApplication({ context }: { context: RemoteContext }) {
         message={`${copy.scope}: ${scope}`}
         description={copy.scopeInfo}
       />
-      <Tabs
-        items={[
-          {
-            key: "employees",
-            label: copy.employees,
-            children: (
-              <Card
+      <Card
                 extra={
                   <SHAction
                     resource="business:hr.employee"
@@ -237,7 +235,6 @@ function HrApplication({ context }: { context: RemoteContext }) {
                   </SHAction>
                 }
               >
-                <SHAction resource="page:hr.employee.list" action="view">
                 <Table
                   rowKey="id"
                   dataSource={employees}
@@ -266,43 +263,7 @@ function HrApplication({ context }: { context: RemoteContext }) {
                     },
                   ]}
                 />
-                </SHAction>
-              </Card>
-            ),
-          },
-          {
-            key: "departments",
-            label: copy.departments,
-            children: (
-              <Card>
-                <Table
-                  rowKey="id"
-                  dataSource={departments}
-                  locale={{ emptyText: empty }}
-                  columns={[
-                    { title: copy.department, dataIndex: "name" },
-                    { title: copy.branch, dataIndex: "orgUnit" },
-                  ]}
-                />
-              </Card>
-            ),
-          },
-          {
-            key: "positions",
-            label: copy.positions,
-            children: (
-              <Card>
-                <Table
-                  rowKey="id"
-                  dataSource={positions}
-                  locale={{ emptyText: empty }}
-                  columns={[{ title: copy.position, dataIndex: "name" }]}
-                />
-              </Card>
-            ),
-          },
-        ]}
-      />
+      </Card>
       <Modal
         open={editor !== undefined}
         title={editor ? copy.edit : copy.add}
@@ -368,7 +329,9 @@ export const mount: RemoteModule["mount"] = (element, context) => {
   const root = createRoot(element);
   root.render(
     <SHManifestProvider initial={context.manifest}>
-      <HrApplication context={context} />
+      <SHRouteGuard resource="page:hr.employee.list" action="view">
+        <HrApplication context={context} />
+      </SHRouteGuard>
     </SHManifestProvider>,
   );
   return () => root.unmount();

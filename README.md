@@ -24,6 +24,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [Browser session vs. Keycloak token (فارسی)](docs/operational-token-forwarding-fa.md#تفاوت-session-مرورگر-با-توکن-keycloak)
 - [Resource Catalog and Manifest architecture (فارسی)](docs/resource-catalog-manifest-architecture-fa.md)
 - [Shell runtime and Micro Frontend loading (فارسی)](docs/shell-runtime-and-mfe-loading-fa.md)
+- [Two-page HR/Finance OpenFGA access demo (فارسی)](docs/two-page-openfga-demo-fa.md)
 - [HR/Finance ERP and OpenFGA resource-tree demo (فارسی)](docs/hr-finance-erp-openfga-demo-fa.md)
 - [Superset routing, access and in-MFE embedding guide (فارسی)](docs/superset-routing-and-embedding-fa.md)
 - [Superset SSO and Remote User authentication (فارسی)](docs/superset-routing-and-embedding-fa.md#احراز-هویت-و-sso-بین-super-app-و-superset)
