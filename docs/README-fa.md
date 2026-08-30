@@ -31,6 +31,7 @@
 | یک عضو جدید تیم چگونه پروژه را از صفر و آموزشی یاد بگیرد؟ | [technical-team-zero-to-production-fa.md](technical-team-zero-to-production-fa.md) |
 | درخواست از مرورگر تا سرویس عملیاتی چگونه حرکت می‌کند؟ | [guide-fa.md](guide-fa.md#جریان-درخواست) |
 | کاربر، گروه، نقش، منبع و action چه تفاوتی دارند؟ | [access-control-fa.md](access-control-fa.md) |
+| دسترسی یک Micro Frontend چگونه مستقیم یا از طریق نقش/گروه داده می‌شود؟ | [access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش](access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش) |
 | موتور مجوزدهی دقیقاً چگونه تصمیم می‌گیرد؟ | [authorization-engine-fa.md](authorization-engine-fa.md) |
 | معماری کامل، همه سطوح OpenFGA و محدودیت‌های فعلی چیست؟ | [architecture-openfga-complete-fa.md](architecture-openfga-complete-fa.md) |
 | branch، review، CI و دسترسی Git چگونه مدیریت می‌شود؟ | [git-governance-fa.md](git-governance-fa.md) |

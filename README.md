@@ -11,6 +11,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [راهنمای آموزشی صفر تا تسلط تیم فنی](docs/technical-team-zero-to-production-fa.md)
 - [Architecture](docs/architecture.md)
 - [Access-control model (فارسی)](docs/access-control-fa.md)
+- [Micro Frontend access for users, roles and groups (فارسی)](docs/access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش)
 - [Code reference (فارسی)](docs/code-reference-fa.md)
 - [Authorization Engine architecture (فارسی)](docs/authorization-engine-fa.md)
 - [Complete architecture and OpenFGA reference (فارسی)](docs/architecture-openfga-complete-fa.md)
