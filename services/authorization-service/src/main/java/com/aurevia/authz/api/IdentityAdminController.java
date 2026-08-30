@@ -11,14 +11,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import com.aurevia.authz.observability.AuditTrail;
 
 @RestController
 @RequestMapping("/internal/v1/registry")
 public class IdentityAdminController {
   private final JdbcClient database;
+  private final AuditTrail auditTrail;
 
-  public IdentityAdminController(JdbcClient database) {
+  public IdentityAdminController(JdbcClient database,AuditTrail auditTrail) {
     this.database = database;
+    this.auditTrail = auditTrail;
   }
 
   @GetMapping("/groups")
@@ -135,6 +138,7 @@ public class IdentityAdminController {
         values ('bff-admin',:event,:type,:key,:correlation)
         """).param("event", event).param("type", type).param("key", key)
         .param("correlation", UUID.randomUUID().toString()).update();
+    auditTrail.success("IDENTITY",event.toLowerCase().replace('_','.'),type,key,type,key,key,event,null,Map.of("target",key));
   }
 
   public record RoleWrite(@NotBlank String roleKey, @NotBlank String nameFa, @NotBlank String nameEn) {}

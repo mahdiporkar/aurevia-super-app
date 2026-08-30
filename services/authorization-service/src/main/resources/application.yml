@@ -16,6 +16,12 @@ spring:
     password: ${REDIS_PASSWORD:change-me}
     ssl.enabled: ${REDIS_TLS:false}
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
+logging:
+  error-response.max-bytes: ${LOG_ERROR_RESPONSE_MAX_BYTES:8192}
+  retention:
+    api-days: ${API_LOG_RETENTION_DAYS:30}
+    audit-days: ${AUDIT_LOG_RETENTION_DAYS:365}
+    cron: ${LOG_RETENTION_CRON:0 17 2 * * *}
 aurevia:
   internal:
     username: ${AUTH_INTERNAL_USER:bff}

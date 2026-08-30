@@ -1,6 +1,7 @@
 package com.aurevia.bff.api;
 
 import com.aurevia.bff.proxy.RouteNormalizer;
+import com.aurevia.bff.observability.CorrelationIds;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.FileInputStream;
 import java.security.KeyStore;
@@ -12,6 +13,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.ClientRequest;
+import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
 
 @Configuration
@@ -28,7 +31,11 @@ class AuthorizationWebClientConfiguration {
       @Value("${aurevia.authorization-service.mtls-trust-store-password:}") String trustPassword)
       throws Exception {
     RouteNormalizer.allowlistedTarget(url);
-    WebClient.Builder builder = WebClient.builder().baseUrl(url);
+    WebClient.Builder builder = WebClient.builder().baseUrl(url).filter((request,next) -> Mono.deferContextual(context -> {
+      String correlation=context.getOrDefault(CorrelationIds.CONTEXT_KEY,"");
+      if(correlation.isBlank())return next.exchange(request);
+      return next.exchange(ClientRequest.from(request).header(CorrelationIds.HEADER,correlation).build());
+    }));
     if ("basic".equals(mode)) return builder.defaultHeaders(h -> h.setBasicAuth(username,password)).build();
     if (!"mtls".equals(mode) || keyStore.isBlank() || trustStore.isBlank()) {
       throw new IllegalStateException("Authorization Service workload mTLS is not configured");

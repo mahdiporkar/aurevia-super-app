@@ -10,12 +10,13 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import com.aurevia.authz.semantics.AuthorizationSemanticsRegistry;
+import com.aurevia.authz.observability.AuditTrail;
 
 @RestController @RequestMapping("/internal/v1/registry")
 public class AccessAdminController {
  private static final Set<String> RESOURCE_TYPES=Set.of("APPLICATION","MODULE","PAGE","UI_COMPONENT","API_RESOURCE","BUSINESS_RESOURCE","EXTERNAL_RESOURCE");
- private final JdbcClient db; private final AuthorizationSemanticsRegistry semantics;
- public AccessAdminController(JdbcClient db,AuthorizationSemanticsRegistry semantics){this.db=db;this.semantics=semantics;}
+ private final JdbcClient db; private final AuthorizationSemanticsRegistry semantics;private final AuditTrail auditTrail;
+ public AccessAdminController(JdbcClient db,AuthorizationSemanticsRegistry semantics,AuditTrail auditTrail){this.db=db;this.semantics=semantics;this.auditTrail=auditTrail;}
  @GetMapping("/resource-types") public Set<String> resourceTypes(){return RESOURCE_TYPES;}
  @GetMapping({"/resources","/resource-tree"}) public List<Map<String,Object>> resources(){return db.sql("select r.id,r.resource_key,r.type,r.parent_id,r.name_fa,r.name_en,r.owner_domain,r.classification,r.external_system,r.external_type,r.external_id,r.status,r.version,count(distinct g.id) grant_count,coalesce((jsonb_agg(distinct jsonb_build_object('id',a.id,'key',a.action_key,'nameFa',a.name_fa,'nameEn',a.name_en)) filter(where a.id is not null))::text,'[]') actions_json from resource r left join resource_action ra on ra.resource_id=r.id left join action a on a.id=ra.action_id left join authorization_grant g on g.resource_id=r.id and g.status='ACTIVE' group by r.id order by r.resource_key").query().listOfRows();}
  @PostMapping("/resources") @ResponseStatus(HttpStatus.CREATED) @Transactional public Map<String,Object> createResource(@Valid @RequestBody ResourceWrite r){validateResource(r,null);UUID id=UUID.randomUUID();db.sql("insert into resource(id,resource_key,type,parent_id,name_fa,name_en,owner_domain,classification,external_system,external_type,external_id,status) values(:id,:key,cast(:type as resource_type),:parent,:fa,:en,:owner,:classification,:system,:externalType,:externalId,'ACTIVE')").param("id",id).param("key",r.resourceKey()).param("type",r.type()).param("parent",r.parentId()).param("fa",r.nameFa()).param("en",r.nameEn()).param("owner",r.ownerDomain()).param("classification",r.classification()).param("system",r.externalSystem()).param("externalType",r.externalType()).param("externalId",r.externalId()).update();enqueueParent(id,r.parentId(),"RESOURCE_PARENT_WRITE");audit("RESOURCE_CREATED","resource",r.resourceKey());return Map.of("id",id,"version",0);}
@@ -50,7 +51,7 @@ public class AccessAdminController {
    join resource r on r.id=g.resource_id join action a on a.id=g.action_id where g.id=:id
    on conflict(idempotency_key) do nothing
    """).param("id",id).param("event",event).param("version",version).update();}
- private void audit(String event,String type,String key){db.sql("insert into audit_event(actor_key,event_type,target_type,target_key,correlation_id) values('bff-admin',:event,:type,:key,:correlation)").param("event",event).param("type",type).param("key",key).param("correlation",UUID.randomUUID().toString()).update();}
+ private void audit(String event,String type,String key){db.sql("insert into audit_event(actor_key,event_type,target_type,target_key,correlation_id) values('bff-admin',:event,:type,:key,:correlation)").param("event",event).param("type",type).param("key",key).param("correlation",UUID.randomUUID().toString()).update();auditTrail.success("ACCESS_CONTROL",event.toLowerCase(Locale.ROOT).replace('_','.'),null,null,type,key,key,event,null,Map.of("target",key));}
  private void enqueueParent(UUID childId,UUID parentId,String event){if(parentId==null)return;db.sql("""
    insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
    select 'resource',c.id,:event,jsonb_build_object('user',case when p.type='APPLICATION' then 'application:'||regexp_replace(p.resource_key,'^application:','') when p.type='EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(p.resource_key,'^external_resource:',''),':','/') else 'resource:'||p.resource_key end,'relation','parent','object',case when c.type='APPLICATION' then 'application:'||regexp_replace(c.resource_key,'^application:','') when c.type='EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(c.resource_key,'^external_resource:',''),':','/') else 'resource:'||c.resource_key end),:event||':'||c.id||':'||p.id||':'||c.version

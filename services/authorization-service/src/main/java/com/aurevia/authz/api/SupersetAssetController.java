@@ -18,16 +18,19 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
+import com.aurevia.authz.observability.AuditTrail;
 
 @RestController
 @RequestMapping("/internal/v1/registry")
 public class SupersetAssetController {
   private final JdbcClient database;
   private final RelationshipAuthorizationPort relationships;
+  private final AuditTrail auditTrail;
 
-  public SupersetAssetController(JdbcClient database, RelationshipAuthorizationPort relationships) {
+  public SupersetAssetController(JdbcClient database, RelationshipAuthorizationPort relationships,AuditTrail auditTrail) {
     this.database = database;
     this.relationships = relationships;
+    this.auditTrail = auditTrail;
   }
 
   @GetMapping("/superset-assets")
@@ -193,6 +196,9 @@ public class SupersetAssetController {
         """).param("child", resourceId)
         .param("object", "external_resource:superset-public/"
             + request.assetType().toLowerCase() + "/" + request.externalId()).update();
+
+    auditTrail.success("SUPERSET","superset.resource.register",null,null,"superset_asset",
+        assetId.toString(),request.title(),"REGISTER",null,Map.of("externalId",request.externalId(),"assetType",request.assetType(),"published",request.published()));
 
     return Map.of("id", assetId, "resourceId", resourceId, "resourceKey", resourceKey);
   }

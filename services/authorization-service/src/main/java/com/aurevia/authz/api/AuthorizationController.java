@@ -36,8 +36,10 @@ public class AuthorizationController {
     long started = System.nanoTime();
     String decisionId = UUID.randomUUID().toString();
     String permission = semantics.resolveObject(request.resource(), request.action()).permission();
+    long openFgaStarted = System.nanoTime();
     boolean relationshipAllowed = relationships.check("user:" + request.subjectId(),
         permission, request.resource());
+    long openFgaDurationMs = (System.nanoTime() - openFgaStarted) / 1_000_000;
     RuntimePolicyService.Evaluation policy = relationshipAllowed
         ? policies.evaluate(request.subjectId(), request.resource(), request.action())
         : new RuntimePolicyService.Evaluation(false, "NOT_EVALUATED", Map.of(), List.of());
@@ -47,6 +49,14 @@ public class AuthorizationController {
     auditor.record(new AuthorizationDecisionAuditor.Record(decisionId, request.subjectId(),
         request.resource(), request.action(), permission, relationshipAllowed, policy.allowed(),
         allowed, reason, latencyMs, request.correlationId(), policy.policies()));
+    try {
+      var servlet=((org.springframework.web.context.request.ServletRequestAttributes)
+          org.springframework.web.context.request.RequestContextHolder.currentRequestAttributes()).getRequest();
+      servlet.setAttribute("authorizationResult",allowed?"ALLOW":"DENY");
+      servlet.setAttribute("resourceType",request.resource().substring(0,request.resource().indexOf(':')));
+      servlet.setAttribute("resourceId",request.resource().substring(request.resource().indexOf(':')+1));
+      servlet.setAttribute("businessAction",request.action());servlet.setAttribute("openfgaDurationMs",openFgaDurationMs);
+    } catch (IllegalStateException ignored) { /* Unit/non-servlet invocation. */ }
     return new Decision(allowed ? "ALLOW" : "DENY", reason, "configured-model", decisionId,
         allowed ? policy.obligations() : Map.of());
   }

@@ -16,6 +16,9 @@ public final class AuthorizationSemanticsRegistry {
       ObjectType.RESOURCE, Map.ofEntries(
           Map.entry("view", semantics("viewer", "can_view")),
           Map.entry("list", semantics("viewer", "can_view")),
+          Map.entry("view_api", semantics("viewer", "can_view")),
+          Map.entry("view_errors", semantics("viewer", "can_view")),
+          Map.entry("view_audit", semantics("manager", "can_manage")),
           Map.entry("create", semantics("creator", "can_create")),
           Map.entry("update", semantics("editor", "can_edit")),
           Map.entry("approve", semantics("editor", "can_edit")),
