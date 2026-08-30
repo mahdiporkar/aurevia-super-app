@@ -40,6 +40,10 @@ public class OidcLoginSuccessHandler implements ServerAuthenticationSuccessHandl
       return Mono.error(new IllegalStateException("OIDC authentication required"));
     }
     var exchange = webFilterExchange.getExchange();
+    // A Superset session belongs to the previous public-IAM identity. Expire it
+    // on every successful OIDC login so Remote User authentication cannot reuse
+    // another user's Superset roles in a new Super App session.
+    VaultLogoutHandler.expireSupersetSession(exchange);
     return authorizedClients.loadAuthorizedClient(
             oauth.getAuthorizedClientRegistrationId(), authentication, exchange)
         .switchIfEmpty(Mono.error(new IllegalStateException("Authorized client missing")))

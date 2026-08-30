@@ -63,7 +63,7 @@ function ReportsCatalog() {
         const tags: string[] = JSON.parse(report.tags_json ?? '[]');
         return <Col xs={24} md={12} xl={8} key={report.id}>
           <Card hoverable title={report.title} extra={<Tag color={report.asset_type === 'DASHBOARD' ? 'blue' : 'purple'}>{report.asset_type === 'DASHBOARD' ? 'داشبورد' : 'گزارش'}</Tag>} actions={[
-            <Button type="link" key="open" href={`/reports-runtime${report.url_path}`} target="_blank" rel="noreferrer">باز کردن در Superset</Button>,
+            <Button type="link" key="open" href={report.url_path} target="_blank" rel="noreferrer">باز کردن در Superset</Button>,
           ]}>
             <Space direction="vertical">
               <Typography.Text type="secondary">مالک: {report.owner_external_id || 'تیم گزارشات'}</Typography.Text>

@@ -27,7 +27,10 @@ AUTH_USER_REGISTRATION_ROLE = os.getenv("SUPERSET_REMOTE_USER_ROLE", "Gamma")
 AUTH_REMOTE_USER_ENV_VAR = "REMOTE_USER"
 ADDITIONAL_MIDDLEWARE = [AureviaRemoteUserMiddleware]
 ENABLE_PROXY_FIX = True
-APPLICATION_ROOT = "/reports-runtime"
+# Superset runs at its native root internally. Nginx and the Java BFF own the
+# public routing boundary; nesting the Superset 5 SPA below APPLICATION_ROOT
+# prevents its dashboard router from mounting reliably.
+APPLICATION_ROOT = "/"
 # Superset 5 still calls root-relative /api/v1 and /superset endpoints from its
 # frontend, so its distinct operation-session cookie must cover those paths.
 SESSION_COOKIE_PATH = "/"

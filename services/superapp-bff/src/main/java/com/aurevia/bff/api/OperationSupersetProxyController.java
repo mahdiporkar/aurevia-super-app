@@ -43,6 +43,7 @@ public class OperationSupersetProxyController {
       HttpHeaders.SET_COOKIE);
 
   private final WebClient gatewayClient;
+  private final URI gatewayBaseUri;
   private final AuthorizationServiceClient authorization;
 
   public OperationSupersetProxyController(
@@ -50,6 +51,7 @@ public class OperationSupersetProxyController {
       AuthorizationServiceClient authorization) {
     this.authorization = authorization;
     URI allowlistedGateway = RouteNormalizer.allowlistedTarget(gatewayBaseUrl);
+    this.gatewayBaseUri = allowlistedGateway;
     HttpClient httpClient = HttpClient.create().followRedirect(false);
     this.gatewayClient = WebClient.builder()
         .clientConnector(new ReactorClientHttpConnector(httpClient))
@@ -77,12 +79,14 @@ public class OperationSupersetProxyController {
     String target = "/superset" + safePath + (rawQuery == null ? "" : "?" + rawQuery);
     RequestBodySpec outboundRequest = gatewayClient
         .method(exchange.getRequest().getMethod())
-        .uri(target)
+        // rawQuery already comes percent-encoded from the browser. The String
+        // overload treats it as a URI template and encodes '%' again (%2F ->
+        // %252F), which corrupts Superset's login `next` and Rison queries.
+        .uri(gatewayBaseUri.resolve(URI.create(target)))
         .headers(headers -> {
           REQUEST_HEADERS.forEach(name -> copyHeader(exchange.getRequest().getHeaders(), headers, name));
           headers.set("X-Aurevia-Subject", principal.getName());
           headers.set("X-Correlation-ID", correlationId(exchange));
-          headers.set("X-Forwarded-Prefix", "/reports-runtime");
           headers.set("X-Forwarded-Proto", exchange.getRequest().getURI().getScheme());
           headers.set("X-Forwarded-Host", exchange.getRequest().getHeaders().getFirst(HttpHeaders.HOST));
         });
