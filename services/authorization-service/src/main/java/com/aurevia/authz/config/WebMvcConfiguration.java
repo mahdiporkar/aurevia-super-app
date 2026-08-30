@@ -16,6 +16,8 @@ class WebMvcConfiguration implements WebMvcConfigurer {
   public void addInterceptors(InterceptorRegistry registry) {
     registry.addInterceptor(adminAuthorization)
         .addPathPatterns("/internal/v1/registry/**")
-        .excludePathPatterns("/internal/v1/registry/subjects/*/superset-assets");
+        .excludePathPatterns(
+            "/internal/v1/registry/subjects/*/superset-assets",
+            "/internal/v1/registry/subjects/*/superset-access");
   }
 }

@@ -16,6 +16,8 @@ import org.springframework.web.reactive.function.client.WebClient.RequestBodySpe
 import org.springframework.web.reactive.function.client.WebClient.RequestHeadersSpec;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import reactor.netty.http.client.HttpClient;
 import reactor.core.publisher.Mono;
 
@@ -41,9 +43,12 @@ public class OperationSupersetProxyController {
       HttpHeaders.SET_COOKIE);
 
   private final WebClient gatewayClient;
+  private final AuthorizationServiceClient authorization;
 
   public OperationSupersetProxyController(
-      @Value("${aurevia.gateway.base-url}") String gatewayBaseUrl) {
+      @Value("${aurevia.gateway.base-url}") String gatewayBaseUrl,
+      AuthorizationServiceClient authorization) {
+    this.authorization = authorization;
     URI allowlistedGateway = RouteNormalizer.allowlistedTarget(gatewayBaseUrl);
     HttpClient httpClient = HttpClient.create().followRedirect(false);
     this.gatewayClient = WebClient.builder()
@@ -59,8 +64,17 @@ public class OperationSupersetProxyController {
       Principal principal) {
     String safePath = RouteNormalizer.normalizePath(path == null || path.isBlank() ? "/" : path);
     String rawQuery = exchange.getRequest().getURI().getRawQuery();
-    String target = "/superset" + safePath + (rawQuery == null ? "" : "?" + rawQuery);
+    return authorization.supersetAccess(principal.getName(), safePath,
+            exchange.getRequest().getMethod().name(), rawQuery)
+        .flatMap(decision -> "ALLOW".equals(decision.get("result"))
+            ? forward(exchange, principal, safePath, rawQuery)
+            : Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN,
+                String.valueOf(decision.get("reasonCode")))));
+  }
 
+  private Mono<Void> forward(ServerWebExchange exchange, Principal principal,
+      String safePath, String rawQuery) {
+    String target = "/superset" + safePath + (rawQuery == null ? "" : "?" + rawQuery);
     RequestBodySpec outboundRequest = gatewayClient
         .method(exchange.getRequest().getMethod())
         .uri(target)

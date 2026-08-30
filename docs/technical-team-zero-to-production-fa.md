@@ -406,7 +406,7 @@ token تولیدشده Spring را به شکل `{headerName, token}` برمی‌
 
 ### `OperationSupersetProxyController`
 
-همان اصل proxy محدود را برای تمام methodهای Superset پیاده می‌کند، Locationهای root-relative را بازنویسی می‌کند و اجازه نمی‌دهد مرورگر Operation Superset را مستقیم ببیند.
+همان اصل proxy محدود را برای تمام methodهای Superset پیاده می‌کند، Locationهای root-relative را بازنویسی می‌کند و اجازه نمی‌دهد مرورگر Operation Superset را مستقیم ببیند. پیش از forward، مسیر و method را همراه subject به Authorization Service می‌فرستد؛ dashboard/chart مشخص فقط با نتیجه `can_view` همان `EXTERNAL_RESOURCE` عبور می‌کند. فهرست کامل dashboard/chart و mutationهای مدیریتی برای غیرمدیر بسته‌اند و خطای OpenFGA نیز fail closed است.
 
 ### `RouteNormalizer`
 
@@ -486,7 +486,7 @@ token تولیدشده Spring را به شکل `{headerName, token}` برمی‌
 
 ### `SupersetAssetController`
 
-دارایی Superset را به `EXTERNAL_RESOURCE` داخلی متصل می‌کند تا dashboard خارجی نیز همان مدل grant، audit و manifest را داشته باشد.
+دارایی Superset را به `EXTERNAL_RESOURCE` داخلی متصل می‌کند تا dashboard خارجی نیز همان مدل grant، audit و manifest را داشته باشد. فهرست کاربر با OpenFGA `can_view` ساخته می‌شود؛ بنابراین grant مستقیم، گروه، نقش و inheritance همگی اعمال می‌شوند. endpoint داخلی `subjects/{subject}/superset-access` نگهبان runtime است. شناسه canonical گزارش در OpenFGA به صورت `external_resource:superset-public/dashboard/{id}` یا `external_resource:superset-public/chart/{id}` نوشته می‌شود؛ کلید دیتابیس همچنان فرم خوانای colon-separated دارد.
 
 ## ۱۱. OpenFGA خط‌به‌خط مفهومی
 
@@ -815,4 +815,3 @@ metricهای ضروری production:
 | امنیت و تهدیدها | [threat-model.md](threat-model.md) |
 | تصمیم‌های معماری | [adr/](adr/) |
 | APIها | [openapi/](openapi/) |
-

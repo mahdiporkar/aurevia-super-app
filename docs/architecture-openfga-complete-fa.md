@@ -466,6 +466,15 @@ field، operator یا obligation ناشناخته، context ناقص و parse er
 7. cache invalidation فقط tuple دقیق را حذف می‌کند؛ invalidation وابستگی‌های inherited به TTL متکی است.
 8. OpenFGA مدل deny صریح ندارد؛ exception/overrideهای deny نیازمند مدل یا policy لایه بالاتر هستند.
 
+### کنترل گزارش‌های Superset
+
+- هر dashboard یا chart ابتدا از کاتالوگ زنده Superset در پنل مدیریت به درخت منابع اضافه می‌شود.
+- grant مشاهده آن یک tuple از relation نوع `viewer` می‌سازد و check نهایی با permission نوع `can_view` انجام می‌شود.
+- BFF پیش از هر درخواست tunnel، `superset-access` را check می‌کند؛ URL دارایی ثبت‌نشده برای کاربر عادی DENY است.
+- endpoint فهرست گزارش‌های کاربر نیز هر دارایی منتشرشده را جداگانه با OpenFGA بررسی می‌کند و از query مستقیم grantهای PostgreSQL استفاده نمی‌کند.
+- کاربران عادی Superset نقش پیش‌فرض `Gamma` دارند. نقش `Admin` نباید به‌عنوان نقش registration عمومی تنظیم شود، چون کنترل native Superset را دور می‌زند.
+- APIهای collection و mutation مدیریتی Superset برای غیرمدیر بسته‌اند. کنترل native Superset لایه دوم دفاع برای dataset و اجرای query است.
+
 ## ۱۸. قواعد production
 
 - OpenFGA و PostgreSQL باید persistent، backup‌شده و monitor شوند.
@@ -494,4 +503,3 @@ field، operator یا obligation ناشناخته، context ناقص و parse er
 | schema اصلی | `V1__control_plane.sql` |
 | درخت هفت‌نوعی نمونه | `V12__complete_demo_resource_tree.sql` |
 | bootstrap parent tuple | `V13__resource_parent_outbox.sql` |
-

@@ -12,4 +12,5 @@ import reactor.core.publisher.Mono;
  public Mono<Void> syncLogin(Map<String,Object> identity){return client.post().uri("/internal/v1/identity/login-sync").contentType(MediaType.APPLICATION_JSON).bodyValue(identity).retrieve().bodyToMono(Void.class);}
  public Mono<Map> resolveRoute(String path,String method){return client.get().uri(builder->builder.path("/internal/v1/routes/resolve").queryParam("path",path).queryParam("method",method).build()).retrieve().bodyToMono(Map.class);}
  public Mono<Map> check(Map<String,Object> request){return client.post().uri("/internal/v1/authorize/check").contentType(MediaType.APPLICATION_JSON).bodyValue(request).retrieve().bodyToMono(Map.class);}
+ public Mono<Map> supersetAccess(String subject,String path,String method,String query){return client.get().uri(builder->builder.path("/internal/v1/registry/subjects/{subject}/superset-access").queryParam("path",path).queryParam("method",method).queryParam("query",query==null?"":query).build(subject)).retrieve().bodyToMono(Map.class);}
 }

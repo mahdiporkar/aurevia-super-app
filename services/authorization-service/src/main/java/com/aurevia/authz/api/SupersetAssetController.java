@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -15,14 +16,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 
 @RestController
 @RequestMapping("/internal/v1/registry")
 public class SupersetAssetController {
   private final JdbcClient database;
+  private final RelationshipAuthorizationPort relationships;
 
-  public SupersetAssetController(JdbcClient database) {
+  public SupersetAssetController(JdbcClient database, RelationshipAuthorizationPort relationships) {
     this.database = database;
+    this.relationships = relationships;
   }
 
   @GetMapping("/superset-assets")
@@ -40,19 +45,69 @@ public class SupersetAssetController {
   @GetMapping("/subjects/{subject}/superset-assets")
   public List<Map<String, Object>> assetsForSubject(
       @PathVariable("subject") String subject) {
+    return publishedAssets().stream().filter(asset -> canView(subject, asset)).toList();
+  }
+
+  @GetMapping("/subjects/{subject}/superset-access")
+  public Map<String, Object> accessForSubject(@PathVariable("subject") String subject,
+      @RequestParam("path") String path,
+      @RequestParam(value = "method", required = false, defaultValue = "GET") String method,
+      @RequestParam(value = "query", required = false, defaultValue = "") String query) {
+    boolean administrator = relationships.check(
+        "user:" + subject, "can_manage", "application:aurevia");
+    if (administrator) return Map.of("result", "ALLOW", "reasonCode", "SUPERSET_ADMIN_ALLOWED");
+    List<Map<String, Object>> allowed = publishedAssets().stream()
+        .filter(asset -> canView(subject, asset)).toList();
+    boolean assetSpecific = isAssetSpecific(path, query);
+    boolean safeRuntime = Set.of("GET", "HEAD", "OPTIONS").contains(method.toUpperCase())
+        || path.startsWith("/api/v1/chart/data") || path.startsWith("/superset/log");
+    boolean catalog = path.equals("/dashboard/list/") || path.equals("/dashboard/list")
+        || path.matches("/api/v1/(?:dashboard|chart)/?");
+    boolean granted = safeRuntime && !catalog && (assetSpecific
+        ? allowed.stream().anyMatch(asset -> matches(asset, path, query))
+        : !allowed.isEmpty());
+    return Map.of("result", granted ? "ALLOW" : "DENY",
+        "reasonCode", granted ? "SUPERSET_ASSET_ALLOWED" : "SUPERSET_ASSET_DENIED");
+  }
+
+  private List<Map<String, Object>> publishedAssets() {
     return database.sql("""
-        select distinct sa.id, sa.external_id, sa.asset_type, sa.title, sa.url_path,
-               sa.owner_external_id, sa.tags::text tags_json, r.resource_key
-        from app_user u
-        join authorization_grant g
-          on g.subject_type = 'USER' and g.subject_id = u.id and g.status = 'ACTIVE'
-        join resource r on r.id = g.resource_id
-        join action a on a.id = g.action_id and a.action_key in ('view', 'update', 'admin')
-        join superset_asset sa on sa.resource_id = r.id and sa.published = true
-        where u.external_id = :subject
-          and (g.expires_at is null or g.expires_at > now())
-        order by sa.title
-        """).param("subject", subject).query().listOfRows();
+        select sa.id,sa.resource_id,sa.external_id,sa.asset_type,sa.title,sa.url_path,
+               sa.owner_external_id,sa.tags::text tags_json,r.resource_key
+        from superset_asset sa join resource r on r.id=sa.resource_id
+        where sa.published=true order by sa.title
+        """).query().listOfRows();
+  }
+
+  private boolean canView(String subject, Map<String, Object> asset) {
+    String key = String.valueOf(asset.get("resource_key"));
+    String object = "external_resource:"
+        + key.replaceFirst("^external_resource:", "").replace(':', '/');
+    return relationships.check("user:" + subject, "can_view", object);
+  }
+
+  private static boolean isAssetSpecific(String path, String query) {
+    return path.matches(".*/(?:dashboard|chart)/[0-9]+/?$")
+        || path.startsWith("/explore") || query.matches(".*(?:slice_id|dashboard_id)=[0-9]+.*");
+  }
+
+  private static boolean matches(Map<String, Object> asset, String path, String query) {
+    String external = String.valueOf(asset.get("external_id"));
+    String url = String.valueOf(asset.get("url_path"));
+    if (normalize(path).equals(normalize(url))) return true;
+    String id = external.contains(":") ? external.substring(external.lastIndexOf(':') + 1) : external;
+    String type = String.valueOf(asset.get("asset_type"));
+    if ("DASHBOARD".equalsIgnoreCase(type)) {
+      return path.matches(".*/dashboard/" + java.util.regex.Pattern.quote(id) + "/?$")
+          || query.matches(".*dashboard_id=" + java.util.regex.Pattern.quote(id) + "(?:&.*)?");
+    }
+    return path.matches(".*/chart/" + java.util.regex.Pattern.quote(id) + "/?$")
+        || query.matches(".*slice_id=" + java.util.regex.Pattern.quote(id) + "(?:&.*)?");
+  }
+
+  private static String normalize(String path) {
+    if (path == null || path.isBlank()) return "/";
+    return path.length() > 1 && path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
   }
 
   @GetMapping("/superset-assets/{assetId}/grants")
