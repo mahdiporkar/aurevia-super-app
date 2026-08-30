@@ -15,13 +15,14 @@
 7. [مرجع جامع معماری و OpenFGA](architecture-openfga-complete-fa.md)
 8. [عملیات، تست و عیب‌یابی](operations-fa.md)
 9. [Superset عمومی، عملیاتی، Route و نمایش داخل MFE](superset-routing-and-embedding-fa.md)
-10. [معماری Resource Catalog و دو Manifest](resource-catalog-manifest-architecture-fa.md)
-11. [معماری فنی](architecture.md)
-12. [حاکمیت Git و دسترسی](git-governance-fa.md)
-13. [مدل تهدید](threat-model.md)
-14. [نمودار پایگاه داده](er-diagram.md)
-15. [تصمیم‌های معماری](adr/)
-16. [قراردادهای OpenAPI](openapi/)
+10. [ارسال امن توکن به Gateway و سرویس‌های عملیاتی](operational-token-forwarding-fa.md)
+11. [معماری Resource Catalog و دو Manifest](resource-catalog-manifest-architecture-fa.md)
+12. [معماری فنی](architecture.md)
+13. [حاکمیت Git و دسترسی](git-governance-fa.md)
+14. [مدل تهدید](threat-model.md)
+15. [نمودار پایگاه داده](er-diagram.md)
+16. [تصمیم‌های معماری](adr/)
+17. [قراردادهای OpenAPI](openapi/)
 
 ## نقشه مستندات
 
@@ -30,6 +31,7 @@
 | پروژه از چه اجزایی ساخته شده است؟ | [guide-fa.md](guide-fa.md) |
 | یک عضو جدید تیم چگونه پروژه را از صفر و آموزشی یاد بگیرد؟ | [technical-team-zero-to-production-fa.md](technical-team-zero-to-production-fa.md) |
 | درخواست از مرورگر تا سرویس عملیاتی چگونه حرکت می‌کند؟ | [guide-fa.md](guide-fa.md#جریان-درخواست) |
+| آیا توکن Keycloak به Gateway، سرویس Modern، Legacy یا Superset ارسال می‌شود؟ | [operational-token-forwarding-fa.md](operational-token-forwarding-fa.md) |
 | کاربر، گروه، نقش، منبع و action چه تفاوتی دارند؟ | [access-control-fa.md](access-control-fa.md) |
 | دسترسی یک Micro Frontend چگونه مستقیم یا از طریق نقش/گروه داده می‌شود؟ | [access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش](access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش) |
 | موتور مجوزدهی دقیقاً چگونه تصمیم می‌گیرد؟ | [authorization-engine-fa.md](authorization-engine-fa.md) |
