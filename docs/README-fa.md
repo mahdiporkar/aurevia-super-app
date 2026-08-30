@@ -13,16 +13,17 @@
 5. [راهنمای خواندن کد به ترتیب اجرا](code-walkthrough-fa.md)
 6. [معماری Authorization Engine](authorization-engine-fa.md)
 7. [مرجع جامع معماری و OpenFGA](architecture-openfga-complete-fa.md)
-8. [عملیات، تست و عیب‌یابی](operations-fa.md)
-9. [Superset عمومی، عملیاتی، Route و نمایش داخل MFE](superset-routing-and-embedding-fa.md)
-10. [ارسال امن توکن به Gateway و سرویس‌های عملیاتی](operational-token-forwarding-fa.md)
-11. [معماری Resource Catalog و دو Manifest](resource-catalog-manifest-architecture-fa.md)
-12. [معماری فنی](architecture.md)
-13. [حاکمیت Git و دسترسی](git-governance-fa.md)
-14. [مدل تهدید](threat-model.md)
-15. [نمودار پایگاه داده](er-diagram.md)
-16. [تصمیم‌های معماری](adr/)
-17. [قراردادهای OpenAPI](openapi/)
+8. [پیکربندی و انتشار OpenFGA](openfga-deployment-configuration-fa.md)
+9. [عملیات، تست و عیب‌یابی](operations-fa.md)
+10. [Superset عمومی، عملیاتی، Route و نمایش داخل MFE](superset-routing-and-embedding-fa.md)
+11. [ارسال امن توکن به Gateway و سرویس‌های عملیاتی](operational-token-forwarding-fa.md)
+12. [معماری Resource Catalog و دو Manifest](resource-catalog-manifest-architecture-fa.md)
+13. [معماری فنی](architecture.md)
+14. [حاکمیت Git و دسترسی](git-governance-fa.md)
+15. [مدل تهدید](threat-model.md)
+16. [نمودار پایگاه داده](er-diagram.md)
+17. [تصمیم‌های معماری](adr/)
+18. [قراردادهای OpenAPI](openapi/)
 
 ## نقشه مستندات
 
@@ -37,6 +38,7 @@
 | دسترسی یک Micro Frontend چگونه مستقیم یا از طریق نقش/گروه داده می‌شود؟ | [access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش](access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش) |
 | موتور مجوزدهی دقیقاً چگونه تصمیم می‌گیرد؟ | [authorization-engine-fa.md](authorization-engine-fa.md) |
 | معماری کامل، همه سطوح OpenFGA و محدودیت‌های فعلی چیست؟ | [architecture-openfga-complete-fa.md](architecture-openfga-complete-fa.md) |
+| هنگام انتشار، آدرس/پورت OpenFGA، Store ID و Model ID را کجا تعریف کنیم؟ | [openfga-deployment-configuration-fa.md](openfga-deployment-configuration-fa.md) |
 | branch، review، CI و دسترسی Git چگونه مدیریت می‌شود؟ | [git-governance-fa.md](git-governance-fa.md) |
 | دسترسی یک گزارش Superset چگونه داده می‌شود؟ | [access-control-fa.md](access-control-fa.md#انتصاب-گزارش-یا-داشبورد-به-کاربر) |
 | دو Superset کجا تعریف می‌شوند و route یا iframe گزارش چگونه کار می‌کند؟ | [superset-routing-and-embedding-fa.md](superset-routing-and-embedding-fa.md) |

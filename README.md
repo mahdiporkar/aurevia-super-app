@@ -15,6 +15,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [Code reference (فارسی)](docs/code-reference-fa.md)
 - [Authorization Engine architecture (فارسی)](docs/authorization-engine-fa.md)
 - [Complete architecture and OpenFGA reference (فارسی)](docs/architecture-openfga-complete-fa.md)
+- [OpenFGA deployment and endpoint configuration (فارسی)](docs/openfga-deployment-configuration-fa.md)
 - [Dynamic Proxy Route management guide (فارسی)](docs/dynamic-proxy-routing-fa.md)
 - [Legacy service self-service and authentication guide (فارسی)](docs/legacy-service-authentication-fa.md#تعریف-یک-micro-app-از-نوع-legacy-بدون-انتشار-نسخه)
 - [Operational token forwarding: Keycloak, Gateway, Legacy and Superset (فارسی)](docs/operational-token-forwarding-fa.md)
