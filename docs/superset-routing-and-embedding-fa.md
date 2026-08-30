@@ -69,6 +69,115 @@ Browser
 
 Operation Superset نباید host port یا network route عمومی داشته باشد. header هویت `X-Aurevia-Subject` فقط در BFF تولید و فقط روی شبکه خصوصی Gateway پذیرفته می‌شود.
 
+## احراز هویت و SSO بین Super App و Superset
+
+کاربر «بدون احراز هویت» گزارش را مشاهده نمی‌کند؛ او یک‌بار با Authorization Code
+Flow در Keycloak/Public IAM وارد Super App شده است. چیزی که حذف شده، فرم Login
+دوم Superset است. پیاده‌سازی فعلی از username/password پیش‌فرض Superset برای
+کاربران عادی استفاده نمی‌کند و Superset نیز مستقیماً OAuth/OIDC Flow جداگانه‌ای
+با Keycloak اجرا نمی‌کند.
+
+روش فعلی یک SSO مبتنی بر Trusted Header و `AUTH_REMOTE_USER` است:
+
+```mermaid
+sequenceDiagram
+  participant U as Browser
+  participant K as Keycloak / Public IAM
+  participant B as Java BFF
+  participant A as Authorization/OpenFGA
+  participant G as Operation Gateway
+  participant S as Operation Superset
+  U->>K: یک‌بار Authorization Code login
+  K-->>B: access/refresh token برای Token Vault
+  B-->>U: AUREVIA_SESSION opaque cookie
+  U->>B: GET /superset/dashboard/1/
+  B->>A: OpenFGA asset check
+  A-->>B: ALLOW
+  B->>G: X-Aurevia-Subject + Superset cookie
+  G->>S: trusted identity header
+  S-->>U: AUREVIA_OPERATION_SUPERSET + dashboard
+```
+
+### انتقال هویت
+
+`OperationSupersetProxyController` پس از `ALLOW` شدن OpenFGA check، هویت
+احراز‌شده Spring Security را در header زیر قرار می‌دهد:
+
+```http
+X-Aurevia-Subject: <stable-keycloak-subject-or-username>
+```
+
+در این مسیر Access Token و Refresh Token Keycloak، password کاربر و password
+حساب bootstrap Superset ارسال نمی‌شوند. Operation Gateway این header را روی شبکه
+خصوصی به Superset منتقل می‌کند.
+
+Middleware موجود در `superset_config.py` مقدار header را به متغیر WSGI تبدیل
+می‌کند:
+
+```python
+subject = environ.get("HTTP_X_AUREVIA_SUBJECT")
+if subject:
+    environ["REMOTE_USER"] = subject
+```
+
+Superset نیز با تنظیمات زیر آن هویت را می‌پذیرد:
+
+```python
+AUTH_TYPE = AUTH_REMOTE_USER
+AUTH_REMOTE_USER_ENV_VAR = "REMOTE_USER"
+AUTH_USER_REGISTRATION = True
+AUTH_USER_REGISTRATION_ROLE = "Gamma"
+```
+
+بنابراین در اولین مراجعه، اگر حساب متناظر در Superset وجود نداشته باشد، Superset
+آن را خودکار با نقش اولیه تنظیم‌شده ایجاد می‌کند. `Gamma` صرفاً نقش bootstrap
+داخلی Superset است؛ مجوز نهایی launch و دسترسی به asset همچنان باید در BFF با
+OpenFGA کنترل شود.
+
+### چرا در اولین درخواست مسیر login دیده می‌شود؟
+
+Superset برای ساخت نشست داخلی ممکن است ابتدا redirect زیر را برگرداند:
+
+```text
+/login/?next=/superset/dashboard/1/
+```
+
+این redirect به معنی نمایش فرم username/password نیست. endpoint Login با
+`REMOTE_USER` کاربر را authenticate، نشست Superset را ایجاد و سپس او را به مقدار
+canonical پارامتر `next` برمی‌گرداند. Java BFF مسیر root-level Login را از tunnel
+`/reports-runtime` عبور می‌دهد، ولی مقصد نهایی باید `/superset/dashboard/...`
+باقی بماند.
+
+### دو Session مستقل
+
+| Cookie | مالک | کاربرد |
+|---|---|---|
+| `AUREVIA_SESSION` | Java BFF | نشست اصلی Super App و هویت Keycloak |
+| `AUREVIA_OPERATION_SUPERSET` | Operation Superset | نشست داخلی UI گزارش |
+
+هیچ‌کدام خود Access Token Keycloak نیستند. Login موفق Super App، نشست Superset
+متعلق به هویت قبلی را منقضی می‌کند تا roleهای کاربر قبلی reuse نشوند. Logout نیز
+Token Vault، نشست BFF و cookie نشست Superset را invalidate می‌کند.
+
+جزئیات تفاوت Session و توکن در [ارسال امن توکن به محیط عملیاتی](operational-token-forwarding-fa.md#تفاوت-session-مرورگر-با-توکن-keycloak)
+آمده است.
+
+### حساب admin پیش‌فرض Superset
+
+مرحله init در Compose با `superset fab create-admin` یک حساب مدیریتی محلی ایجاد
+می‌کند. این حساب فقط برای bootstrap، مدیریت اضطراری یا عملیات مستقیم کنترل‌شده
+Superset است و در جریان عادی مشاهده داشبورد توسط Super App استفاده نمی‌شود.
+password آن نباید در Frontend، Manifest، Route، دیتابیس Authorization Service یا
+log قرار گیرد و در Production باید از Secret Store تزریق و rotate شود.
+
+### مرز اعتماد Production
+
+Trusted Header فقط وقتی SSO امن محسوب می‌شود که Operation Superset هیچ ingress
+عمومی نداشته باشد و Gateway، `X-Aurevia-Subject` دریافتی از اینترنت یا clientهای
+ناشناخته را حذف کند. ارتباط BFF به Gateway باید با mTLS/Workload Identity انجام
+شود و Gateway فقط هویت workload مجاز BFF را بپذیرد. در غیر این صورت مهاجم می‌تواند
+با جعل header خود را به‌جای کاربر دیگری معرفی کند.
+
 ## تفاوت Proxy Route و Superset Route
 
 بخش «راهبری Proxy» پنل ادمین برای APIهای HR، Finance و سرویس‌های business/legacy است. route تخصصی Superset در حال حاضر از `OperationSupersetProxyController` عبور می‌کند و در جدول‌های `service_target`، `proxy_route` و `route_operation` ساخته نمی‌شود.

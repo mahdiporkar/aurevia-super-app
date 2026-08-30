@@ -22,6 +22,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [Resource Catalog and Manifest architecture (فارسی)](docs/resource-catalog-manifest-architecture-fa.md)
 - [HR/Finance ERP and OpenFGA resource-tree demo (فارسی)](docs/hr-finance-erp-openfga-demo-fa.md)
 - [Superset routing, access and in-MFE embedding guide (فارسی)](docs/superset-routing-and-embedding-fa.md)
+- [Superset SSO and Remote User authentication (فارسی)](docs/superset-routing-and-embedding-fa.md#احراز-هویت-و-sso-بین-super-app-و-superset)
 - [Git governance and repository access (فارسی)](docs/git-governance-fa.md)
 - [Operations and troubleshooting (فارسی)](docs/operations-fa.md)
 
