@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -43,7 +44,7 @@ public class OpenFgaReconciliationService {
         g.relation,
         case r.type when 'APPLICATION' then 'application:'||regexp_replace(r.resource_key,'^application:','')
           when 'EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(r.resource_key,'^external_resource:',''),':','/')
-          else 'resource:'||r.resource_key end object
+          else 'resource:'||replace(r.resource_key,':','/') end object
       from authorization_grant g left join app_user u on g.subject_type='USER' and u.id=g.subject_id
       left join directory_group dg on g.subject_type='GROUP' and dg.id=g.subject_id
       left join application_role ar on g.subject_type='ROLE' and ar.id=g.subject_id
@@ -53,10 +54,10 @@ public class OpenFgaReconciliationService {
     tuples.addAll(database.sql("""
       select case p.type when 'APPLICATION' then 'application:'||regexp_replace(p.resource_key,'^application:','')
         when 'EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(p.resource_key,'^external_resource:',''),':','/')
-        else 'resource:'||p.resource_key end "user",'parent' relation,
+        else 'resource:'||replace(p.resource_key,':','/') end "user",'parent' relation,
         case c.type when 'APPLICATION' then 'application:'||regexp_replace(c.resource_key,'^application:','')
         when 'EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(c.resource_key,'^external_resource:',''),':','/')
-        else 'resource:'||c.resource_key end object
+        else 'resource:'||replace(c.resource_key,':','/') end object
       from resource c join resource p on p.id=c.parent_id where c.status='ACTIVE'
       """).query(Tuple.class).list());
     tuples.addAll(database.sql("""
@@ -80,10 +81,9 @@ public class OpenFgaReconciliationService {
     Set<Tuple> result=new LinkedHashSet<>();String token="";
     do {
       final String continuation=token;
-      JsonNode response=openfga.get().uri(uri->uri.path("/stores/{store}/tuples")
-          .queryParam("page_size",100).queryParamIfPresent("continuation_token",
-              continuation.isBlank()?java.util.Optional.empty():java.util.Optional.of(continuation))
-          .build(storeId)).retrieve().body(JsonNode.class);
+      Map<String,Object> request=continuation.isBlank()?Map.of("page_size",100):Map.of("page_size",100,"continuation_token",continuation);
+      JsonNode response=openfga.post().uri("/stores/{store}/read",storeId)
+          .body(request).retrieve().body(JsonNode.class);
       if(response==null)throw new IllegalStateException("Empty OpenFGA tuple response");
       response.path("tuples").forEach(node->{JsonNode key=node.path("key");result.add(new Tuple(
           key.path("user").asText(),key.path("relation").asText(),key.path("object").asText()));});

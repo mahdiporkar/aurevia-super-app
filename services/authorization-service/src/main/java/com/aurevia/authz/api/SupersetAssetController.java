@@ -116,14 +116,17 @@ public class SupersetAssetController {
   @GetMapping("/superset-assets/{assetId}/grants")
   public List<Map<String, Object>> assetGrants(@PathVariable("assetId") UUID assetId) {
     return database.sql("""
-        select g.id, g.subject_id as user_id, u.username, u.display_name,
+        select g.id,g.subject_type::text subject_type,g.subject_id,
+               coalesce(u.display_name,dg.display_name,ar.name_fa) subject_name,
+               coalesce(u.username,dg.normalized_path,ar.role_key) subject_key,
                a.action_key, g.relation, g.expires_at
         from superset_asset sa
         join authorization_grant g
           on g.resource_id = sa.resource_id
-         and g.subject_type = 'USER'
          and g.status = 'ACTIVE'
-        join app_user u on u.id = g.subject_id
+        left join app_user u on g.subject_type='USER' and u.id=g.subject_id
+        left join directory_group dg on g.subject_type='GROUP' and dg.id=g.subject_id
+        left join application_role ar on g.subject_type='ROLE' and ar.id=g.subject_id
         join action a on a.id = g.action_id
         where sa.id = :assetId
           and (g.expires_at is null or g.expires_at > now())
@@ -135,6 +138,8 @@ public class SupersetAssetController {
   @ResponseStatus(HttpStatus.CREATED)
   @Transactional
   public Map<String, Object> create(@Valid @RequestBody AssetWrite request) {
+    List<Map<String,Object>> existing=database.sql("select sa.id,sa.resource_id,r.resource_key from superset_asset sa join resource r on r.id=sa.resource_id where sa.external_id=:external and sa.asset_type=:type").param("external",request.externalId()).param("type",request.assetType()).query().listOfRows();
+    if(!existing.isEmpty())return Map.of("id",existing.getFirst().get("id"),"resourceId",existing.getFirst().get("resource_id"),"resourceKey",existing.getFirst().get("resource_key"),"existing",true);
     UUID resourceId = UUID.randomUUID();
     UUID assetId = UUID.randomUUID();
     UUID parentId = database.sql("""
@@ -200,7 +205,7 @@ public class SupersetAssetController {
     auditTrail.success("SUPERSET","superset.resource.register",null,null,"superset_asset",
         assetId.toString(),request.title(),"REGISTER",null,Map.of("externalId",request.externalId(),"assetType",request.assetType(),"published",request.published()));
 
-    return Map.of("id", assetId, "resourceId", resourceId, "resourceKey", resourceKey);
+    return Map.of("id", assetId, "resourceId", resourceId, "resourceKey", resourceKey,"existing",false);
   }
 
   public record AssetWrite(

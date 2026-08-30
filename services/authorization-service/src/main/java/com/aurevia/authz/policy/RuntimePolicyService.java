@@ -73,7 +73,7 @@ public class RuntimePolicyService {
         select r.id,r.classification,r.owner_domain,
           coalesce(sa.owner_external_id,r.external_id) owner_id
         from resource r left join superset_asset sa on sa.resource_id=r.id
-        where r.resource_key=:key and r.status='ACTIVE'
+        where (r.resource_key=:key or replace(r.resource_key,':','/')=:key) and r.status='ACTIVE'
         """).param("key", key).query(ResourceContext.class).optional()
         .orElseThrow(() -> new IllegalArgumentException("Resource is not registered"));
   }

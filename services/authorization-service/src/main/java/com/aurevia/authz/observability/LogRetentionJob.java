@@ -2,6 +2,7 @@ package com.aurevia.authz.observability;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.sql.Timestamp;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,5 +16,5 @@ public class LogRetentionJob {
   @Scheduled(cron="${logging.retention.cron:0 17 2 * * *}")
   @Transactional
   public void clean(){deleteBatch("api_log",Instant.now().minus(apiDays,ChronoUnit.DAYS));deleteBatch("audit_log",Instant.now().minus(auditDays,ChronoUnit.DAYS));}
-  private void deleteBatch(String table,Instant cutoff){database.sql("delete from "+table+" where id in (select id from "+table+" where event_time < :cutoff order by event_time limit 5000)").param("cutoff",cutoff).update();}
+  private void deleteBatch(String table,Instant cutoff){database.sql("delete from "+table+" where id in (select id from "+table+" where event_time < :cutoff order by event_time limit 5000)").param("cutoff",Timestamp.from(cutoff)).update();}
 }

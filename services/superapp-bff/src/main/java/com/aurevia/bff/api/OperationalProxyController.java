@@ -59,7 +59,7 @@ public class OperationalProxyController {
   private Mono<Void> authorize(Map route, Principal principal, ServerWebExchange exchange) {
     Map<String, Object> request = Map.of(
         "subjectId", principal.getName(), "issuer", "public-iam",
-        "resource", "resource:" + route.get("resourceKey"),
+        "resource", "resource:" + String.valueOf(route.get("resourceKey")).replace(':','/'),
         "action", route.get("actionKey"), "context", Map.of(),
         "correlationId", correlationId(exchange));
     return authorization.check(request).flatMap(decision -> "ALLOW".equals(decision.get("result"))

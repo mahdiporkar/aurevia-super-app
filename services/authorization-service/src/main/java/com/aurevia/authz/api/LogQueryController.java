@@ -3,6 +3,7 @@ package com.aurevia.authz.api;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,7 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/internal/v1/registry/logs")
 public class LogQueryController {
-  private static final String LOG_RESOURCE = "resource:business_resource:public-zone-logs";
+  private static final String LOG_RESOURCE = "resource:business_resource/public-zone-logs";
   private final JdbcClient database;
   private final RelationshipAuthorizationPort relationships;
 
@@ -54,7 +55,7 @@ public class LogQueryController {
       @RequestParam(required=false) String targetType, @RequestParam(required=false) String targetId,
       @RequestParam(required=false) String result, @RequestParam(required=false) String correlationId) {
     require(request,"can_manage");Page bounds=Page.of(page,size);
-    Query query=new Query();query.add("event_time >= :from", "from",from);query.add("event_time < :to","to",to);
+    Query query=new Query();query.add("event_time >= :from", "from",sqlTime(from));query.add("event_time < :to","to",sqlTime(to));
     query.add("actor_id = :actor","actor",bounded(actorId));query.add("event_type = :event","event",bounded(eventType));
     query.add("target_type = :targetType","targetType",bounded(targetType));query.add("target_id = :targetId","targetId",bounded(targetId));
     query.add("result = :result","result",bounded(result));query.add("correlation_id = :correlation","correlation",bounded(correlationId));
@@ -72,7 +73,7 @@ public class LogQueryController {
     List<Map<String,Object>> rows=new ArrayList<>();
     rows.addAll(database.sql("select 'API' log_kind,* from api_log where correlation_id=:id order by event_time limit 500").param("id",value).query().listOfRows());
     rows.addAll(database.sql("select 'AUDIT' log_kind,* from audit_log where correlation_id=:id order by event_time limit 500").param("id",value).query().listOfRows());
-    rows.sort((a,b)->((Instant)a.get("event_time")).compareTo((Instant)b.get("event_time")));
+    rows.sort((a,b)->eventInstant(a.get("event_time")).compareTo(eventInstant(b.get("event_time"))));
     return Map.of("correlationId",value,"items",rows,"truncated",rows.size()>=1000);
   }
 
@@ -85,7 +86,7 @@ public class LogQueryController {
   }
 
   private Query apiQuery(Instant from,Instant to,String userId,String service,Integer status,String route,String correlation,String authorization) {
-    Query q=new Query();q.add("event_time >= :from","from",from);q.add("event_time < :to","to",to);
+    Query q=new Query();q.add("event_time >= :from","from",sqlTime(from));q.add("event_time < :to","to",sqlTime(to));
     q.add("user_id = :user","user",bounded(userId));q.add("service_name = :service","service",bounded(service));q.add("status_code = :status","status",status);
     if(route!=null&&!route.isBlank())q.add("route_template ilike :route","route","%"+bounded(route)+"%");
     q.add("correlation_id = :correlation","correlation",bounded(correlation));q.add("authorization_result = :authorization","authorization",bounded(authorization));return q;
@@ -106,6 +107,8 @@ public class LogQueryController {
     if(actor==null||!relationships.check("user:"+actor,relation,LOG_RESOURCE))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Log permission required");
   }
   private static JdbcClient.StatementSpec bind(JdbcClient.StatementSpec statement,Map<String,Object> params){for(var item:params.entrySet())statement=statement.param(item.getKey(),item.getValue());return statement;}
+  private static Timestamp sqlTime(Instant value){return value==null?null:Timestamp.from(value);}
+  private static Instant eventInstant(Object value){if(value instanceof Instant instant)return instant;if(value instanceof java.time.OffsetDateTime offset)return offset.toInstant();if(value instanceof Timestamp timestamp)return timestamp.toInstant();throw new IllegalStateException("Unsupported event_time value");}
   private static String bounded(String value){if(value==null||value.isBlank())return null;if(value.length()>500)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Filter is too long");return value;}
   private record Page(int page,int size){static Page of(int page,int size){if(page<0||size<1||size>200)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"page must be >= 0 and size between 1 and 200");return new Page(page,size);}}
   private static final class Query {private final List<String> clauses=new ArrayList<>();private final Map<String,Object> params=new LinkedHashMap<>();void add(String clause,String name,Object value){if(value!=null){clauses.add(clause);params.put(name,value);}}String where(){return clauses.isEmpty()?"":" where "+String.join(" and ",clauses);}}

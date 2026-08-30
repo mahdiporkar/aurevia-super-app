@@ -2,6 +2,7 @@ package com.aurevia.authz.observability;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import java.sql.Timestamp;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -20,7 +21,7 @@ public class PublicZoneLogWriter {
     values(:id,:time,:user,:actor,:service,:method,:route,:status,:duration,:ip,:agent,:correlation,
       :requestSize,:responseSize,:authorization,:resourceType,:resourceId,:action,:openfga,:database,
       :redis,:downstream,:errorCode,:errorType,:errorBody,:redacted,:truncated)
-    """).param("id",id).param("time",e.eventTime()).param("user",e.userId())
+    """).param("id",id).param("time",Timestamp.from(e.eventTime())).param("user",e.userId())
     .param("actor",e.actorType()).param("service",e.serviceName()).param("method",e.httpMethod())
     .param("route",e.routeTemplate()).param("status",e.statusCode()).param("duration",e.durationMs())
     .param("ip",e.sourceIp()).param("agent",e.userAgent()).param("correlation",e.correlationId())
@@ -39,7 +40,7 @@ public class PublicZoneLogWriter {
     values(:id,:time,1,:actorType,:actor,:category,:event,:subjectType,:subjectId,:targetType,
       :targetId,:targetName,:action,:result,cast(:before as jsonb),cast(:after as jsonb),:ip,:agent,
       :service,:correlation,cast(:metadata as jsonb))
-    """).param("id",id).param("time",e.eventTime()).param("actorType",e.actorType())
+    """).param("id",id).param("time",Timestamp.from(e.eventTime())).param("actorType",e.actorType())
     .param("actor",e.actorId()).param("category",e.eventCategory()).param("event",e.eventType())
     .param("subjectType",e.subjectType()).param("subjectId",e.subjectId())
     .param("targetType",e.targetType()).param("targetId",e.targetId()).param("targetName",e.targetNameSnapshot())

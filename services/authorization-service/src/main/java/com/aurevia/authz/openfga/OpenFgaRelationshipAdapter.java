@@ -74,8 +74,15 @@ class OpenFgaRelationshipAdapter implements RelationshipAuthorizationPort {
       client.writeTuples(List.of(new ClientTupleKey()
           .user(user).relation(relation)._object(object))).get();
     } catch (Exception failure) {
+      if (failureChain(failure).contains("already exists")) return;
       throw new IllegalStateException("OpenFGA tuple write failed", failure);
     }
+  }
+
+  private static String failureChain(Throwable failure) {
+    StringBuilder result=new StringBuilder();
+    for(Throwable current=failure;current!=null;current=current.getCause())result.append(' ').append(current.getMessage());
+    return result.toString().toLowerCase(java.util.Locale.ROOT);
   }
 
   @Override

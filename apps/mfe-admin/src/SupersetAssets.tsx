@@ -3,6 +3,7 @@ import { Alert, Button, Card, Form, Modal, Popconfirm, Select, Space, Table, Tag
 
 type Row = Record<string, any>;
 type Level = 'VIEW' | 'EDIT' | 'MANAGE';
+type SubjectType = 'USER' | 'GROUP' | 'ROLE';
 const levels: Record<Level, { action: string; relation: string; label: string }> = {
   VIEW: { action: 'view', relation: 'viewer', label: 'مشاهده' },
   EDIT: { action: 'update', relation: 'editor', label: 'ویرایش' },
@@ -53,6 +54,8 @@ export function SupersetAssets() {
   const [catalog, setCatalog] = useState<Row[]>([]);
   const [stored, setStored] = useState<Row[]>([]);
   const [users, setUsers] = useState<Row[]>([]);
+  const [groups, setGroups] = useState<Row[]>([]);
+  const [roles, setRoles] = useState<Row[]>([]);
   const [actions, setActions] = useState<Row[]>([]);
   const [selected, setSelected] = useState<Row>();
   const [grants, setGrants] = useState<Row[]>([]);
@@ -64,10 +67,10 @@ export function SupersetAssets() {
   const load = useCallback(async () => {
     setLoading(true); setError(undefined);
     try {
-      const [live, assets, appUsers, appActions] = await Promise.all([
-        liveCatalog(), admin('/superset-assets'), admin('/users'), admin('/actions'),
+      const [live, assets, appUsers, appGroups, appRoles, appActions] = await Promise.all([
+        liveCatalog(), admin('/superset-assets'), admin('/users'), admin('/groups'), admin('/roles'), admin('/actions'),
       ]);
-      setCatalog(live); setStored(assets); setUsers(appUsers); setActions(appActions);
+      setCatalog(live); setStored(assets); setUsers(appUsers);setGroups(appGroups);setRoles(appRoles);setActions(appActions);
     } catch (reason) { setError((reason as Error).message); }
     finally { setLoading(false); }
   }, []);
@@ -108,7 +111,7 @@ export function SupersetAssets() {
     if (selected?.registered) setGrants(await admin(`/superset-assets/${selected.registered.id}/grants`));
   };
 
-  const grant = async (values: { userId: string; level: Level }) => {
+  const grant = async (values: { subjectType: SubjectType; subjectId: string; level: Level }) => {
     if (!selected?.registered) return;
     const level = levels[values.level];
     const action = actions.find((candidate) => candidate.action_key === level.action);
@@ -116,7 +119,7 @@ export function SupersetAssets() {
     setBusy('grant');
     try {
       await admin('/grants', { method: 'POST', body: JSON.stringify({
-        userId: values.userId, resourceId: selected.registered.resource_id,
+        subjectType:values.subjectType,subjectId:values.subjectId,resourceId: selected.registered.resource_id,
         actionId: action.id, relation: level.relation, expiresAt: null,
       }) });
       form.resetFields(); await refreshGrants(); message.success('سطح دسترسی اعطا شد');
@@ -130,6 +133,9 @@ export function SupersetAssets() {
   };
 
   const levelLabel = (action: string) => action === 'view' ? 'مشاهده' : action === 'update' ? 'ویرایش' : 'مدیریت';
+  const selectedSubjectType=(Form.useWatch('subjectType',form)??'USER') as SubjectType;
+  const subjectRows=selectedSubjectType==='USER'?users:selectedSubjectType==='GROUP'?groups:roles;
+  const subjectLabel=(item:Row)=>selectedSubjectType==='USER'?`${item.display_name??item.username} — ${item.username}`:selectedSubjectType==='GROUP'?`${item.display_name} — ${item.normalized_path}`:`${item.name_fa} — ${item.role_key}`;
   return <Space direction="vertical" size={16} style={{ width: '100%' }}>
     <Alert showIcon type="info" message="کاتالوگ زنده Superset عملیاتی" description="فهرست مستقیماً از API خوانده می‌شود. هر دارایی را به درخت اضافه و سطح مشاهده، ویرایش یا مدیریت را به کاربران اعطا کنید." />
     {error && <Alert showIcon type="error" message="دریافت کاتالوگ ناموفق بود" description={error} action={<Button onClick={() => void load()}>تلاش مجدد</Button>} />}
@@ -147,15 +153,17 @@ export function SupersetAssets() {
       ]} />
     </Card>
     <Modal open={Boolean(selected)} title={`سطوح دسترسی: ${selected?.title ?? ''}`} width={850} footer={null} onCancel={() => setSelected(undefined)}>
-      <Typography.Paragraph type="secondary">سطح موردنظر را برای هر کاربر انتخاب کنید. دسترسی‌ها در همان دارایی گزارش ذخیره می‌شوند.</Typography.Paragraph>
-      <Form form={form} layout="inline" onFinish={grant} style={{ marginBottom: 20 }}>
-        <Form.Item name="userId" rules={[{ required: true, message: 'کاربر را انتخاب کنید' }]}><Select showSearch optionFilterProp="label" style={{ width: 310 }} placeholder="کاربر" options={users.map((user) => ({ value: user.id, label: `${user.display_name ?? user.username} — ${user.username}` }))} /></Form.Item>
+      <Typography.Paragraph type="secondary">سطح موردنظر را مستقیماً برای کاربر، گروه یا نقش انتخاب کنید. دسترسی روی همان دارایی گزارش ثبت و از طریق Outbox به OpenFGA منتقل می‌شود.</Typography.Paragraph>
+      <Form form={form} layout="inline" onFinish={grant} initialValues={{subjectType:'USER'}} style={{ marginBottom: 20 }}>
+        <Form.Item name="subjectType" rules={[{required:true}]}><Select style={{width:130}} onChange={()=>form.setFieldValue('subjectId',undefined)} options={[{value:'USER',label:'کاربر'},{value:'GROUP',label:'گروه'},{value:'ROLE',label:'نقش'}]}/></Form.Item>
+        <Form.Item name="subjectId" rules={[{ required: true, message: 'دارنده دسترسی را انتخاب کنید' }]}><Select showSearch optionFilterProp="label" style={{ width: 310 }} placeholder="انتخاب دارنده دسترسی" options={subjectRows.map((item) => ({ value: item.id, label:subjectLabel(item) }))} /></Form.Item>
         <Form.Item name="level" rules={[{ required: true, message: 'سطح را انتخاب کنید' }]}><Select style={{ width: 180 }} placeholder="سطح دسترسی" options={Object.entries(levels).map(([value, level]) => ({ value, label: level.label }))} /></Form.Item>
         <Button type="primary" htmlType="submit" loading={busy === 'grant'}>اعطا</Button>
       </Form>
       <Table rowKey="id" dataSource={grants} pagination={false} locale={{ emptyText: 'دسترسی فعالی تعریف نشده است' }} columns={[
-        { title: 'کاربر', render: (_, item) => item.display_name ?? item.username },
-        { title: 'نام کاربری', dataIndex: 'username' },
+        { title: 'نوع',dataIndex:'subject_type',render:value=>value==='USER'?'کاربر':value==='GROUP'?'گروه':'نقش'},
+        { title: 'دارنده دسترسی', dataIndex:'subject_name' },
+        { title: 'شناسه', dataIndex:'subject_key' },
         { title: 'سطح', dataIndex: 'action_key', render: levelLabel },
         { title: 'رابطه', dataIndex: 'relation' },
         { title: '', render: (_, item) => <Popconfirm title="دسترسی لغو شود؟" onConfirm={() => void revoke(item.id)}><Button danger>لغو</Button></Popconfirm> },

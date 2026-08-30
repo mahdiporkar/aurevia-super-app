@@ -130,7 +130,7 @@ export function PanelsView() {
         { title: 'وضعیت', render: (_, row) => <Tag color={row.active ? 'green' : 'default'}>{row.active ? 'فعال' : 'غیرفعال'}</Tag> },
         { title: 'عملیات', render: (_, row) => <Space>
           <Button onClick={() => show(row)}>ویرایش</Button>
-          <Popconfirm title="غیرفعال شود؟" onConfirm={() => panelsApi(`/panels/${row.id}?version=${row.version}`, { method: 'DELETE' }).then(load)}>
+          <Popconfirm title="غیرفعال شود؟" onConfirm={() => panelsApi(`/panels/${row.id}?version=${row.version}`, { method: 'DELETE' }).then(load).catch(error => message.error((error as Error).message))}>
             <Button danger>غیرفعال</Button>
           </Popconfirm>
         </Space> },
