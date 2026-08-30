@@ -124,13 +124,19 @@ public class OperationSupersetProxyController {
     }
   }
 
-  private static void copyRewrittenLocation(HttpHeaders source, HttpHeaders target) {
+  static void copyRewrittenLocation(HttpHeaders source, HttpHeaders target) {
     String location = source.getFirst(HttpHeaders.LOCATION);
     if (location == null) {
       return;
     }
+    // Older/upstream proxy configurations may have advertised the tunnel as
+    // Superset's application prefix. Never allow that legacy prefix to leak
+    // into the post-login dashboard destination.
+    location = location.replace("/reports-runtime/superset/", "/superset/")
+        .replaceAll("(?i)%2Freports-runtime%2Fsuperset%2F", "%2Fsuperset%2F");
     if (location.startsWith("/")
         && !location.startsWith("/reports-runtime/")
+        && !location.startsWith("/superset/")
         && !location.startsWith("/static/")) {
       location = "/reports-runtime" + location;
     }
