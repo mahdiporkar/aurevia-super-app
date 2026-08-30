@@ -20,11 +20,19 @@ class AdminAuthorizationInterceptor implements HandlerInterceptor {
   public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
       throws Exception {
     String actor = request.getHeader("X-Actor");
+    String object=resourceFor(request.getRequestURI());
     boolean allowed = actor != null && relationships.check(
-        "user:" + actor, "can_manage", "application:aurevia");
+        "user:" + actor, "can_manage", object);
     if (!allowed) {
       response.sendError(HttpStatus.FORBIDDEN.value(), "Administrative permission required");
     }
     return allowed;
+  }
+
+  private static String resourceFor(String uri) {
+    if(uri.contains("/service-targets")) return "resource:proxy.target";
+    if(uri.contains("/proxy-routes/") && uri.contains("/operations")) return "resource:proxy.operation";
+    if(uri.contains("/proxy-routes")) return "resource:proxy.route";
+    return "application:aurevia";
   }
 }

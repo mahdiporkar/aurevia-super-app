@@ -11,6 +11,7 @@ erDiagram
   RESOURCE ||--o{ RESOURCE : parent
   RESOURCE ||--o{ RESOURCE_ACTION : supports
   ACTION ||--o{ RESOURCE_ACTION : binds
+  PANEL ||--o{ PROXY_ROUTE : owns
   SERVICE_TARGET ||--o{ PROXY_ROUTE : serves
   PROXY_ROUTE ||--o{ ROUTE_OPERATION : maps
   RESOURCE ||--o{ ROUTE_OPERATION : protects

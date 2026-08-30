@@ -39,8 +39,9 @@ public class OperationalProxyController {
     this.gateway = gateway;
   }
 
-  @RequestMapping({"/hr-micro/{*path}", "/finance-micro/{*path}"})
-  public Mono<Void> proxy(@PathVariable("path") String ignored, ServerWebExchange exchange,
+  @RequestMapping("/{panelSlug}/{*path}")
+  public Mono<Void> proxy(@PathVariable("panelSlug") String panelSlug,
+      @PathVariable("path") String ignored, ServerWebExchange exchange,
       Principal principal) {
     String path = RouteNormalizer.normalizePath(exchange.getRequest().getPath().value());
     String method = exchange.getRequest().getMethod().name();
@@ -57,10 +58,14 @@ public class OperationalProxyController {
   }
 
   private Mono<Void> authorize(Map route, Principal principal, ServerWebExchange exchange) {
+    if (Boolean.FALSE.equals(route.get("authorizationRequired"))) return Mono.empty();
     Map<String, Object> request = Map.of(
         "subjectId", principal.getName(), "issuer", "public-iam",
         "resource", "resource:" + String.valueOf(route.get("resourceKey")).replace(':','/'),
-        "action", route.get("actionKey"), "context", Map.of(),
+        "action", route.get("actionKey"), "context", Map.of(
+            "panel",route.get("panelSlug"),"httpMethod",exchange.getRequest().getMethod().name(),
+            "normalizedPath",RouteNormalizer.normalizePath(exchange.getRequest().getPath().value()),
+            "routeId",route.get("routeId"),"operationId",route.get("operationId")),
         "correlationId", correlationId(exchange));
     return authorization.check(request).flatMap(decision -> "ALLOW".equals(decision.get("result"))
         ? Mono.empty() : Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN,
@@ -98,7 +103,8 @@ public class OperationalProxyController {
   private Mono<UpstreamResponse> call(Map route, String accessToken,
       ServerWebExchange exchange, byte[] body, String subject) {
     String query = exchange.getRequest().getURI().getRawQuery();
-    String uri = exchange.getRequest().getPath().value() + (query == null ? "" : "?" + query);
+    String uri = upstreamPath(route,exchange.getRequest().getPath().value())
+        + (query == null ? "" : "?" + query);
     var request = gateway.method(exchange.getRequest().getMethod()).uri(uri)
         .headers(headers -> {
           headers.setBearerAuth(accessToken);
@@ -132,6 +138,22 @@ public class OperationalProxyController {
 
   private static void copy(HttpHeaders source, HttpHeaders target, String name) {
     if (source.containsKey(name)) target.put(name, source.get(name));
+  }
+  private static String upstreamPath(Map route,String incoming) {
+    String path=incoming;
+    int strip=((Number)route.getOrDefault("stripPrefix",0)).intValue();
+    String prefix=String.valueOf(route.get("pathPrefix"));
+    if(strip>0) {
+      String[] segments=prefix.substring(1).split("/");
+      int index=0;
+      for(int i=0;i<strip && i<segments.length;i++) index=path.indexOf('/',index+1);
+      path=index<0?"/":path.substring(index);
+    }
+    String pattern=(String)route.get("rewritePattern");
+    String replacement=(String)route.get("rewriteReplacement");
+    if(pattern!=null && replacement!=null && pattern.startsWith("^/") && path.startsWith(pattern.substring(1)))
+      path=replacement+path.substring(pattern.length()-1);
+    return RouteNormalizer.normalizePath(path);
   }
   private static String correlationId(ServerWebExchange exchange) {
     String value = exchange.getRequest().getHeaders().getFirst("X-Correlation-ID");

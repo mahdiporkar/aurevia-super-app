@@ -14,12 +14,22 @@ paths:
     post: {security: [{browserSession: [], csrf: []}], responses: {'200': {description: Registry response}, '403': {description: Admin required}}}
     put: {security: [{browserSession: [], csrf: []}], responses: {'200': {description: Registry response}}}
     delete: {security: [{browserSession: [], csrf: []}], responses: {'204': {description: Mutation accepted}}}
+  /api/v1/admin/service-targets/{id}/health-check:
+    post:
+      security: [{browserSession: [], csrf: []}]
+      parameters: [{in: path, name: id, required: true, schema: {type: string, format: uuid}}]
+      responses: {'200': {description: Server-side check through the fixed Operational Gateway client}, '403': {description: proxy.target permission required}}
   /hr-micro/{path}:
     parameters: [{in: path, name: path, required: true, schema: {type: string}}]
     get: {security: [{browserSession: []}], responses: {'200': {description: Authorized upstream response}, '403': {description: Denied}, '404': {description: Unregistered operation}}}
   /finance-micro/{path}:
     parameters: [{in: path, name: path, required: true, schema: {type: string}}]
     post: {security: [{browserSession: [], csrf: []}], responses: {'200': {description: Authorized upstream response}, '403': {description: Denied}, '413': {description: Body too large}}}
+  /{panelSlug}/{path}:
+    parameters:
+      - {in: path, name: panelSlug, required: true, schema: {type: string}}
+      - {in: path, name: path, required: true, schema: {type: string}}
+    get: {security: [{browserSession: []}], responses: {'200': {description: Dynamically resolved authorized response}, '403': {description: OpenFGA denial}, '404': {description: Inactive or unregistered route/operation}, '409': {description: Ambiguous configuration rejected}}}
 components:
   securitySchemes:
     browserSession: {type: apiKey, in: cookie, name: AUREVIA_SESSION}

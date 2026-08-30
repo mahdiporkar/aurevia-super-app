@@ -23,6 +23,22 @@ paths:
         - {in: query, name: path, required: true, schema: {type: string, pattern: '^/'}}
         - {in: query, name: method, required: true, schema: {type: string}}
       responses: {'200': {description: Resource/action and enforcement limits}, '404': {description: No registered operation}}
+  /internal/v1/registry/service-targets:
+    get: {operationId: listServiceTargets, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Approved gateway targets}}}
+    post: {operationId: createServiceTarget, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'201': {description: Target created}, '400': {description: SSRF or validation rejection}, '409': {description: Duplicate code}}}
+  /internal/v1/registry/proxy-routes:
+    get: {operationId: listProxyRoutes, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Deterministic proxy routes}}}
+    post: {operationId: createProxyRoute, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'201': {description: Route created}, '409': {description: Prefix collision}}}
+  /internal/v1/registry/proxy-routes/validate:
+    post: {operationId: validateProxyRoute, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Canonical prefix}, '400': {description: Unsafe route}, '409': {description: Ambiguous route}}}
+  /internal/v1/registry/proxy-routes/preview:
+    post: {operationId: previewProxyRewrite, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Sanitized incoming and upstream paths}}}
+  /internal/v1/registry/proxy-routes/resolve-test:
+    post: {operationId: testProxyResolution, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Matching route and operation}, '404': {description: No match}, '409': {description: Ambiguous match}}}
+  /internal/v1/registry/proxy-routes/{routeId}/operations:
+    parameters: [{in: path, name: routeId, required: true, schema: {type: string, format: uuid}}]
+    get: {operationId: listRouteOperations, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Route operation mappings}}}
+    post: {operationId: createRouteOperation, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'201': {description: Operation created}, '400': {description: Invalid Resource/Action or pattern}}}
   /internal/v1/registry/grants:
     post:
       operationId: createGrant
