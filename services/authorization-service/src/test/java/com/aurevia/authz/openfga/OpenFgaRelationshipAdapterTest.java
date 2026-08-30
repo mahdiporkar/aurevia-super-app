@@ -20,7 +20,8 @@ class OpenFgaRelationshipAdapterTest {
     @SuppressWarnings("unchecked")
     ValueOperations<String, String> values = mock(ValueOperations.class);
     when(redis.opsForValue()).thenReturn(values);
-    when(values.get(anyString())).thenReturn("1");
+    when(values.get("test:openfga:graph-epoch")).thenReturn("7");
+    when(values.get(org.mockito.ArgumentMatchers.startsWith("test:openfga:7:"))).thenReturn("1");
 
     var adapter = new OpenFgaRelationshipAdapter(client, redis,
         Duration.ofSeconds(5), "test:openfga");

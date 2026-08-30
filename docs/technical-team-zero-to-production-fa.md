@@ -56,7 +56,7 @@ flowchart LR
 
 نسخه‌های پایه:
 
-- Node.js 22.14.0
+- Node.js 22.15.0+ (22.x)
 - npm 10.9.2
 - Java 21
 - Spring Boot 3.5.5

@@ -185,6 +185,15 @@ public class SupersetAssetController {
         .param("tags", "[]")
         .update();
 
+    database.sql("""
+        insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
+        values('resource',:child,'RESOURCE_PARENT_WRITE',
+          jsonb_build_object('user','external_resource:superset-public','relation','parent',
+            'object',:object), 'SUPERSET_PARENT_WRITE:'||:child)
+        """).param("child", resourceId)
+        .param("object", "external_resource:superset-public/"
+            + request.assetType().toLowerCase() + "/" + request.externalId()).update();
+
     return Map.of("id", assetId, "resourceId", resourceId, "resourceKey", resourceKey);
   }
 

@@ -2,7 +2,7 @@ stages: [validate, test, build, security]
 variables: {MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository", npm_config_cache: ".npm"}
 cache: {paths: [.m2/repository, .npm]}
 frontend:
-  image: node:22.14.0-bookworm-slim
+  image: node:22.15.0-bookworm-slim
   stage: test
   script: [npm ci, npm run typecheck, npm test, npm run build, npm audit --omit=dev]
   artifacts: {paths: [apps/*/dist], expire_in: 1 week}

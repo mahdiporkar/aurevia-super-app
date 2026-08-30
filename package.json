@@ -2,7 +2,7 @@
   "name": "aurevia-super-app",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": "22.14.0", "npm": "10.9.2" },
+  "engines": { "node": ">=22.15.0 <23", "npm": "10.9.2" },
   "workspaces": ["apps/*", "packages/*", "tests/e2e"],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
@@ -28,6 +28,6 @@
     "typescript": "5.9.2",
     "webpack": "5.110.1",
     "webpack-cli": "6.0.1",
-    "webpack-dev-server": "5.2.6"
+    "webpack-dev-server": "6.0.0"
   }
 }

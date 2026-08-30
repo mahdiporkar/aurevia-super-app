@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,8 +38,10 @@ public class IdentitySyncController {
         .param("username", identity.username()).param("displayName", identity.displayName())
         .param("email", identity.email()).query(UUID.class).single();
 
-    database.sql("delete from user_group_membership where user_id=:userId")
-        .param("userId", userId).update();
+    Set<UUID> previousGroups = new HashSet<>(database.sql(
+        "select group_id from user_group_membership where user_id=:userId")
+        .param("userId", userId).query(UUID.class).list());
+    Set<UUID> currentGroups = new HashSet<>();
     for (DirectoryGroup group : identity.groups() == null ? List.<DirectoryGroup>of() : identity.groups()) {
       UUID groupId = database.sql("""
           insert into directory_group(issuer, external_id, normalized_path, display_name, sync_at)
@@ -53,6 +57,21 @@ public class IdentitySyncController {
           insert into user_group_membership(user_id, group_id) values (:userId, :groupId)
           on conflict do nothing
           """).param("userId", userId).param("groupId", groupId).update();
+      currentGroups.add(groupId);
+      if (!previousGroups.contains(groupId)) {
+        enqueueMembership(userId, groupId, identity.subject(), group.externalId(),
+            "GROUP_MEMBERSHIP_WRITE");
+      }
+    }
+    for (UUID removed : previousGroups) {
+      if (!currentGroups.contains(removed)) {
+        String groupExternalId = database.sql("select external_id from directory_group where id=:id")
+            .param("id", removed).query(String.class).single();
+        enqueueMembership(userId, removed, identity.subject(), groupExternalId,
+            "GROUP_MEMBERSHIP_DELETE");
+        database.sql("delete from user_group_membership where user_id=:user and group_id=:group")
+            .param("user", userId).param("group", removed).update();
+      }
     }
     return Map.of("userId", userId, "groups", identity.groups() == null ? 0 : identity.groups().size());
   }
@@ -61,6 +80,18 @@ public class IdentitySyncController {
     String normalized = path == null ? "/" : path.trim().replace('\\', '/');
     if (!normalized.startsWith("/")) normalized = "/" + normalized;
     return normalized.replaceAll("/{2,}", "/");
+  }
+
+  private void enqueueMembership(UUID userId, UUID groupId, String subject, String groupExternalId,
+      String event) {
+    database.sql("""
+        insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
+        values('group-membership',:user,:event,
+          jsonb_build_object('user','user:'||:subject,'relation','member',
+            'object','group:'||:groupExternal),
+          :event||':'||:user||':'||:group||':'||gen_random_uuid())
+        """).param("user", userId).param("group", groupId).param("event", event)
+        .param("subject", subject).param("groupExternal", groupExternalId).update();
   }
 
   public record LoginIdentity(@NotBlank String issuer, @NotBlank String subject,

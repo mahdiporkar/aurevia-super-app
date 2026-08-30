@@ -1,0 +1,15 @@
+server:
+  ssl:
+    enabled: true
+    key-store: ${AUTH_TLS_KEYSTORE}
+    key-store-password: ${AUTH_TLS_KEYSTORE_PASSWORD}
+    key-store-type: PKCS12
+    trust-store: ${AUTH_TLS_TRUSTSTORE}
+    trust-store-password: ${AUTH_TLS_TRUSTSTORE_PASSWORD}
+    trust-store-type: PKCS12
+    client-auth: need
+  shutdown: graceful
+spring.lifecycle.timeout-per-shutdown-phase: 30s
+aurevia.internal:
+  authentication-mode: mtls
+  bff-identity: ${AUTH_BFF_CERT_IDENTITY:aurevia-bff}

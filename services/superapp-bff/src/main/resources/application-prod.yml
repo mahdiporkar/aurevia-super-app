@@ -1,0 +1,15 @@
+server:
+  shutdown: graceful
+  reactive.session.cookie:
+    secure: true
+    http-only: true
+    same-site: lax
+spring.lifecycle.timeout-per-shutdown-phase: 30s
+aurevia:
+  authorization-service:
+    authentication-mode: mtls
+    base-url: ${AUTHORIZATION_URL}
+    mtls-key-store: ${AUTH_MTLS_KEYSTORE}
+    mtls-key-store-password: ${AUTH_MTLS_KEYSTORE_PASSWORD}
+    mtls-trust-store: ${AUTH_MTLS_TRUSTSTORE}
+    mtls-trust-store-password: ${AUTH_MTLS_TRUSTSTORE_PASSWORD}

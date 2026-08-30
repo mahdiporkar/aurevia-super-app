@@ -12,7 +12,9 @@ public class StructuredPolicyEvaluator {
     if (clauses == null || context == null) return Result.deny("POLICY_CONTEXT_MISSING");
     try {
       for (Clause c : clauses) {
-        if (!FIELDS.contains(c.field()) || !OPERATORS.contains(c.operator()) || !matches(c, context.get(c.field()))) return Result.deny("POLICY_CONDITION_FAILED");
+        if (!FIELDS.contains(c.field()) || !OPERATORS.contains(c.operator())) return Result.deny("POLICY_SCHEMA_INVALID");
+        if (!context.containsKey(c.field()) || context.get(c.field()) == null) return Result.deny("POLICY_CONTEXT_MISSING");
+        if (!matches(c, context.get(c.field()))) return Result.deny("POLICY_CONDITION_FAILED");
       }
       validateObligations(obligations);
       return new Result(true, "POLICY_ALLOWED", Map.copyOf(obligations == null ? Map.of() : obligations));

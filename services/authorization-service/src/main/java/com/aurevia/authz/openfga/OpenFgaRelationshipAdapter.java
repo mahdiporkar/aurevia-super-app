@@ -19,6 +19,7 @@ class OpenFgaRelationshipAdapter implements RelationshipAuthorizationPort {
   private final StringRedisTemplate redis;
   private final Duration cacheTtl;
   private final String cacheNamespace;
+  private final String graphEpochKey;
 
   OpenFgaRelationshipAdapter(OpenFgaClient client, StringRedisTemplate redis,
       @Value("${aurevia.openfga.cache.ttl:5s}") Duration cacheTtl,
@@ -27,9 +28,21 @@ class OpenFgaRelationshipAdapter implements RelationshipAuthorizationPort {
     this.redis = redis;
     this.cacheTtl = cacheTtl;
     this.cacheNamespace = cacheNamespace;
+    this.graphEpochKey = cacheNamespace + ":graph-epoch";
   }
   @Override public boolean check(String user, String relation, String object) {
-    String key = cacheKey(user, relation, object);
+    String epoch;
+    try {
+      epoch = redis.opsForValue().get(graphEpochKey);
+      if (epoch == null) {
+        Boolean initialized = redis.opsForValue().setIfAbsent(graphEpochKey, "0");
+        epoch = Boolean.TRUE.equals(initialized) ? "0" : redis.opsForValue().get(graphEpochKey);
+      }
+      if (epoch == null) throw new IllegalStateException("Missing authorization graph epoch");
+    } catch (RuntimeException cacheUnavailable) {
+      return directCheck(user, relation, object);
+    }
+    String key = cacheKey(epoch, user, relation, object);
     try {
       String cached = redis.opsForValue().get(key);
       if (cached != null) return "1".equals(cached);
@@ -37,26 +50,29 @@ class OpenFgaRelationshipAdapter implements RelationshipAuthorizationPort {
       // Redis is an acceleration layer; OpenFGA remains the source of truth.
     }
     try {
-      var response = client.check(new ClientCheckRequest().user(user).relation(relation)._object(object)).get();
-      boolean allowed = Boolean.TRUE.equals(response.getAllowed());
+      boolean allowed = directCheck(user, relation, object);
       try {
         redis.opsForValue().set(key, allowed ? "1" : "0", cacheTtl);
       } catch (RuntimeException cacheUnavailable) {
         // A cache write failure must not replace a valid OpenFGA decision.
       }
       return allowed;
-    } catch (Exception unavailable) {
-      // Availability, malformed model, timeout, and missing context all fail closed.
-      return false;
-    }
+    } catch (RuntimeException unavailable) { return false; }
+  }
+
+  private boolean directCheck(String user, String relation, String object) {
+    try {
+      var response = client.check(new ClientCheckRequest().user(user).relation(relation)._object(object)).get();
+      return Boolean.TRUE.equals(response.getAllowed());
+    } catch (Exception unavailable) { return false; }
   }
 
   @Override
   public void write(String user, String relation, String object) {
     try {
+      bumpGraphEpoch();
       client.writeTuples(List.of(new ClientTupleKey()
           .user(user).relation(relation)._object(object))).get();
-      evict(user, relation, object);
     } catch (Exception failure) {
       throw new IllegalStateException("OpenFGA tuple write failed", failure);
     }
@@ -65,6 +81,7 @@ class OpenFgaRelationshipAdapter implements RelationshipAuthorizationPort {
   @Override
   public void delete(String user, String relation, String object) {
     try {
+      bumpGraphEpoch();
       client.deleteTuples(List.of(new ClientTupleKeyWithoutCondition()
           .user(user).relation(relation)._object(object))).get();
     } catch (Exception failure) {
@@ -73,23 +90,24 @@ class OpenFgaRelationshipAdapter implements RelationshipAuthorizationPort {
         throw new IllegalStateException("OpenFGA tuple delete failed", failure);
       }
     }
-    evict(user, relation, object);
   }
 
-  private void evict(String user, String relation, String object) {
+  private void bumpGraphEpoch() {
     try {
-      redis.delete(cacheKey(user, relation, object));
-    } catch (RuntimeException cacheUnavailable) {
-      // The short TTL bounds stale decisions if Redis is temporarily unavailable.
+      Long epoch = redis.opsForValue().increment(graphEpochKey);
+      if (epoch == null) throw new IllegalStateException("Redis did not increment graph epoch");
+    } catch (RuntimeException unavailable) {
+      // Mutating OpenFGA without invalidating inherited decisions is unsafe.
+      throw new IllegalStateException("Authorization cache epoch update failed", unavailable);
     }
   }
 
-  private String cacheKey(String user, String relation, String object) {
+  private String cacheKey(String epoch, String user, String relation, String object) {
     try {
       String tuple = user + '\0' + relation + '\0' + object;
       String digest = HexFormat.of().formatHex(
           MessageDigest.getInstance("SHA-256").digest(tuple.getBytes(StandardCharsets.UTF_8)));
-      return cacheNamespace + ':' + digest;
+      return cacheNamespace + ':' + epoch + ':' + digest;
     } catch (Exception impossible) {
       throw new IllegalStateException("SHA-256 is unavailable", impossible);
     }

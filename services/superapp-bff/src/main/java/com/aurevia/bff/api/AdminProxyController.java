@@ -1,7 +1,7 @@
 package com.aurevia.bff.api;
 
 import java.security.Principal;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,14 +17,8 @@ public class AdminProxyController {
   private final WebClient authorizationClient;
 
   public AdminProxyController(
-      WebClient.Builder builder,
-      @Value("${aurevia.authorization-service.base-url}") String baseUrl,
-      @Value("${aurevia.authorization-service.username}") String username,
-      @Value("${aurevia.authorization-service.password}") String password) {
-    this.authorizationClient = builder
-        .baseUrl(baseUrl)
-        .defaultHeaders(headers -> headers.setBasicAuth(username, password))
-        .build();
+      @Qualifier("authorizationWebClient") WebClient authorizationClient) {
+    this.authorizationClient = authorizationClient;
   }
 
   @RequestMapping("/api/v1/admin/{*path}")

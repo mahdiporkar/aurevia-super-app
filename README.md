@@ -19,7 +19,7 @@ Repository collaboration rules are in [CONTRIBUTING.md](CONTRIBUTING.md) and sec
 
 ## Pinned toolchain
 
-- Node.js 22.14.0 / npm 10.9.2
+- Node.js 22.15.0+ (22.x) / npm 10.9.2
 - Java 21
 - Spring Boot 3.5.5
 - Webpack 5 Module Federation

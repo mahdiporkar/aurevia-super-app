@@ -9,6 +9,9 @@ import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
+import com.aurevia.authz.semantics.AuthorizationSemanticsRegistry;
+import com.aurevia.authz.policy.RuntimePolicyService;
+import com.aurevia.authz.audit.AuthorizationDecisionAuditor;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 @RestController
@@ -16,24 +19,38 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 public class AuthorizationController {
   private final RelationshipAuthorizationPort relationships;
   private final JdbcClient db;
-  public AuthorizationController(RelationshipAuthorizationPort relationships, JdbcClient db) { this.relationships = relationships; this.db=db; }
+  private final AuthorizationSemanticsRegistry semantics;
+  private final RuntimePolicyService policies;
+  private final AuthorizationDecisionAuditor auditor;
+  public AuthorizationController(RelationshipAuthorizationPort relationships, JdbcClient db,
+      AuthorizationSemanticsRegistry semantics, RuntimePolicyService policies,
+      AuthorizationDecisionAuditor auditor) {
+    this.relationships = relationships;
+    this.db = db;
+    this.semantics = semantics;
+    this.policies = policies;
+    this.auditor = auditor;
+  }
   @PostMapping("/authorize/check")
   public Decision check(@Valid @RequestBody CheckRequest request) {
-    boolean allowed = relationships.check("user:" + request.subjectId(),
-        permission(request.action()), request.resource());
-    return new Decision(allowed ? "ALLOW" : "DENY", allowed ? "RELATIONSHIP_ALLOWED" : "NO_RELATIONSHIP", "configured-model", UUID.randomUUID().toString(), Map.of());
+    long started = System.nanoTime();
+    String decisionId = UUID.randomUUID().toString();
+    String permission = semantics.resolveObject(request.resource(), request.action()).permission();
+    boolean relationshipAllowed = relationships.check("user:" + request.subjectId(),
+        permission, request.resource());
+    RuntimePolicyService.Evaluation policy = relationshipAllowed
+        ? policies.evaluate(request.subjectId(), request.resource(), request.action())
+        : new RuntimePolicyService.Evaluation(false, "NOT_EVALUATED", Map.of(), List.of());
+    boolean allowed = relationshipAllowed && policy.allowed();
+    String reason = !relationshipAllowed ? "NO_RELATIONSHIP" : policy.reasonCode();
+    long latencyMs = (System.nanoTime() - started) / 1_000_000;
+    auditor.record(new AuthorizationDecisionAuditor.Record(decisionId, request.subjectId(),
+        request.resource(), request.action(), permission, relationshipAllowed, policy.allowed(),
+        allowed, reason, latencyMs, request.correlationId(), policy.policies()));
+    return new Decision(allowed ? "ALLOW" : "DENY", reason, "configured-model", decisionId,
+        allowed ? policy.obligations() : Map.of());
   }
 
-  private static String permission(String action) {
-    return switch (action) {
-      case "list", "view" -> "can_view";
-      case "create" -> "can_create";
-      case "update", "approve", "reject" -> "can_edit";
-      case "delete" -> "can_delete";
-      case "admin", "manage" -> "can_manage";
-      default -> action.startsWith("can_") ? action : "unsupported_action";
-    };
-  }
 
   @PostMapping("/authorize/check-batch")
   public List<Decision> checkBatch(@RequestBody List<@Valid CheckRequest> requests) {
