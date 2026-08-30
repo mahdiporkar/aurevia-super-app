@@ -1,5 +1,7 @@
 # راهنمای راهبری پویا‌ی Proxy Route
 
+برای backendهایی که endpoint مستقل دریافت token با username/password دارند، راهنمای [تعریف Micro App و سرویس Legacy بدون انتشار نسخه](legacy-service-authentication-fa.md#تعریف-یک-micro-app-از-نوع-legacy-بدون-انتشار-نسخه) را نیز بخوانید. آن سند مرز Token Connection، Secret Store، Auth Profile، Service Target و Operational Gateway را مشخص می‌کند.
+
 ## مدل و مرز امنیتی
 
 مرورگر همیشه درخواست same-origin را به BFF می‌فرستد. هیچ `ServiceTarget` از React فراخوانی نمی‌شود و URL مقصد نیز از request کاربر گرفته نمی‌شود. رابطه‌ی runtime چنین است:

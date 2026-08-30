@@ -15,7 +15,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [Authorization Engine architecture (فارسی)](docs/authorization-engine-fa.md)
 - [Complete architecture and OpenFGA reference (فارسی)](docs/architecture-openfga-complete-fa.md)
 - [Dynamic Proxy Route management guide (فارسی)](docs/dynamic-proxy-routing-fa.md)
-- [Legacy service authentication guide (فارسی)](docs/legacy-service-authentication-fa.md)
+- [Legacy service self-service and authentication guide (فارسی)](docs/legacy-service-authentication-fa.md#تعریف-یک-micro-app-از-نوع-legacy-بدون-انتشار-نسخه)
 - [HR/Finance ERP and OpenFGA resource-tree demo (فارسی)](docs/hr-finance-erp-openfga-demo-fa.md)
 - [Superset routing, access and in-MFE embedding guide (فارسی)](docs/superset-routing-and-embedding-fa.md)
 - [Git governance and repository access (فارسی)](docs/git-governance-fa.md)
