@@ -6,6 +6,19 @@ server:
     same-site: lax
 spring.lifecycle.timeout-per-shutdown-phase: 30s
 aurevia:
+  gateway:
+    require-mtls: true
+    base-url: ${OPERATION_GATEWAY_URL}
+    mtls-key-store: ${GATEWAY_MTLS_KEYSTORE}
+    mtls-key-store-password: ${GATEWAY_MTLS_KEYSTORE_PASSWORD}
+    mtls-trust-store: ${GATEWAY_MTLS_TRUSTSTORE}
+    mtls-trust-store-password: ${GATEWAY_MTLS_TRUSTSTORE_PASSWORD}
+  legacy:
+    allow-insecure-local: false
+    local-secrets.enabled: false
+    token-vault:
+      key-id: ${LEGACY_TOKEN_VAULT_KEY_ID}
+      key-base64: ${LEGACY_TOKEN_VAULT_KEY_BASE64}
   authorization-service:
     authentication-mode: mtls
     base-url: ${AUTHORIZATION_URL}

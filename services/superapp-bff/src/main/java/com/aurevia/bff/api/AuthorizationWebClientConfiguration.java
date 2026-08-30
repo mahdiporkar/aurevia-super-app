@@ -3,7 +3,9 @@ package com.aurevia.bff.api;
 import com.aurevia.bff.proxy.RouteNormalizer;
 import com.aurevia.bff.observability.CorrelationIds;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.channel.ChannelOption;
 import java.io.FileInputStream;
+import java.time.Duration;
 import java.security.KeyStore;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
@@ -16,6 +18,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.ClientRequest;
 import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
+import reactor.netty.resources.ConnectionProvider;
 
 @Configuration
 class AuthorizationWebClientConfiguration {
@@ -36,7 +39,15 @@ class AuthorizationWebClientConfiguration {
       if(correlation.isBlank())return next.exchange(request);
       return next.exchange(ClientRequest.from(request).header(CorrelationIds.HEADER,correlation).build());
     }));
-    if ("basic".equals(mode)) return builder.defaultHeaders(h -> h.setBasicAuth(username,password)).build();
+    ConnectionProvider pool=ConnectionProvider.builder("authorization-service")
+        .maxConnections(100).pendingAcquireMaxCount(250)
+        .pendingAcquireTimeout(Duration.ofSeconds(2)).build();
+    HttpClient client=HttpClient.create(pool).followRedirect(false)
+        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS,3000)
+        .responseTimeout(Duration.ofSeconds(15));
+    if ("basic".equals(mode)) return builder
+        .clientConnector(new ReactorClientHttpConnector(client))
+        .defaultHeaders(h -> h.setBasicAuth(username,password)).build();
     if (!"mtls".equals(mode) || keyStore.isBlank() || trustStore.isBlank()) {
       throw new IllegalStateException("Authorization Service workload mTLS is not configured");
     }
@@ -44,7 +55,7 @@ class AuthorizationWebClientConfiguration {
     TrustManagerFactory trust = trustManagers(trustStore,trustPassword);
     var ssl = SslContextBuilder.forClient().keyManager(keys).trustManager(trust).build();
     return builder.clientConnector(new ReactorClientHttpConnector(
-        HttpClient.create().secure(spec -> spec.sslContext(ssl)))).build();
+        client.secure(spec -> spec.sslContext(ssl)))).build();
   }
 
   private static KeyManagerFactory keyManagers(String path,String password) throws Exception {

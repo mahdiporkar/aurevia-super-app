@@ -3,7 +3,6 @@ package com.aurevia.authz.config;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
@@ -21,12 +20,33 @@ class AdminAuthorizationInterceptor implements HandlerInterceptor {
       throws Exception {
     String actor = request.getHeader("X-Actor");
     String object=resourceFor(request.getRequestURI());
+    String permission=permissionFor(request);
     boolean allowed = actor != null && relationships.check(
-        "user:" + actor, "can_manage", object);
+        "user:" + actor, permission, object);
     if (!allowed) {
-      response.sendError(HttpStatus.FORBIDDEN.value(), "Administrative permission required");
+      response.sendError(HttpStatus.FORBIDDEN.value(),
+          "Administrative permission required: " + permission);
     }
     return allowed;
+  }
+
+  private static String permissionFor(HttpServletRequest request) {
+    String method=request.getMethod();
+    String uri=request.getRequestURI();
+    if ("GET".equals(method) || "HEAD".equals(method)) return "can_view";
+    if ("DELETE".equals(method)) return "can_delete";
+    if ("PUT".equals(method) || "PATCH".equals(method)) return "can_edit";
+    if ("POST".equals(method) && isPrivilegedOperation(uri)) return "can_manage";
+    if ("POST".equals(method)) return "can_create";
+    return "can_manage";
+  }
+
+  private static boolean isPrivilegedOperation(String uri) {
+    return uri.endsWith("/token-test") || uri.endsWith("/connection-test")
+        || uri.endsWith("/invalidate-token") || uri.endsWith("/health")
+        || uri.endsWith("/activate") || uri.endsWith("/deactivate")
+        || uri.endsWith("/validate") || uri.endsWith("/preview")
+        || uri.contains("/assignments") || uri.contains("/grants");
   }
 
   private static String resourceFor(String uri) {

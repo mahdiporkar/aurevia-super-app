@@ -1,5 +1,7 @@
 # Aurevia Super App
 
+> راهنمای مرزهای اعتماد، جریان توکن، کنترل دسترسی و الزامات انتشار Production: [Enterprise Production Readiness (FA)](docs/enterprise-production-readiness-fa.md)
+
 Production-shaped, Persian-first enterprise super-app monorepo. The browser talks only to the same-origin BFF; tokens remain encrypted on the server. Authorization is evaluated by the Authorization Service and OpenFGA. Token Exchange is deliberately absent.
 
 ## Documentation
