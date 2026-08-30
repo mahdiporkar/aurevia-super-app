@@ -7,18 +7,16 @@ import {
 
 type RowData = Record<string, any>;
 type SubjectType = 'USER' | 'GROUP' | 'ROLE';
-const resourceTypes = ['APPLICATION','MODULE','PAGE','UI_COMPONENT','EXTERNAL_RESOURCE','DATA_RESOURCE','DATA_GOVERNANCE_RESOURCE','API_RESOURCE','BUSINESS_RESOURCE'] as const;
+const resourceTypes = ['APPLICATION','MODULE','PAGE','UI_COMPONENT','FIELD','BUSINESS_RESOURCE','EXTERNAL_RESOURCE'] as const;
 type ResourceMeta={label:string;color:string;icon:string;hint:string};
 const typeMeta: Record<string,ResourceMeta> & Record<(typeof resourceTypes)[number],ResourceMeta> = {
   APPLICATION:{label:'اپلیکیشن',color:'purple',icon:'◆',hint:'ریشه یک محصول یا پنل مستقل'},
   MODULE:{label:'ماژول',color:'geekblue',icon:'▦',hint:'یک قابلیت سطح‌بالا در اپلیکیشن'},
   PAGE:{label:'صفحه',color:'blue',icon:'▤',hint:'مسیر یا صفحه قابل مشاهده'},
-  UI_COMPONENT:{label:'کامپوننت',color:'cyan',icon:'◫',hint:'کنترل، فرم یا بخش مستقل UI'},
-  API_RESOURCE:{label:'API',color:'volcano',icon:'⌁',hint:'endpoint یا مجموعه API حفاظت‌شده'},
+  UI_COMPONENT:{label:'بخش محافظت‌شده UI',color:'cyan',icon:'◫',hint:'فقط یک بخش حساس با تصمیم دسترسی مستقل؛ دکمه و گرید معمولی Resource نیست'},
+  FIELD:{label:'فیلد حساس',color:'red',icon:'▥',hint:'فقط فیلدی که entitlement مستقل دارد؛ masking عمومی باید Data Policy باشد'},
   BUSINESS_RESOURCE:{label:'منبع کسب‌وکار',color:'gold',icon:'●',hint:'موجودیت دامنه مانند کارمند یا پرداخت'},
   EXTERNAL_RESOURCE:{label:'منبع خارجی',color:'magenta',icon:'↗',hint:'سامانه، گزارش یا دارایی بیرونی'},
-  DATA_RESOURCE:{label:'منبع داده',color:'gold',icon:'▥',hint:'جدول، مجموعه‌داده یا نمای داده مانند جدول حقوق'},
-  DATA_GOVERNANCE_RESOURCE:{label:'حاکمیت داده',color:'red',icon:'⚖',hint:'سیاست ماسک‌سازی، نگهداری، کیفیت یا مالکیت داده'},
 };
 const relationFor:Record<string,string>={view:'viewer',list:'viewer',create:'creator',update:'editor',approve:'editor',reject:'editor',delete:'deleter',admin:'manager',manage:'manager',share:'sharer',export:'exporter'};
 let csrf:{headerName:string;token:string}|undefined;
@@ -59,8 +57,8 @@ export function AccessStudio(){
   const subjectLabel=(s:RowData)=>subjectType==='USER'?(s.display_name||s.username):subjectType==='GROUP'?s.display_name:(s.name_fa||s.role_key);
 
   const openEditor=(resource?:RowData,parent?:RowData)=>{setEditing(resource);form.setFieldsValue(resource?{
-    resourceKey:resource.resource_key,type:resource.type,parentId:resource.parent_id,nameFa:resource.name_fa,nameEn:resource.name_en,ownerDomain:resource.owner_domain,classification:resource.classification,externalSystem:resource.external_system,externalType:resource.external_type,externalId:resource.external_id,
-  }:{type:parent?'PAGE':'APPLICATION',parentId:parent?.id,classification:'INTERNAL'});setEditorOpen(true)};
+    resourceKey:resource.resource_key,type:resource.type,parentId:resource.parent_id,nameFa:resource.name_fa,nameEn:resource.name_en,ownerDomain:resource.owner_domain,classification:resource.classification,externalSystem:resource.external_system,externalType:resource.external_type,externalId:resource.external_id,source:resource.source,
+  }:{type:parent?'PAGE':'APPLICATION',parentId:parent?.id,classification:'INTERNAL',source:'ADMIN'});setEditorOpen(true)};
   const save=async(values:RowData)=>{try{await api(editing?`/resources/${editing.id}?version=${editing.version}`:'/resources',{method:editing?'PUT':'POST',body:JSON.stringify(values)});message.success('منبع با موفقیت ذخیره شد');setEditorOpen(false);form.resetFields();await load()}catch(reason){message.error((reason as Error).message)}};
   const toggleAction=async(action:RowData,on:boolean)=>{if(!selected)return;try{await api(`/resources/${selected.id}/actions/${action.id}`,{method:on?'PUT':'DELETE'});await load();setSelected((await api('/resource-tree')).map((r:RowData)=>({...r,actions:JSON.parse(r.actions_json??'[]')})).find((r:RowData)=>r.id===selected.id));message.success('عملیات منبع به‌روزرسانی شد')}catch(reason){message.error((reason as Error).message)}};
   const loadGrants=async(type:SubjectType,id:string)=>{setGrantLoading(true);try{setGrants(await api(`/subjects/${type}/${id}/grants`))}catch(reason){setGrants([]);message.error((reason as Error).message)}finally{setGrantLoading(false)}};

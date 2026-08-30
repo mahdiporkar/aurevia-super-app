@@ -15,12 +15,13 @@
 7. [مرجع جامع معماری و OpenFGA](architecture-openfga-complete-fa.md)
 8. [عملیات، تست و عیب‌یابی](operations-fa.md)
 9. [Superset عمومی، عملیاتی، Route و نمایش داخل MFE](superset-routing-and-embedding-fa.md)
-10. [معماری فنی](architecture.md)
-11. [حاکمیت Git و دسترسی](git-governance-fa.md)
-12. [مدل تهدید](threat-model.md)
-13. [نمودار پایگاه داده](er-diagram.md)
-14. [تصمیم‌های معماری](adr/)
-15. [قراردادهای OpenAPI](openapi/)
+10. [معماری Resource Catalog و دو Manifest](resource-catalog-manifest-architecture-fa.md)
+11. [معماری فنی](architecture.md)
+12. [حاکمیت Git و دسترسی](git-governance-fa.md)
+13. [مدل تهدید](threat-model.md)
+14. [نمودار پایگاه داده](er-diagram.md)
+15. [تصمیم‌های معماری](adr/)
+16. [قراردادهای OpenAPI](openapi/)
 
 ## نقشه مستندات
 

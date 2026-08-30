@@ -111,11 +111,14 @@ public class AuthorizationController {
       node.put("actions",permissions.getOrDefault((String)resource.get("resource_key"),List.of()));return node;
     }).toList();
     String version="manifest-"+Integer.toHexString((panels.toString()+permissions+resourceTree).hashCode());
-    return ResponseEntity.ok().eTag("\""+version+"\"").cacheControl(org.springframework.http.CacheControl.noCache()).body(new Manifest(version, Instant.now().plusSeconds(60), List.copyOf(panels), permissions,resourceTree));
+    return ResponseEntity.ok().eTag("\""+version+"\"").cacheControl(org.springframework.http.CacheControl.noCache()).body(new Manifest(
+        "EFFECTIVE_USER_MANIFEST",Map.of("type","user","id",id),version,
+        Instant.now().plusSeconds(60), List.copyOf(panels), permissions,resourceTree));
   }
 
   public record CheckRequest(@NotBlank String subjectId, @NotBlank String issuer,
       @NotBlank String resource, @NotBlank String action, Map<String,Object> context, @NotBlank String correlationId) {}
   public record Decision(String result, String reasonCode, String modelVersion, String decisionId, Map<String,Object> obligations) {}
-  public record Manifest(String version, Instant expiresAt, List<Object> panels, Map<String,List<String>> permissions,List<Map<String,Object>> resourceTree) {}
+  public record Manifest(String manifestType,Map<String,String> subject,String version, Instant expiresAt,
+      List<Object> panels, Map<String,List<String>> permissions,List<Map<String,Object>> resourceTree) {}
 }

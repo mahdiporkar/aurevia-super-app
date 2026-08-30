@@ -227,8 +227,8 @@ function HrApplication({ context }: { context: RemoteContext }) {
               <Card
                 extra={
                   <SHAction
-                    resource="component:hr.employee.create-button"
-                    action="view"
+                    resource="business:hr.employee"
+                    action="create"
                     mode="disable"
                   >
                     <Button type="primary" onClick={() => open()}>
@@ -237,7 +237,7 @@ function HrApplication({ context }: { context: RemoteContext }) {
                   </SHAction>
                 }
               >
-                <SHAction resource="component:hr.employee.grid" action="view">
+                <SHAction resource="page:hr.employee.list" action="view">
                 <Table
                   rowKey="id"
                   dataSource={employees}
@@ -259,7 +259,7 @@ function HrApplication({ context }: { context: RemoteContext }) {
                     {
                       title: "",
                       render: (_, row) => (
-                        <SHAction resource="hr.employee" action="update">
+                        <SHAction resource="business:hr.employee" action="update">
                           <Button onClick={() => open(row)}>{copy.edit}</Button>
                         </SHAction>
                       ),
@@ -352,7 +352,7 @@ function HrApplication({ context }: { context: RemoteContext }) {
           </Form.Item>
           <Form.Item name="salary" label="حقوق">
             <SHAction
-              resource="component:hr.employee.salary-field"
+              resource="field:hr.employee.salary-amount"
               action="view"
               mode="readOnly"
             >
