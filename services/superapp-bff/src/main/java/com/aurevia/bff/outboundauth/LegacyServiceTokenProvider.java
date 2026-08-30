@@ -1,0 +1,3 @@
+package com.aurevia.bff.outboundauth;
+import org.springframework.stereotype.Component;import reactor.core.publisher.Mono;
+@Component public class LegacyServiceTokenProvider implements OutboundTokenProvider {private final LegacyTokenManager manager;LegacyServiceTokenProvider(LegacyTokenManager m){manager=m;}public Mono<OutboundCredential> resolve(ServiceTarget t,AuthenticatedSession s,RequestContext c){return manager.resolve(t);}public Mono<Void> invalidate(ServiceTarget t,InvalidationReason r){return manager.invalidate(t);}public boolean supports(OutboundAuthMode m){return m==OutboundAuthMode.LEGACY_SERVICE_TOKEN;}}

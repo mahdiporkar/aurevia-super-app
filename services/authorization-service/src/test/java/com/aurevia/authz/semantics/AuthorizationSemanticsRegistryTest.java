@@ -29,6 +29,8 @@ class AuthorizationSemanticsRegistryTest {
         Arguments.of("RESOURCE", "view", "viewer", "can_view"),
         Arguments.of("BUSINESS_RESOURCE", "create", "creator", "can_create"),
         Arguments.of("API_RESOURCE", "update", "editor", "can_edit"),
+        Arguments.of("DATA_RESOURCE", "view", "viewer", "can_view"),
+        Arguments.of("DATA_GOVERNANCE_RESOURCE", "admin", "manager", "can_manage"),
         Arguments.of("RESOURCE", "approve", "editor", "can_edit"),
         Arguments.of("RESOURCE", "reject", "editor", "can_edit"),
         Arguments.of("RESOURCE", "delete", "deleter", "can_delete"),

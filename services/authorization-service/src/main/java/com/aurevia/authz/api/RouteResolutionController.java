@@ -36,10 +36,13 @@ public class RouteResolutionController {
           ro.authorization_required as "authorizationRequired",ro.data_policy_key as "dataPolicyKey",
           ro.max_body_bytes as "maxBodyBytes",st.connect_timeout_ms as "connectTimeoutMs",
           st.response_timeout_ms as "responseTimeoutMs",st.max_response_size as "maxResponseBytes"
+          ,ap.id as "authProfileId",ap.auth_mode as "authMode",ap.version as "authProfileVersion",
+          ap.credential_transport as "credentialTransport"
         from proxy_route pr join panel p on p.id=pr.panel_id
         join service_target st on st.id=pr.service_target_id
+        join outbound_auth_profile ap on ap.id=st.outbound_auth_profile_id
         join route_operation ro on ro.proxy_route_id=pr.id
-        where p.active and pr.active and st.active and ro.active and ro.http_method=:method
+        where p.active and pr.active and st.active and ap.active and ro.active and ro.http_method=:method
         """).param("method",verb).query(Candidate.class).list();
     List<Candidate> matched=rows.stream().filter(r -> prefixMatch(canonical,r.normalizedPrefix()))
         .filter(r -> java.util.Arrays.asList(r.allowedMethods().split(",")).contains(verb))
@@ -62,7 +65,8 @@ public class RouteResolutionController {
         selected.rewritePattern(),selected.rewriteReplacement(),selected.resourceId(),selected.resourceKey(),
         selected.actionKey(),selected.authorizationRequired(),selected.dataPolicyKey(),selected.maxBodyBytes(),
         selected.connectTimeoutMs(),selected.responseTimeoutMs(),selected.maxResponseBytes(),selected.retryEnabled(),
-        selected.maxRetries(),selected.tlsProfileRef());
+        selected.maxRetries(),selected.tlsProfileRef(),selected.authProfileId(),selected.authMode(),
+        selected.authProfileVersion(),selected.credentialTransport());
   }
 
   private static boolean prefixMatch(String path,String prefix){String bare=prefix.equals("/")?"/":prefix.substring(0,prefix.length()-1);return path.equals(bare)||path.startsWith(prefix);}
@@ -72,12 +76,14 @@ public class RouteResolutionController {
       int maxRetries,UUID panelId,String panelSlug,UUID targetId,String targetKey,String tlsProfileRef,
       UUID operationId,String pathPattern,UUID resourceId,String resourceKey,String actionKey,
       boolean authorizationRequired,String dataPolicyKey,long maxBodyBytes,int connectTimeoutMs,
-      int responseTimeoutMs,long maxResponseBytes) {}
+      int responseTimeoutMs,long maxResponseBytes,UUID authProfileId,String authMode,
+      long authProfileVersion,String credentialTransport) {}
   public record RouteResolution(UUID routeId,UUID operationId,UUID panelId,String panelSlug,String routeKey,
       String pathPrefix,UUID targetId,String targetKey,int stripPrefix,String rewritePattern,
       String rewriteReplacement,UUID resourceId,String resourceKey,String actionKey,
       boolean authorizationRequired,String dataPolicyKey,long maxBodyBytes,int connectTimeoutMs,
-      int responseTimeoutMs,long maxResponseBytes,boolean retryEnabled,int maxRetries,String tlsProfileRef) {}
+      int responseTimeoutMs,long maxResponseBytes,boolean retryEnabled,int maxRetries,String tlsProfileRef,
+      UUID authProfileId,String authMode,long authProfileVersion,String credentialTransport) {}
   @ResponseStatus(HttpStatus.NOT_FOUND) static class RouteNotFoundException extends RuntimeException {}
   @ResponseStatus(HttpStatus.BAD_REQUEST) static class InvalidRouteException extends RuntimeException {}
   @ResponseStatus(HttpStatus.CONFLICT) static class AmbiguousRouteException extends RuntimeException {}

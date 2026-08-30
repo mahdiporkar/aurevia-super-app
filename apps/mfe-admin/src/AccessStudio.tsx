@@ -7,7 +7,7 @@ import {
 
 type RowData = Record<string, any>;
 type SubjectType = 'USER' | 'GROUP' | 'ROLE';
-const resourceTypes = ['APPLICATION','MODULE','PAGE','UI_COMPONENT','API_RESOURCE','BUSINESS_RESOURCE','EXTERNAL_RESOURCE'] as const;
+const resourceTypes = ['APPLICATION','MODULE','PAGE','UI_COMPONENT','EXTERNAL_RESOURCE','DATA_RESOURCE','DATA_GOVERNANCE_RESOURCE','API_RESOURCE','BUSINESS_RESOURCE'] as const;
 type ResourceMeta={label:string;color:string;icon:string;hint:string};
 const typeMeta: Record<string,ResourceMeta> & Record<(typeof resourceTypes)[number],ResourceMeta> = {
   APPLICATION:{label:'اپلیکیشن',color:'purple',icon:'◆',hint:'ریشه یک محصول یا پنل مستقل'},
@@ -17,6 +17,8 @@ const typeMeta: Record<string,ResourceMeta> & Record<(typeof resourceTypes)[numb
   API_RESOURCE:{label:'API',color:'volcano',icon:'⌁',hint:'endpoint یا مجموعه API حفاظت‌شده'},
   BUSINESS_RESOURCE:{label:'منبع کسب‌وکار',color:'gold',icon:'●',hint:'موجودیت دامنه مانند کارمند یا پرداخت'},
   EXTERNAL_RESOURCE:{label:'منبع خارجی',color:'magenta',icon:'↗',hint:'سامانه، گزارش یا دارایی بیرونی'},
+  DATA_RESOURCE:{label:'منبع داده',color:'gold',icon:'▥',hint:'جدول، مجموعه‌داده یا نمای داده مانند جدول حقوق'},
+  DATA_GOVERNANCE_RESOURCE:{label:'حاکمیت داده',color:'red',icon:'⚖',hint:'سیاست ماسک‌سازی، نگهداری، کیفیت یا مالکیت داده'},
 };
 const relationFor:Record<string,string>={view:'viewer',list:'viewer',create:'creator',update:'editor',approve:'editor',reject:'editor',delete:'deleter',admin:'manager',manage:'manager',share:'sharer',export:'exporter'};
 let csrf:{headerName:string;token:string}|undefined;

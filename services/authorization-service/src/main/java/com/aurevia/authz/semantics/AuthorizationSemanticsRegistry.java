@@ -82,7 +82,8 @@ public final class AuthorizationSemanticsRegistry {
       if (normalized.equals("EXTERNAL_RESOURCE")) return EXTERNAL_RESOURCE;
       if (normalized.equals("RESOURCE") || normalized.equals("MODULE")
           || normalized.equals("PAGE") || normalized.equals("UI_COMPONENT")
-          || normalized.equals("API_RESOURCE") || normalized.equals("BUSINESS_RESOURCE")) {
+          || normalized.equals("API_RESOURCE") || normalized.equals("BUSINESS_RESOURCE")
+          || normalized.equals("DATA_RESOURCE") || normalized.equals("DATA_GOVERNANCE_RESOURCE")) {
         return RESOURCE;
       }
       throw new IllegalArgumentException("Unsupported OpenFGA object type: " + value);

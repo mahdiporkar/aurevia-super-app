@@ -4,6 +4,7 @@ import com.aurevia.bff.proxy.RouteNormalizer;
 import com.aurevia.bff.security.TokenRefreshService;
 import com.aurevia.bff.security.TokenVaultService;
 import com.aurevia.bff.security.VaultLogoutHandler;
+import com.aurevia.bff.outboundauth.*;
 import java.security.Principal;
 import java.time.Duration;
 import java.util.Map;
@@ -29,14 +30,17 @@ public class OperationalProxyController {
   private final TokenVaultService vault;
   private final TokenRefreshService tokenRefresh;
   private final WebClient gateway;
+  private final java.util.List<OutboundTokenProvider> outboundProviders;
 
   public OperationalProxyController(AuthorizationServiceClient authorization,
       TokenVaultService vault, TokenRefreshService tokenRefresh,
-      @Qualifier("operationGatewayClient") WebClient gateway) {
+      @Qualifier("operationGatewayClient") WebClient gateway,
+      java.util.List<OutboundTokenProvider> outboundProviders) {
     this.authorization = authorization;
     this.vault = vault;
     this.tokenRefresh = tokenRefresh;
     this.gateway = gateway;
+    this.outboundProviders=outboundProviders;
   }
 
   @RequestMapping("/{panelSlug}/{*path}")
@@ -78,13 +82,28 @@ public class OperationalProxyController {
     long maxBody = ((Number) route.get("maxBodyBytes")).longValue();
     if (declaredLength > maxBody || maxBody > Integer.MAX_VALUE) return Mono.error(new ResponseStatusException(
         HttpStatus.PAYLOAD_TOO_LARGE));
-    return readBody(exchange, (int) maxBody).flatMap(body ->
-        call(route, tokens.accessToken(), exchange, body, subject)
+    OutboundAuthMode mode=OutboundAuthMode.valueOf(String.valueOf(route.get("authMode")));
+    OutboundTokenProvider provider=outboundProviders.stream().filter(p->p.supports(mode)).findFirst()
+        .orElseThrow(()->new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Outbound authentication unavailable"));
+    var target=new OutboundTokenProvider.ServiceTarget(String.valueOf(route.get("targetId")),String.valueOf(route.get("authProfileId")),mode,((Number)route.get("authProfileVersion")).longValue());
+    var session=new OutboundTokenProvider.AuthenticatedSession(subject,tokens.accessToken());
+    var context=new OutboundTokenProvider.RequestContext(correlationId(exchange),String.valueOf(route.get("routeId")),String.valueOf(route.get("operationId")));
+    return readBody(exchange, (int) maxBody).flatMap(body -> provider.resolve(target,session,context).flatMap(credential->
+        call(route, tokens.accessToken(), credential, exchange, body, subject)
             .flatMap(first -> first.status().value() == 401
-                ? tokenRefresh.refresh(handle, tokens)
-                    .flatMap(refreshed -> call(route, refreshed.accessToken(), exchange, body, subject))
-                : Mono.just(first))
+                ? retryOnce(route,handle,tokens,provider,target,session,context,credential,exchange,body,subject)
+                : Mono.just(first)))
             .flatMap(response -> writeResponse(route, response, exchange)));
+  }
+
+  private Mono<UpstreamResponse> retryOnce(Map route,String handle,TokenVaultService.Tokens tokens,
+      OutboundTokenProvider provider,OutboundTokenProvider.ServiceTarget target,
+      OutboundTokenProvider.AuthenticatedSession session,OutboundTokenProvider.RequestContext context,
+      OutboundCredential rejected,ServerWebExchange exchange,byte[] body,String subject){
+    if(rejected.legacy())return provider.invalidate(target,OutboundTokenProvider.InvalidationReason.UPSTREAM_REJECTED)
+        .then(provider.resolve(target,session,context)).flatMap(fresh->call(route,tokens.accessToken(),fresh,exchange,body,subject));
+    return tokenRefresh.refresh(handle,tokens).flatMap(refreshed->call(route,refreshed.accessToken(),
+        new OutboundCredential("Bearer",refreshed.accessToken(),false),exchange,body,subject));
   }
 
   private Mono<byte[]> readBody(ServerWebExchange exchange, int maxBody) {
@@ -100,14 +119,16 @@ public class OperationalProxyController {
             error -> new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE));
   }
 
-  private Mono<UpstreamResponse> call(Map route, String accessToken,
+  private Mono<UpstreamResponse> call(Map route, String publicAccessToken, OutboundCredential outbound,
       ServerWebExchange exchange, byte[] body, String subject) {
     String query = exchange.getRequest().getURI().getRawQuery();
     String uri = upstreamPath(route,exchange.getRequest().getPath().value())
         + (query == null ? "" : "?" + query);
     var request = gateway.method(exchange.getRequest().getMethod()).uri(uri)
         .headers(headers -> {
-          headers.setBearerAuth(accessToken);
+          headers.remove("X-Internal-Legacy-Authorization");
+          headers.setBearerAuth(publicAccessToken);
+          if(outbound.legacy())headers.set("X-Internal-Legacy-Authorization",outbound.scheme()+" "+outbound.token());
           copy(exchange.getRequest().getHeaders(), headers, HttpHeaders.ACCEPT);
           copy(exchange.getRequest().getHeaders(), headers, HttpHeaders.CONTENT_TYPE);
           headers.set("X-Correlation-ID", correlationId(exchange));

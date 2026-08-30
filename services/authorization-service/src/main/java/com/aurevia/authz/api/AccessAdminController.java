@@ -14,7 +14,7 @@ import com.aurevia.authz.observability.AuditTrail;
 
 @RestController @RequestMapping("/internal/v1/registry")
 public class AccessAdminController {
- private static final Set<String> RESOURCE_TYPES=Set.of("APPLICATION","MODULE","PAGE","UI_COMPONENT","API_RESOURCE","BUSINESS_RESOURCE","EXTERNAL_RESOURCE");
+ private static final Set<String> RESOURCE_TYPES=Set.of("APPLICATION","MODULE","PAGE","UI_COMPONENT","API_RESOURCE","BUSINESS_RESOURCE","EXTERNAL_RESOURCE","DATA_RESOURCE","DATA_GOVERNANCE_RESOURCE");
  private final JdbcClient db; private final AuthorizationSemanticsRegistry semantics;private final AuditTrail auditTrail;
  public AccessAdminController(JdbcClient db,AuthorizationSemanticsRegistry semantics,AuditTrail auditTrail){this.db=db;this.semantics=semantics;this.auditTrail=auditTrail;}
  @GetMapping("/resource-types") public Set<String> resourceTypes(){return RESOURCE_TYPES;}

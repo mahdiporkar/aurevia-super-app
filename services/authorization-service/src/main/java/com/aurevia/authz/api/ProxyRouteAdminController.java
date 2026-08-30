@@ -56,9 +56,9 @@ public class ProxyRouteAdminController {
     URI uri=validateGateway(request.gatewayBaseUrl());UUID id=UUID.randomUUID();
     db.sql("""
         insert into service_target(id,code,name,description,gateway_base_url,upstream_base_path,environment,
-        tls_profile_ref,secret_ref,health_check_path,connect_timeout_ms,response_timeout_ms,max_response_size,active,created_by,updated_by)
+        tls_profile_ref,secret_ref,health_check_path,connect_timeout_ms,response_timeout_ms,max_response_size,outbound_auth_profile_id,active,created_by,updated_by)
         values(:id,:code,:name,nullif(:description,''),:url,:upstream,:environment,nullif(:tls,''),nullif(:secret,''),
-        :health,:connect,:response,:size,:active,:actor,:actor)
+        :health,:connect,:response,:size,coalesce(cast(:authProfile as uuid),(select id from outbound_auth_profile where code='public-iam-forward')),:active,:actor,:actor)
         """)
       .param("id",id).param("code",code(request.code())).param("name",limit(request.name(),255))
       .param("description",nullable(request.description())).param("url",uri.toString())
@@ -66,6 +66,7 @@ public class ProxyRouteAdminController {
       .param("tls",reference(request.tlsProfileRef())).param("secret",reference(request.secretRef()))
       .param("health",RoutePathPolicy.path(request.healthCheckPath())).param("connect",request.connectTimeoutMs())
       .param("response",request.responseTimeoutMs()).param("size",request.maxResponseSize())
+      .param("authProfile",request.outboundAuthProfileId()==null?null:request.outboundAuthProfileId().toString())
       .param("active",request.active()).param("actor",limit(actor,255)).update();
     audit.success("PROXY_ROUTE","proxy.target.created",null,null,"SERVICE_TARGET",id.toString(),request.code(),"CREATE",null,safeTarget(request));
     return target(id);
@@ -79,6 +80,7 @@ public class ProxyRouteAdminController {
         update service_target set code=:code,name=:name,description=nullif(:description,''),gateway_base_url=:url,
         upstream_base_path=:upstream,environment=:environment,tls_profile_ref=nullif(:tls,''),secret_ref=nullif(:secret,''),
         health_check_path=:health,connect_timeout_ms=:connect,response_timeout_ms=:response,max_response_size=:size,
+        outbound_auth_profile_id=coalesce(cast(:authProfile as uuid),outbound_auth_profile_id),
         active=:active,version=version+1,updated_at=now(),updated_by=:actor where id=:id and version=:version
         """)
       .param("code",code(request.code())).param("name",limit(request.name(),255)).param("description",nullable(request.description()))
@@ -86,7 +88,7 @@ public class ProxyRouteAdminController {
       .param("environment",code(request.environment())).param("tls",reference(request.tlsProfileRef()))
       .param("secret",reference(request.secretRef())).param("health",RoutePathPolicy.path(request.healthCheckPath()))
       .param("connect",request.connectTimeoutMs()).param("response",request.responseTimeoutMs())
-      .param("size",request.maxResponseSize()).param("active",request.active()).param("actor",limit(actor,255))
+      .param("size",request.maxResponseSize()).param("authProfile",request.outboundAuthProfileId()==null?null:request.outboundAuthProfileId().toString()).param("active",request.active()).param("actor",limit(actor,255))
       .param("id",id).param("version",version).update();
     optimistic(changed);Map<String,Object> after=target(id);
     audit.success("PROXY_ROUTE","proxy.target.updated",null,null,"SERVICE_TARGET",id.toString(),request.code(),"UPDATE",before,after);
@@ -211,7 +213,7 @@ public class ProxyRouteAdminController {
   public record TargetWrite(@NotBlank String code,@NotBlank String name,String description,@NotBlank String gatewayBaseUrl,
       @NotBlank String upstreamBasePath,@NotBlank String environment,String tlsProfileRef,String secretRef,
       @NotBlank String healthCheckPath,@Min(100) @Max(30000) int connectTimeoutMs,@Min(100) @Max(120000) int responseTimeoutMs,
-      @Min(1024) @Max(104857600) long maxResponseSize,boolean active){}
+      @Min(1024) @Max(104857600) long maxResponseSize,UUID outboundAuthProfileId,boolean active){}
   public record RouteWrite(@NotBlank String code,UUID panelId,UUID serviceTargetId,@NotBlank String pathPrefix,
       @Min(0) @Max(20) int stripPrefix,String rewritePattern,String rewriteReplacement,@Min(-1000) @Max(1000) int priority,
       @NotEmpty List<String> allowedMethods,boolean preserveHost,boolean retryEnabled,@Min(0) @Max(3) int maxRetries,boolean active){}

@@ -70,6 +70,16 @@ paths:
   /internal/v1/registry/role-assignments:
     get: {operationId: listRoleAssignments, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Assignments}}}
     post: {operationId: assignRole, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'201': {description: Role assigned}}}
+  /internal/v1/registry/outbound-auth-profiles:
+    get: {operationId: listOutboundAuthProfiles, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'200': {description: Sanitized profile metadata}}}
+    post: {operationId: createOutboundAuthProfile, parameters: [{$ref: '#/components/parameters/Actor'}], responses: {'201': {description: Profile created}, '400': {description: Unsafe metadata rejected}}}
+  /internal/v1/registry/outbound-auth-profiles/{id}:
+    get: {operationId: getOutboundAuthProfile, parameters: [{$ref: '#/components/parameters/Actor'}, {in: path, name: id, required: true, schema: {type: string, format: uuid}}], responses: {'200': {description: Profile metadata}}}
+    put: {operationId: updateOutboundAuthProfile, parameters: [{$ref: '#/components/parameters/Actor'}, {in: path, name: id, required: true, schema: {type: string, format: uuid}}, {in: query, name: version, required: true, schema: {type: integer, format: int64}}], responses: {'200': {description: Optimistic update}, '409': {description: Version conflict}}}
+  /internal/v1/registry/outbound-auth-profiles/{id}/status:
+    patch: {operationId: changeOutboundAuthProfileStatus, parameters: [{$ref: '#/components/parameters/Actor'}, {in: path, name: id, required: true, schema: {type: string, format: uuid}}, {in: query, name: version, required: true, schema: {type: integer, format: int64}}], responses: {'200': {description: Status changed}}}
+  /internal/v1/registry/outbound-auth-profiles/{id}/usage:
+    get: {operationId: outboundAuthProfileUsage, parameters: [{$ref: '#/components/parameters/Actor'}, {in: path, name: id, required: true, schema: {type: string, format: uuid}}], responses: {'200': {description: Referencing targets}}}
 components:
   securitySchemes:
     workloadIdentity: {type: http, scheme: basic, description: Local bootstrap; production requires mTLS.}

@@ -43,4 +43,16 @@ aurevia:
     base-url: ${OPERATION_GATEWAY_URL:http://operation-gateway:80}
     mtls-key-store: ${GATEWAY_MTLS_KEYSTORE:}
     mtls-key-store-password: ${GATEWAY_MTLS_KEYSTORE_PASSWORD:}
+  legacy:
+    environment: ${LEGACY_ENVIRONMENT:local}
+    allow-insecure-local: ${LEGACY_ALLOW_INSECURE_LOCAL:false}
+    token-connection:
+      ref: ${LEGACY_TOKEN_CONNECTION_REF:connection://disabled}
+      base-url: ${LEGACY_TOKEN_CONNECTION_URL:https://invalid.invalid}
+    local-secrets:
+      enabled: ${LEGACY_LOCAL_SECRETS_ENABLED:false}
+      json: ${LEGACY_LOCAL_SECRETS_JSON:{}}
+    token-vault:
+      key-id: ${LEGACY_TOKEN_VAULT_KEY_ID:${TOKEN_VAULT_KEY_ID:missing}}
+      key-base64: ${LEGACY_TOKEN_VAULT_KEY_BASE64:${TOKEN_VAULT_KEY_BASE64:missing}}
 # No token exchange is configured or permitted. The outbound adapter forwards the current Public IAM token unchanged.

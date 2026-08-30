@@ -19,6 +19,12 @@ paths:
       security: [{browserSession: [], csrf: []}]
       parameters: [{in: path, name: id, required: true, schema: {type: string, format: uuid}}]
       responses: {'200': {description: Server-side check through the fixed Operational Gateway client}, '403': {description: proxy.target permission required}}
+  /api/v1/admin/outbound-auth-profiles/{id}/token-test:
+    post: {security: [{browserSession: [], csrf: []}], parameters: [{in: path, name: id, required: true, schema: {type: string, format: uuid}}], responses: {'200': {description: Sanitized result only; token is never returned}, '502': {description: Sanitized failure}}}
+  /api/v1/admin/outbound-auth-profiles/{id}/invalidate-token:
+    post: {security: [{browserSession: [], csrf: []}], parameters: [{in: path, name: id, required: true, schema: {type: string, format: uuid}}], responses: {'200': {description: Encrypted Legacy token cache invalidated}}}
+  /api/v1/admin/outbound-auth-profiles/{id}/cache-status:
+    get: {security: [{browserSession: []}], parameters: [{in: path, name: id, required: true, schema: {type: string, format: uuid}}], responses: {'200': {description: Boolean status only}}}
   /hr-micro/{path}:
     parameters: [{in: path, name: path, required: true, schema: {type: string}}]
     get: {security: [{browserSession: []}], responses: {'200': {description: Authorized upstream response}, '403': {description: Denied}, '404': {description: Unregistered operation}}}

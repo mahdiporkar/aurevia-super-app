@@ -30,6 +30,7 @@ class AdminAuthorizationInterceptor implements HandlerInterceptor {
   }
 
   private static String resourceFor(String uri) {
+    if(uri.contains("/outbound-auth-profiles")) return "resource:integration.auth-profile";
     if(uri.contains("/service-targets")) return "resource:proxy.target";
     if(uri.contains("/proxy-routes/") && uri.contains("/operations")) return "resource:proxy.operation";
     if(uri.contains("/proxy-routes")) return "resource:proxy.route";

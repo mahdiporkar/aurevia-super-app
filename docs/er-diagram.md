@@ -13,6 +13,7 @@ erDiagram
   ACTION ||--o{ RESOURCE_ACTION : binds
   PANEL ||--o{ PROXY_ROUTE : owns
   SERVICE_TARGET ||--o{ PROXY_ROUTE : serves
+  OUTBOUND_AUTH_PROFILE ||--o{ SERVICE_TARGET : authenticates
   PROXY_ROUTE ||--o{ ROUTE_OPERATION : maps
   RESOURCE ||--o{ ROUTE_OPERATION : protects
   ACTION ||--o{ ROUTE_OPERATION : requires
