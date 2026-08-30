@@ -16,6 +16,79 @@ Gateway و سرویس‌های عملیاتی را توضیح می‌دهد. س�
 مرورگر هیچ Access Token یا Refresh Token دریافت نمی‌کند. JavaScript فقط cookie
 نشست opaque و `HttpOnly` را به BFF می‌فرستد.
 
+## تفاوت Session مرورگر با توکن Keycloak
+
+Session میان Frontend و Java BFF همان Access Token یا Refresh Token صادرشده توسط
+Keycloak نیست. مرورگر فقط cookie زیر را نگه می‌دارد:
+
+```http
+Set-Cookie: AUREVIA_SESSION=<opaque-random-session-id>; HttpOnly; Secure; SameSite=Lax
+```
+
+مقدار `AUREVIA_SESSION` یک شناسه opaque برای پیدا کردن نشست server-side است و
+claim، JWT payload، Access Token یا Refresh Token داخل آن قرار ندارد. تنظیمات
+فعلی عبارت‌اند از:
+
+```yaml
+server:
+  reactive.session.cookie:
+    name: AUREVIA_SESSION
+    http-only: true
+    secure: true
+    same-site: lax
+spring:
+  session:
+    timeout: 30m
+    redis.namespace: aurevia:session
+```
+
+چهار داده مستقل در این جریان وجود دارد:
+
+| داده | محل | مسئولیت |
+|---|---|---|
+| `AUREVIA_SESSION` | Cookie مرورگر | پیدا کردن نشست BFF |
+| Security Context و attributeهای Session | Redis با namespace `aurevia:session` | هویت احراز‌شده و وضعیت نشست |
+| `TOKEN_VAULT_HANDLE` | attribute داخل Session server-side | اشاره به رکورد Token Vault |
+| Access/Refresh Token | Redis با namespace `aurevia:token-vault` و به‌شکل رمزنگاری‌شده | تماس server-side با IAM و سرویس عملیاتی |
+
+`TOKEN_VAULT_HANDLE` نیز یک UUID تصادفی است، اما به مرورگر داده نمی‌شود. این handle
+در Session سمت سرور قرار می‌گیرد و BFF از روی آن رکورد رمزنگاری‌شده Token Vault را
+می‌خواند:
+
+```text
+Browser
+  └── AUREVIA_SESSION=<opaque id>
+        └── Redis server session
+              └── TOKEN_VAULT_HANDLE=<random UUID>
+                    └── encrypted access/refresh token record
+```
+
+در پایان Login، BFF بعد از ذخیره توکن‌ها `session.changeSessionId()` را اجرا می‌کند
+تا شناسه قبل از احراز هویت قابل reuse نباشد و ریسک Session Fixation کاهش یابد.
+
+در Logout، BFF به‌ترتیب رکورد Token Vault را حذف، Session را invalidate و cookie
+نشست Operation Superset را منقضی می‌کند. انقضای عادی Session نیز در تنظیم فعلی ۳۰
+دقیقه است؛ رکورد Vault TTL مستقل و محدود به عمر credential است.
+
+### نکته امنیتی مهم
+
+تصادفی و opaque بودن `AUREVIA_SESSION` به معنی غیرحساس بودن آن نیست. این Cookie
+credential نشست کاربر است و سرقت آن می‌تواند تا زمان انقضا یا Logout باعث Session
+Hijacking شود. به همین دلیل:
+
+- Cookie باید همواره `HttpOnly`، `Secure` و دارای `SameSite` مناسب باشد؛
+- Production فقط روی HTTPS ارائه شود؛
+- mutationهای same-origin همچنان CSRF protection داشته باشند؛
+- Session ID، Token Vault Handle و tokenها نباید log یا trace شوند؛
+- پس از Login، تغییر سطح حساس دسترسی یا رخداد امنیتی باید rotation/invalidation
+  نشست در نظر گرفته شود؛
+- Redis Session و Redis Token Vault نباید از شبکه مرورگر یا سرویس عملیاتی قابل
+  دسترس باشند.
+
+بنابراین `AUREVIA_SESSION` صرفاً «یک JWT دیگر» نیست؛ یک شناسه تصادفی برای نشست
+احراز‌شده server-side است، اما خود آن همچنان باید مانند secret کوتاه‌عمر محافظت
+شود.
+
 ## چرخه توکن Public IAM
 
 پس از موفقیت Authorization Code Flow، `OidcLoginSuccessHandler`، Access Token و
@@ -189,4 +262,3 @@ object/relation را به OpenFGA check تبدیل می‌کند.
 | WebClient و mTLS Gateway | `GatewayWebClientConfiguration.java` |
 | Proxy بدون Keycloak token برای Superset | `OperationSupersetProxyController.java` |
 | تبدیل header Legacy و انتقال هویت Superset | `infra/mock-operation/gateway.conf` |
-

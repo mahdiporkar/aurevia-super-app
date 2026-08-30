@@ -18,6 +18,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [Dynamic Proxy Route management guide (فارسی)](docs/dynamic-proxy-routing-fa.md)
 - [Legacy service self-service and authentication guide (فارسی)](docs/legacy-service-authentication-fa.md#تعریف-یک-micro-app-از-نوع-legacy-بدون-انتشار-نسخه)
 - [Operational token forwarding: Keycloak, Gateway, Legacy and Superset (فارسی)](docs/operational-token-forwarding-fa.md)
+- [Browser session vs. Keycloak token (فارسی)](docs/operational-token-forwarding-fa.md#تفاوت-session-مرورگر-با-توکن-keycloak)
 - [Resource Catalog and Manifest architecture (فارسی)](docs/resource-catalog-manifest-architecture-fa.md)
 - [HR/Finance ERP and OpenFGA resource-tree demo (فارسی)](docs/hr-finance-erp-openfga-demo-fa.md)
 - [Superset routing, access and in-MFE embedding guide (فارسی)](docs/superset-routing-and-embedding-fa.md)
