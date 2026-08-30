@@ -18,12 +18,13 @@
 10. [Superset عمومی، عملیاتی، Route و نمایش داخل MFE](superset-routing-and-embedding-fa.md)
 11. [ارسال امن توکن به Gateway و سرویس‌های عملیاتی](operational-token-forwarding-fa.md)
 12. [معماری Resource Catalog و دو Manifest](resource-catalog-manifest-architecture-fa.md)
-13. [معماری فنی](architecture.md)
-14. [حاکمیت Git و دسترسی](git-governance-fa.md)
-15. [مدل تهدید](threat-model.md)
-16. [نمودار پایگاه داده](er-diagram.md)
-17. [تصمیم‌های معماری](adr/)
-18. [قراردادهای OpenAPI](openapi/)
+13. [Shell و بارگذاری Micro Frontendها](shell-runtime-and-mfe-loading-fa.md)
+14. [معماری فنی](architecture.md)
+15. [حاکمیت Git و دسترسی](git-governance-fa.md)
+16. [مدل تهدید](threat-model.md)
+17. [نمودار پایگاه داده](er-diagram.md)
+18. [تصمیم‌های معماری](adr/)
+19. [قراردادهای OpenAPI](openapi/)
 
 ## نقشه مستندات
 
@@ -36,6 +37,7 @@
 | آیا Session مرورگر همان توکن Keycloak است و کجا نگهداری می‌شود؟ | [operational-token-forwarding-fa.md#تفاوت-session-مرورگر-با-توکن-keycloak](operational-token-forwarding-fa.md#تفاوت-session-مرورگر-با-توکن-keycloak) |
 | کاربر، گروه، نقش، منبع و action چه تفاوتی دارند؟ | [access-control-fa.md](access-control-fa.md) |
 | دسترسی یک Micro Frontend چگونه مستقیم یا از طریق نقش/گروه داده می‌شود؟ | [access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش](access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش) |
+| Shell چه کاری انجام می‌دهد و MFEها را چگونه بارگذاری می‌کند؟ | [shell-runtime-and-mfe-loading-fa.md](shell-runtime-and-mfe-loading-fa.md) |
 | موتور مجوزدهی دقیقاً چگونه تصمیم می‌گیرد؟ | [authorization-engine-fa.md](authorization-engine-fa.md) |
 | معماری کامل، همه سطوح OpenFGA و محدودیت‌های فعلی چیست؟ | [architecture-openfga-complete-fa.md](architecture-openfga-complete-fa.md) |
 | هنگام انتشار، آدرس/پورت OpenFGA، Store ID و Model ID را کجا تعریف کنیم؟ | [openfga-deployment-configuration-fa.md](openfga-deployment-configuration-fa.md) |
