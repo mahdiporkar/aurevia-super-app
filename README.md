@@ -17,6 +17,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [Dynamic Proxy Route management guide (فارسی)](docs/dynamic-proxy-routing-fa.md)
 - [Legacy service authentication guide (فارسی)](docs/legacy-service-authentication-fa.md)
 - [HR/Finance ERP and OpenFGA resource-tree demo (فارسی)](docs/hr-finance-erp-openfga-demo-fa.md)
+- [Superset routing, access and in-MFE embedding guide (فارسی)](docs/superset-routing-and-embedding-fa.md)
 - [Git governance and repository access (فارسی)](docs/git-governance-fa.md)
 - [Operations and troubleshooting (فارسی)](docs/operations-fa.md)
 
@@ -76,7 +77,7 @@ On Windows use `mvnw.cmd verify`. No real credentials or external deployment are
 - OpenFGA is the authorization source of truth; Redis only caches check decisions for a short TTL and tuple writes invalidate the matching entry.
 - Access and refresh tokens are encrypted in the Redis-backed server-side Token Vault and never stored in the browser.
 - Missing route/action/session/policy information denies access.
-- Public and Operation Superset are separate; Operation Superset has no browser route.
+- Public and Operation Superset are separate; Operation Superset has no direct browser/network route and is reachable only through the authorized BFF tunnel.
 
 ## Manifest developer guide
 

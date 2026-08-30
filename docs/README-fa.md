@@ -14,12 +14,13 @@
 6. [معماری Authorization Engine](authorization-engine-fa.md)
 7. [مرجع جامع معماری و OpenFGA](architecture-openfga-complete-fa.md)
 8. [عملیات، تست و عیب‌یابی](operations-fa.md)
-9. [معماری فنی](architecture.md)
-10. [حاکمیت Git و دسترسی](git-governance-fa.md)
-11. [مدل تهدید](threat-model.md)
-12. [نمودار پایگاه داده](er-diagram.md)
-13. [تصمیم‌های معماری](adr/)
-14. [قراردادهای OpenAPI](openapi/)
+9. [Superset عمومی، عملیاتی، Route و نمایش داخل MFE](superset-routing-and-embedding-fa.md)
+10. [معماری فنی](architecture.md)
+11. [حاکمیت Git و دسترسی](git-governance-fa.md)
+12. [مدل تهدید](threat-model.md)
+13. [نمودار پایگاه داده](er-diagram.md)
+14. [تصمیم‌های معماری](adr/)
+15. [قراردادهای OpenAPI](openapi/)
 
 ## نقشه مستندات
 
@@ -33,6 +34,7 @@
 | معماری کامل، همه سطوح OpenFGA و محدودیت‌های فعلی چیست؟ | [architecture-openfga-complete-fa.md](architecture-openfga-complete-fa.md) |
 | branch، review، CI و دسترسی Git چگونه مدیریت می‌شود؟ | [git-governance-fa.md](git-governance-fa.md) |
 | دسترسی یک گزارش Superset چگونه داده می‌شود؟ | [access-control-fa.md](access-control-fa.md#انتصاب-گزارش-یا-داشبورد-به-کاربر) |
+| دو Superset کجا تعریف می‌شوند و route یا iframe گزارش چگونه کار می‌کند؟ | [superset-routing-and-embedding-fa.md](superset-routing-and-embedding-fa.md) |
 | هر فایل Java/React/Infra چه مسئولیتی دارد؟ | [code-reference-fa.md](code-reference-fa.md) |
 | پروژه را چگونه بالا بیاوریم و تست کنیم؟ | [operations-fa.md](operations-fa.md) |
 | خطاهای Login، CSRF، 403، 404 و Superset را چگونه بررسی کنیم؟ | [operations-fa.md](operations-fa.md#عیب‌یابی) |

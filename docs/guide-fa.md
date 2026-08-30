@@ -95,6 +95,8 @@ Browser -> Public Nginx -> OperationSupersetProxyController
 
 Superset 5 بعضی endpointها را root-relative تولید می‌کند. Nginx درخواست‌های `/superset/*` و درخواست‌های `/api/v1/*` متعلق به سند `/reports-runtime/*` را به tunnel جاوا هدایت می‌کند. کوکی مستقل `AUREVIA_OPERATION_SUPERSET` نشست داخلی Superset را نگه می‌دارد.
 
+شرح دقیق محل تعریف هر دو محیط، تفاوت route تخصصی Superset با Proxy Routeهای business، ثبت dashboard در درخت OpenFGA و قرارداد نمایش same-origin داخل MFE Reports در [راهنمای Superset routing و embedding](superset-routing-and-embedding-fa.md) آمده است.
+
 ## راه‌اندازی از صفر
 
 ### پیش‌نیازها

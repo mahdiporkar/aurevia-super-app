@@ -119,6 +119,8 @@ UI می‌تواند دکمه یا route را بر اساس این manifest پن
 
 ## انتصاب گزارش یا داشبورد به کاربر
 
+برای محل تعریف Superset عمومی و عملیاتی، مالکیت routeها و قرارداد نمایش گزارش داخل MFE، ابتدا [راهنمای Superset routing و embedding](superset-routing-and-embedding-fa.md) را ببینید.
+
 1. Admin MFE فهرست Dashboard و Chart را از API زنده Operation Superset دریافت می‌کند.
 2. دارایی انتخاب‌شده با `POST /api/v1/admin/superset-assets` در درخت ثبت می‌شود.
 3. سرویس یک `EXTERNAL_RESOURCE` فرزند `external_resource:superset-public` می‌سازد.
