@@ -15,16 +15,18 @@
 7. [مرجع جامع معماری و OpenFGA](architecture-openfga-complete-fa.md)
 8. [پیکربندی و انتشار OpenFGA](openfga-deployment-configuration-fa.md)
 9. [عملیات، تست و عیب‌یابی](operations-fa.md)
-10. [Superset عمومی، عملیاتی، Route و نمایش داخل MFE](superset-routing-and-embedding-fa.md)
-11. [ارسال امن توکن به Gateway و سرویس‌های عملیاتی](operational-token-forwarding-fa.md)
-12. [معماری Resource Catalog و دو Manifest](resource-catalog-manifest-architecture-fa.md)
-13. [Shell و بارگذاری Micro Frontendها](shell-runtime-and-mfe-loading-fa.md)
-14. [معماری فنی](architecture.md)
-15. [حاکمیت Git و دسترسی](git-governance-fa.md)
-16. [مدل تهدید](threat-model.md)
-17. [نمودار پایگاه داده](er-diagram.md)
-18. [تصمیم‌های معماری](adr/)
-19. [قراردادهای OpenAPI](openapi/)
+10. [انتشار Demo روی سرور Linux](deployment-demo-linux-fa.md)
+11. [انتشار Production روی Linux](deployment-production-linux-fa.md)
+12. [Superset عمومی، عملیاتی، Route و نمایش داخل MFE](superset-routing-and-embedding-fa.md)
+13. [ارسال امن توکن به Gateway و سرویس‌های عملیاتی](operational-token-forwarding-fa.md)
+14. [معماری Resource Catalog و دو Manifest](resource-catalog-manifest-architecture-fa.md)
+15. [Shell و بارگذاری Micro Frontendها](shell-runtime-and-mfe-loading-fa.md)
+16. [معماری فنی](architecture.md)
+17. [حاکمیت Git و دسترسی](git-governance-fa.md)
+18. [مدل تهدید](threat-model.md)
+19. [نمودار پایگاه داده](er-diagram.md)
+20. [تصمیم‌های معماری](adr/)
+21. [قراردادهای OpenAPI](openapi/)
 
 ## نقشه مستندات
 
@@ -48,6 +50,8 @@
 | ادمین چگونه بدون انتشار نسخه یک میکرو و backend Legacy تعریف می‌کند؟ | [legacy-service-authentication-fa.md](legacy-service-authentication-fa.md#تعریف-یک-micro-app-از-نوع-legacy-بدون-انتشار-نسخه) |
 | هر فایل Java/React/Infra چه مسئولیتی دارد؟ | [code-reference-fa.md](code-reference-fa.md) |
 | پروژه را چگونه بالا بیاوریم و تست کنیم؟ | [operations-fa.md](operations-fa.md) |
+| Demo کامل را چگونه روی یک سرور Linux منتشر کنیم؟ | [deployment-demo-linux-fa.md](deployment-demo-linux-fa.md) |
+| انتشار واقعی Production از صفر چه الزاماتی دارد؟ | [deployment-production-linux-fa.md](deployment-production-linux-fa.md) |
 | خطاهای Login، CSRF، 403، 404 و Superset را چگونه بررسی کنیم؟ | [operations-fa.md](operations-fa.md#عیب‌یابی) |
 
 > منظور از «خط‌به‌خط» در این مستند، توضیح مسئولیت هر فایل و بلوک منطقی کد است. توضیح تک‌تک importها یا فایل‌های تولیدشده مانند `*.d.ts` ارزش نگهداری ندارد و با هر build منقضی می‌شود.
