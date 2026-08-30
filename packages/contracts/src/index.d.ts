@@ -13,7 +13,7 @@ export interface PanelManifest {
     contractVersion: string;
     integrity?: string;
 }
-export type ResourceType = 'APPLICATION' | 'MODULE' | 'PAGE' | 'UI_COMPONENT' | 'API_RESOURCE' | 'BUSINESS_RESOURCE' | 'EXTERNAL_RESOURCE';
+export type ResourceType = 'APPLICATION' | 'MODULE' | 'PAGE' | 'UI_COMPONENT' | 'FIELD' | 'BUSINESS_RESOURCE' | 'EXTERNAL_RESOURCE';
 export interface ManifestResource {
     id: string;
     parent_id?: string | null;
@@ -26,6 +26,11 @@ export interface ManifestResource {
     actions: readonly string[];
 }
 export interface EffectiveManifest {
+    manifestType?: 'EFFECTIVE_USER_MANIFEST';
+    subject?: {
+        type: 'user';
+        id: string;
+    };
     version: string;
     expiresAt: string;
     staleAt?: string;
@@ -33,6 +38,25 @@ export interface EffectiveManifest {
     permissions: Record<string, readonly string[]>;
     resourceTree?: ManifestResource[];
     presentation?: Record<string, PresentationMode>;
+}
+export interface ResourceDefinition {
+    key: string;
+    type: ResourceType;
+    parent?: string | null;
+    nameFa: string;
+    nameEn: string;
+    ownerDomain?: string;
+    classification?: string;
+    actions: readonly string[];
+    metadata?: Record<string, unknown>;
+    provider?: string;
+    externalType?: string;
+    externalId?: string;
+}
+export interface ResourceDefinitionManifest {
+    application: string;
+    manifestVersion: string;
+    resources: readonly ResourceDefinition[];
 }
 export interface CurrentUser {
     subject: string;
