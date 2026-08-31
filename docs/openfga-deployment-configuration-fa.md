@@ -5,6 +5,19 @@ Staging و Production مشخص می‌کند. اصل معماری این است 
 OpenFGA را فراخوانی نمی‌کند و آدرس OpenFGA هرگز وارد Frontend، Manifest یا Route
 میکروفرانت نمی‌شود.
 
+## نسخه و نوع OpenFGA مورد استفاده
+
+این مخزن از توزیع رسمی و کامل OpenFGA استفاده می‌کند؛ نسخه Lite، emulator یا
+پیاده‌سازی جایگزین OpenFGA در معماری وجود ندارد. در محیط Compose، image رسمی
+`openfga/openfga:v1.18.1` برای migration و runtime به‌صورت صریح pin شده و داده‌ها
+در PostgreSQL اختصاصی OpenFGA نگهداری می‌شوند.
+
+غیرفعال بودن `OPENFGA_PLAYGROUND_ENABLED` فقط رابط Playground را می‌بندد و به
+معنای استفاده از نسخه Lite یا محدودشدن قابلیت‌های authorization engine نیست.
+Authorization Service از Java SDK رسمی، Store ID و Model ID منتشرشده برای اجرای
+checkها و مدیریت tupleها استفاده می‌کند؛ Redis نیز صرفاً cache کوتاه‌مدت تصمیم‌هاست
+و جایگزین OpenFGA محسوب نمی‌شود.
+
 ## Topology
 
 ```text
@@ -315,4 +328,3 @@ OpenFGA بدون این مرز نباید روی شبکه عمومی یا شبک
 | reconciliation | `services/authorization-service/.../OpenFgaReconciliationService.java` |
 | مدل canonical | `infra/openfga/model.fga` |
 | اجرای Local | `infra/docker-compose/compose.yml` |
-
