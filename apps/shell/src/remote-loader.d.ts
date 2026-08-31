@@ -4,4 +4,5 @@ declare global {
         [key: string]: any;
     }
 }
-export declare function loadRemote(scope: string, url: string, module: string, allowed: string[]): Promise<RemoteModule>;
+export declare function validateRemoteDescriptor(scope: string, url: string, allowed: string[], integrity?: string): URL;
+export declare function loadRemote(scope: string, url: string, module: string, allowed: string[], integrity?: string): Promise<RemoteModule>;

@@ -4,6 +4,8 @@ import dev.openfga.sdk.api.client.OpenFgaClient;
 import dev.openfga.sdk.api.client.model.ClientCheckRequest;
 import dev.openfga.sdk.api.client.model.ClientTupleKey;
 import dev.openfga.sdk.api.client.model.ClientTupleKeyWithoutCondition;
+import dev.openfga.sdk.api.configuration.ClientCheckOptions;
+import dev.openfga.sdk.api.model.ConsistencyPreference;
 import java.util.List;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -62,7 +64,9 @@ class OpenFgaRelationshipAdapter implements RelationshipAuthorizationPort {
 
   private boolean directCheck(String user, String relation, String object) {
     try {
-      var response = client.check(new ClientCheckRequest().user(user).relation(relation)._object(object)).get();
+      var options = new ClientCheckOptions().consistency(ConsistencyPreference.HIGHER_CONSISTENCY);
+      var response = client.check(
+          new ClientCheckRequest().user(user).relation(relation)._object(object), options).get();
       return Boolean.TRUE.equals(response.getAllowed());
     } catch (Exception unavailable) { return false; }
   }
@@ -74,8 +78,34 @@ class OpenFgaRelationshipAdapter implements RelationshipAuthorizationPort {
       client.writeTuples(List.of(new ClientTupleKey()
           .user(user).relation(relation)._object(object))).get();
     } catch (Exception failure) {
-      if (failureChain(failure).contains("already exists")) return;
-      throw new IllegalStateException("OpenFGA tuple write failed", failure);
+      if (failureChain(failure).contains("already exists")) {
+        // A datastore can report a duplicate while its check path still cannot observe the tuple
+        // (for example after an interrupted local projection). Do not accept that split-brain state.
+        if (directCheck(user, relation, object)) return;
+        replaceInvisibleDuplicate(user, relation, object);
+        return;
+      }
+      throw new IllegalStateException("OpenFGA tuple write failed: " + failureSummary(failure), failure);
+    }
+  }
+
+  private void replaceInvisibleDuplicate(String user, String relation, String object) {
+    var delete = new ClientTupleKeyWithoutCondition()
+        .user(user).relation(relation)._object(object);
+    try {
+      client.deleteTuples(List.of(delete)).get();
+    } catch (Exception absent) {
+      if (!failureChain(absent).contains("tuple_not_found")) {
+        throw new IllegalStateException("OpenFGA invisible tuple cleanup failed: "
+            + failureSummary(absent), absent);
+      }
+    }
+    try {
+      client.writeTuples(List.of(new ClientTupleKey()
+          .user(user).relation(relation)._object(object))).get();
+    } catch (Exception retryFailure) {
+      throw new IllegalStateException("OpenFGA invisible tuple rewrite failed: "
+          + failureSummary(retryFailure), retryFailure);
     }
   }
 
@@ -83,6 +113,11 @@ class OpenFgaRelationshipAdapter implements RelationshipAuthorizationPort {
     StringBuilder result=new StringBuilder();
     for(Throwable current=failure;current!=null;current=current.getCause())result.append(' ').append(current.getMessage());
     return result.toString().toLowerCase(java.util.Locale.ROOT);
+  }
+
+  private static String failureSummary(Throwable failure) {
+    String summary = failureChain(failure).replaceAll("[\\r\\n\\t]+", " ").trim();
+    return summary.length() > 600 ? summary.substring(0, 600) : summary;
   }
 
   @Override

@@ -18,6 +18,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [OpenFGA deployment and endpoint configuration (فارسی)](docs/openfga-deployment-configuration-fa.md)
 - [Linux demo deployment runbook (فارسی)](docs/deployment-demo-linux-fa.md)
 - [Linux production deployment runbook (فارسی)](docs/deployment-production-linux-fa.md)
+- [گزارش ممیزی Production در ۲۰۲۶-۰۸-۳۱ (فارسی)](docs/production-readiness-audit-2026-08-31-fa.md)
 - [Dynamic Proxy Route management guide (فارسی)](docs/dynamic-proxy-routing-fa.md)
 - [Legacy service self-service and authentication guide (فارسی)](docs/legacy-service-authentication-fa.md#تعریف-یک-micro-app-از-نوع-legacy-بدون-انتشار-نسخه)
 - [Operational token forwarding: Keycloak, Gateway, Legacy and Superset (فارسی)](docs/operational-token-forwarding-fa.md)

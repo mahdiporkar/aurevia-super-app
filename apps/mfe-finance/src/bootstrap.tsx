@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Alert, Button, Card, Col, Empty, Form, InputNumber, Modal, Row, Segmented, Space, Spin, Statistic, Table, Tag, Typography, message } from "antd";
 import type { RemoteContext, RemoteModule } from "@aurevia/contracts";
-import { SHAction, SHManifestProvider, SHRouteGuard } from "@aurevia/sh-core-ui";
+import { evaluateSHPolicy, SHAction, SHManifestProvider, SHRouteGuard } from "@aurevia/sh-core-ui";
 
 export const contractVersion = "1" as const;
 type Payment = { id: string; amount: number; maker: string; status: string };
@@ -93,7 +93,7 @@ function FinanceReferencePage({ context, kind }: { context: RemoteContext; kind:
 function FinanceWorkspace({ context }: { context: RemoteContext }) {
   const [page, setPage] = useState("payments");
   const fa = context.locale === "fa-IR";
-  const canView = (resource: string) => context.manifest.permissions[resource]?.includes("view") ?? false;
+  const canView = (resource: string) => evaluateSHPolicy(context.manifest, false, resource, "view").allowed;
   return <Space direction="vertical" size={18} style={{ width: "100%" }}><Segmented value={page} onChange={value => setPage(String(value))} options={[
     { value: "payments", label: fa ? "پرداخت‌ها" : "Payments" },
     ...(canView("page:finance.invoices") ? [{ value: "invoices", label: fa ? "صورتحساب‌ها" : "Invoices" }] : []),

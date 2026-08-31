@@ -317,7 +317,7 @@ https://superapp.example.com/mfe/reports/remoteEntry.js
 
 این URLها در Panel Registry ثبت و originهای مجاز در CSP محدود شوند. `remoteEntry.js` باید no-cache یا دارای revalidation باشد، ولی artifactهای hashدار می‌توانند cache طولانی داشته باشند.
 
-شکاف فعلی loader: فیلد `integrity` در contract وجود دارد اما SRI واقعاً enforce نمی‌شود. پیش از اتکای زنجیره تأمین Production به remote cross-origin، این شکاف باید رفع یا ریسک آن رسماً پذیرفته شود.
+Loader مقدار `integrity` را با الگوریتم‌های `sha256`، `sha384` یا `sha512` اعتبارسنجی و به script اعمال می‌کند و برای remoteهای cross-origin مقدار `crossorigin=anonymous` می‌گذارد. در Production باید برای **تمام** panelها مقدار SRI غیرخالی ثبت شود؛ نبودن integrity در دادهٔ Registry برای سازگاری محیط local مجاز است، اما در release checklist محیط Production قابل قبول نیست.
 
 Shell فقط presentation guard است. BFF/Authorization Service/OpenFGA باید هر API را مستقل enforce کنند.
 

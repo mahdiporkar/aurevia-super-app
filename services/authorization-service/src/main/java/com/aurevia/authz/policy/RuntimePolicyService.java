@@ -9,10 +9,13 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Loads mandatory policies and evaluates them only against server-derived context. */
 @Service
 public class RuntimePolicyService {
+  private static final Logger LOG = LoggerFactory.getLogger(RuntimePolicyService.class);
   private final JdbcClient database;
   private final ObjectMapper json;
   private final StructuredPolicyEvaluator evaluator;
@@ -53,6 +56,8 @@ public class RuntimePolicyService {
       return new Evaluation(true, policies.isEmpty() ? "NO_APPLICABLE_POLICY" : "POLICY_ALLOWED",
           Map.copyOf(combined), List.copyOf(applied));
     } catch (RuntimeException | java.io.IOException invalid) {
+      LOG.warn("Runtime policy evaluation failed for resource={} action={}",
+          canonicalObject, action, invalid);
       return Evaluation.deny("POLICY_EVALUATION_ERROR", List.of());
     }
   }
@@ -69,12 +74,14 @@ public class RuntimePolicyService {
     } else {
       throw new IllegalArgumentException("Unsupported canonical object");
     }
+    String registryKey = key.replace('/', ':');
     return database.sql("""
         select r.id,r.classification,r.owner_domain,
           coalesce(sa.owner_external_id,r.external_id) owner_id
         from resource r left join superset_asset sa on sa.resource_id=r.id
-        where (r.resource_key=:key or replace(r.resource_key,':','/')=:key) and r.status='ACTIVE'
-        """).param("key", key).query(ResourceContext.class).optional()
+        where r.resource_key in (:key,:registryKey) and r.status='ACTIVE'
+        """).param("key", key).param("registryKey", registryKey)
+        .query(ResourceContext.class).optional()
         .orElseThrow(() -> new IllegalArgumentException("Resource is not registered"));
   }
 

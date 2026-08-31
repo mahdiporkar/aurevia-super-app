@@ -21,7 +21,7 @@ import {
   message,
 } from "antd";
 import type { RemoteContext, RemoteModule } from "@aurevia/contracts";
-import { SHAction, SHManifestProvider, SHRouteGuard } from "@aurevia/sh-core-ui";
+import { evaluateSHPolicy, SHAction, SHManifestProvider, SHRouteGuard } from "@aurevia/sh-core-ui";
 export const contractVersion = "1" as const;
 type Employee = {
   id: string;
@@ -354,7 +354,7 @@ function HrReferencePage({ context, kind }: { context: RemoteContext; kind: "dep
 function HrWorkspace({ context }: { context: RemoteContext }) {
   const [page, setPage] = useState("employees");
   const fa = context.locale === "fa-IR";
-  const canView = (resource: string) => context.manifest.permissions[resource]?.includes("view") ?? false;
+  const canView = (resource: string) => evaluateSHPolicy(context.manifest, false, resource, "view").allowed;
   return <Space direction="vertical" size={18} style={{ width: "100%" }}>
     <Segmented value={page} onChange={(value) => setPage(String(value))} options={[
       { value: "employees", label: fa ? "کارکنان" : "Employees" },

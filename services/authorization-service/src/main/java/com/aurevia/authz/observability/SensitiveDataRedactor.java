@@ -22,7 +22,7 @@ public class SensitiveDataRedactor {
   private boolean walk(JsonNode node){
     boolean changed=false;
     if(node instanceof ObjectNode object){
-      Iterator<Map.Entry<String,JsonNode>> fields=object.fields();
+      Iterator<Map.Entry<String,JsonNode>> fields=object.properties().iterator();
       while(fields.hasNext()){
         var field=fields.next();
         if(SENSITIVE.matcher(field.getKey()).matches()){
