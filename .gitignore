@@ -7,5 +7,5 @@ target/
 .vscode/
 playwright-report/
 test-results/
+**/*.test.d.ts
 *.log
-

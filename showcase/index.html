@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Aurevia — enterprise super app with OpenFGA authorization and independently deployed micro frontends.">
+  <meta name="theme-color" content="#090b16">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests">
+  <title>Aurevia · Enterprise, beautifully governed</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"></div>
+  <header class="nav wrap">
+    <a class="brand" href="#top" aria-label="Aurevia home"><span>A</span><strong>Aurevia</strong></a>
+    <nav aria-label="بخش‌های صفحه"><a href="#architecture">معماری</a><a href="#experience">تجربه محصول</a><a href="#assurance">اطمینان</a></nav>
+    <a class="button ghost" href="https://github.com/mahdiporkar/aurevia-super-app" rel="noopener noreferrer">مشاهده مخزن</a>
+  </header>
+  <main id="top">
+    <section class="hero wrap">
+      <div class="hero-copy reveal">
+        <div class="pill"><i></i> OpenFGA 1.18.1 · Zero-trust by design</div>
+        <h1>فضای کاری سازمانی،<br><em>با حکمرانی زیبا.</em></h1>
+        <p>Aurevia یک Super App فارسی‌محور است؛ Micro Frontendهای مستقل، دسترسی رابطه‌ای دقیق، BFF امن و تجربه‌ای که برای عملیات واقعی ساخته شده است.</p>
+        <div class="actions"><a class="button primary" href="#experience">دیدن دمو</a><a class="button text" href="#architecture">کاوش معماری <b>←</b></a></div>
+        <div class="metrics"><div><strong>7</strong><span>نوع Resource</span></div><div><strong>6</strong><span>صفحه عملیاتی</span></div><div><strong>64+</strong><span>تست خودکار</span></div></div>
+      </div>
+      <div class="product reveal" aria-label="نمایش رابط Aurevia">
+        <div class="window-bar"><div class="dots"><i></i><i></i><i></i></div><span>workspace.aurevia.local</span><div class="secure">● امن</div></div>
+        <div class="app">
+          <aside><div class="mini-brand">A</div><button class="active" data-panel="overview">◈<span>نمای کلی</span></button><button data-panel="people">♙<span>منابع انسانی</span></button><button data-panel="finance">◇<span>مالی</span></button><button data-panel="access">⌘<span>دسترسی‌ها</span></button></aside>
+          <div class="workspace"><div class="topline"><div><small>AUREVIA / <span id="crumb">OVERVIEW</span></small><h2 id="panel-title">صبح بخیر، مدیر سیستم</h2></div><span class="avatar">MP</span></div>
+            <div class="kpis"><article><span>کاربران فعال</span><strong>۱٬۲۴۸</strong><b>↑ ۱۲٪</b></article><article><span>تصمیم‌های مجوز</span><strong>۹۹٫۹۹٪</strong><b>ALLOW/DENY</b></article><article><span>تاخیر P95</span><strong>۱۸ms</strong><b>OpenFGA</b></article></div>
+            <div class="chart-card"><div><h3>نبض عملیات</h3><span>تصمیم‌های دسترسی در ۷ روز</span></div><div class="legend">● مجاز &nbsp; <i>● ردشده</i></div><svg viewBox="0 0 700 190" role="img" aria-label="نمودار تصمیم‌های دسترسی"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8b7cff" stop-opacity=".45"/><stop offset="1" stop-color="#8b7cff" stop-opacity="0"/></linearGradient></defs><path class="grid" d="M0 30H700M0 80H700M0 130H700M0 180H700"/><path class="area" d="M0 160 C70 145 85 90 150 115 S250 150 310 80 S410 110 470 48 S580 90 700 25 V190H0Z"/><path class="line" d="M0 160 C70 145 85 90 150 115 S250 150 310 80 S410 110 470 48 S580 90 700 25"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="trust"><div class="wrap"><span>BUILT WITH</span><b>OpenFGA</b><b>Spring Boot</b><b>React 19</b><b>PostgreSQL</b><b>Redis</b><b>Keycloak</b></div></section>
+    <section id="architecture" class="section wrap"><div class="section-head reveal"><span>معماری قابل دفاع</span><h2>هر لایه، یک مرز اعتماد روشن</h2><p>مرورگر تنها با BFF هم‌مبدأ صحبت می‌کند. تصمیم نهایی همیشه سمت سرور، با مدل رابطه‌ای نسخه‌بندی‌شده و رفتار fail-closed گرفته می‌شود.</p></div><div class="flow reveal"><article><i>01</i><strong>Browser</strong><span>Session-only · no tokens</span></article><b>←</b><article><i>02</i><strong>Secure BFF</strong><span>CSRF · proxy allowlist</span></article><b>←</b><article class="focus"><i>03</i><strong>Authorization</strong><span>Policy + audit</span></article><b>←</b><article><i>04</i><strong>OpenFGA</strong><span>Relationship graph</span></article></div></section>
+    <section id="experience" class="section contrast"><div class="wrap"><div class="section-head reveal"><span>تجربه محصول</span><h2>یک Shell، چند جهان مستقل</h2></div><div class="cards"><article class="reveal"><div class="icon violet">♙</div><h3>منابع انسانی</h3><p>کارکنان، واحدها و سمت‌ها با کنترل مستقل صفحه، عملیات و فیلدهای حساس.</p><ul><li>حقوق با Field-level policy</li><li>ایجاد و ویرایش کنترل‌شده</li></ul></article><article class="reveal"><div class="icon cyan">◇</div><h3>مالی</h3><p>صف پرداخت، بودجه و صورتحساب با جداسازی وظایف Maker و Approver.</p><ul><li>تأیید و رد مستقل</li><li>کنترل مجدد در API</li></ul></article><article class="reveal"><div class="icon gold">⌘</div><h3>استودیوی دسترسی</h3><p>مدیریت بصری درخت Resource، نقش، گروه و grant با projection قابل ردیابی.</p><ul><li>هفت نوع canonical</li><li>Outbox همگام و idempotent</li></ul></article></div></div></section>
+    <section id="assurance" class="section wrap"><div class="assurance reveal"><div><span>QUALITY GATES</span><h2>اعتماد، نتیجه تست است.</h2><p>TypeScript strict، تست‌های Java و UI contract، مدل OpenFGA، Compose validation و build تولید در CI کنترل می‌شوند.</p></div><div class="checks"><p><i>✓</i> Default deny</p><p><i>✓</i> Resource tree contract</p><p><i>✓</i> Server-side enforcement</p><p><i>✓</i> Supply-chain updates</p></div></div></section>
+  </main>
+  <footer class="wrap"><div class="brand"><span>A</span><strong>Aurevia</strong></div><p>Enterprise, beautifully governed.</p><span>© <span id="year"></span> Aurevia</span></footer>
+  <script src="app.js" defer></script>
+</body>
+</html>

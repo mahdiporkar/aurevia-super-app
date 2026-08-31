@@ -1,5 +1,10 @@
 # Aurevia Super App
 
+[![CI](https://github.com/mahdiporkar/aurevia-super-app/actions/workflows/ci.yml/badge.svg)](https://github.com/mahdiporkar/aurevia-super-app/actions/workflows/ci.yml)
+[![GitHub Pages](https://github.com/mahdiporkar/aurevia-super-app/actions/workflows/pages.yml/badge.svg)](https://mahdiporkar.github.io/aurevia-super-app/)
+
+**[Live product showcase](https://mahdiporkar.github.io/aurevia-super-app/)** — a standalone, data-free demonstration of the Aurevia experience and architecture.
+
 > راهنمای مرزهای اعتماد، جریان توکن، کنترل دسترسی و الزامات انتشار Production: [Enterprise Production Readiness (FA)](docs/enterprise-production-readiness-fa.md)
 
 Production-shaped, Persian-first enterprise super-app monorepo. The browser talks only to the same-origin BFF; tokens remain encrypted on the server. Authorization is evaluated by the Authorization Service and OpenFGA. Token Exchange is deliberately absent.
@@ -16,6 +21,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [Authorization Engine architecture (فارسی)](docs/authorization-engine-fa.md)
 - [Complete architecture and OpenFGA reference (فارسی)](docs/architecture-openfga-complete-fa.md)
 - [OpenFGA deployment and endpoint configuration (فارسی)](docs/openfga-deployment-configuration-fa.md)
+- [Full-stack quality, security and UI audit — 2026-08-31 (فارسی)](docs/full-stack-quality-audit-2026-08-31-fa.md)
 - [Linux demo deployment runbook (فارسی)](docs/deployment-demo-linux-fa.md)
 - [Linux production deployment runbook (فارسی)](docs/deployment-production-linux-fa.md)
 - [گزارش ممیزی Production در ۲۰۲۶-۰۸-۳۱ (فارسی)](docs/production-readiness-audit-2026-08-31-fa.md)

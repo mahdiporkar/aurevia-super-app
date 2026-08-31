@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Alert, Button, Card, Col, Empty, Input, Row, Skeleton, Space, Tag, Typography } from 'antd';
 import type { RemoteContext, RemoteModule } from '@aurevia/contracts';
+import { parseReportTags, safeReportPath } from './report-security';
 
 export const contractVersion = '1' as const;
 
@@ -22,14 +23,21 @@ function ReportsCatalog() {
   const [error, setError] = useState<string>();
 
   useEffect(() => {
-    fetch('/api/v1/reports', { credentials: 'same-origin' })
+    const controller = new AbortController();
+    fetch('/api/v1/reports', { credentials: 'same-origin', signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
         return response.json();
       })
       .then(setReports)
-      .catch((reason) => setError(reason.message))
-      .finally(() => setLoading(false));
+      .catch((reason) => {
+        if (reason instanceof DOMException && reason.name === 'AbortError') return;
+        setError(reason instanceof Error ? reason.message : 'خطای ناشناخته');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, []);
 
   const visibleReports = useMemo(() => {
@@ -60,10 +68,11 @@ function ReportsCatalog() {
       {[1, 2, 3].map((item) => <Col xs={24} md={12} xl={8} key={item}><Card><Skeleton active /></Card></Col>)}
     </Row> : visibleReports.length === 0 ? <Card><Empty description="گزارش تخصیص‌یافته‌ای پیدا نشد" /></Card> : <Row gutter={[16, 16]}>
       {visibleReports.map((report) => {
-        const tags: string[] = JSON.parse(report.tags_json ?? '[]');
+        const tags = parseReportTags(report.tags_json);
+        const reportPath = safeReportPath(report.url_path);
         return <Col xs={24} md={12} xl={8} key={report.id}>
           <Card hoverable title={report.title} extra={<Tag color={report.asset_type === 'DASHBOARD' ? 'blue' : 'purple'}>{report.asset_type === 'DASHBOARD' ? 'داشبورد' : 'گزارش'}</Tag>} actions={[
-            <Button type="link" key="open" href={report.url_path} target="_blank" rel="noreferrer">باز کردن در Superset</Button>,
+            <Button type="link" key="open" href={reportPath} disabled={!reportPath} target="_blank" rel="noopener noreferrer">باز کردن در Superset</Button>,
           ]}>
             <Space direction="vertical">
               <Typography.Text type="secondary">مالک: {report.owner_external_id || 'تیم گزارشات'}</Typography.Text>
