@@ -26,7 +26,7 @@
 | production webpack build تمام MFEها و Shell | موفق؛ هشدار اندازه bundle ثبت شد |
 | `npm audit` و `npm audit --omit=dev` | صفر vulnerability گزارش‌شده |
 | Flyway V31 | روی PostgreSQL محلی موفق و outboxها processed |
-| runtime OpenFGA | allow/deny کاربران demo و APIهای HR/Finance کنترل می‌شود |
+| runtime OpenFGA | APIهای اصلی allow/deny پایدار بودند؛ در volume قدیمی Compose برای دو page تازه، ناسازگاری بین Write/Read/Check مشاهده شد و release blocker ثبت شد |
 | اجرای container Java با non-root | Authorization Service و BFF باید در smoke نهایی با `Config.User=aurevia` تأیید شوند |
 
 ## ریسک‌ها و شروطی که خارج از کد مخزن‌اند
@@ -41,6 +41,10 @@
 6. تست بار و soak با SLO مصوب، تست نفوذ و SAST/container scan سازمانی.
 7. alert، dashboard، retention، SIEM و on-call عملیاتی.
 8. آزمون مرورگری واقعی روی مرورگرهای هدف؛ در این ممیزی ابزار browser automation محیط Codex به‌علت خطای metadata sandbox قابل اجرا نبود و با تست service/runtime جایگزین شد.
+
+## Release blocker مشاهده‌شده در محیط محلی موجود
+
+در volume قدیمی OpenFGA محیط demo، برای بعضی tupleهای صفحهٔ تازه، Write گاهی موفق یا duplicate گزارش شد اما Read/Check بلافاصله همان tuple را مشاهده نکرد. کد با consistency بالاتر، graph epoch، replay نسخهٔ ۳۱ و بازنویسی duplicate نامرئی سخت‌سازی شد، ولی تکرار ناپایدار در همین دیتای محلی مشاهده شد. تا اجرای integration test روی Store پاک و اختصاصی و اثبات پایداری grant/revoke/check، این مورد **P0 و مانع برچسب Production-Ready** است؛ پاک‌کردن volume موجود به‌صورت خودکار انجام نشد چون عملیاتی مخرب و خارج از مجوز ضمنی ممیزی است.
 
 ## بدهی فنی غیرمسدودکنندهٔ demo
 

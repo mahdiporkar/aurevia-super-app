@@ -15,6 +15,7 @@
 | Superset runtime از development server و rate-limit حافظه‌ای استفاده می‌کند | P1 | Compose، `superset_config.py` | باز است | smoke/config test لازم است | secret store و deployment sizing |
 | CI فاقد secret/SAST/container/OpenFGA/Flyway gates کامل است | P1 | CI workflows | Node با حداقل نسخهٔ مجاز pin و audit همه dependencyها فعال شد؛ SAST/container/OpenFGA integration هنوز باز است | Maven، npm test/typecheck/build/audit و Compose config | runner، registry و ابزار اسکن سازمانی |
 | remoteEntry در local با URL کامل ثبت می‌شود ولی production origin policy مستقل لازم دارد | P2 | Registry، Shell remote loader | allowlist دقیق HTTP(S)، اعتبار scope، SRI و جلوگیری از rebinding یک scope به artifact دیگر پیاده شد | تست descriptor، allowlist و integrity | allowlist دامنه‌های Production و ثبت integrity برای همه panelها |
+| Write/Read/Check بعضی tupleهای page در Store قدیمی Compose ناپایدار بود | P0 | OpenFGA local volume، `OpenFgaRelationshipAdapter`، V31 | higher consistency، replay و repair برای duplicate نامرئی اضافه شد | unit سبز؛ smoke روی Store موجود همچنان ناپایدار | integration روی Store پاک، grant/revoke/check تکراری و سپس تأیید Platform لازم است |
 
 ## Audit scope
 
