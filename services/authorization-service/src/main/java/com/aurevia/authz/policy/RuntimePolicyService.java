@@ -74,15 +74,26 @@ public class RuntimePolicyService {
     } else {
       throw new IllegalArgumentException("Unsupported canonical object");
     }
-    String registryKey = key.replace('/', ':');
+    // OpenFGA canonicalizes only the resource-type separator. The resource id itself may
+    // legitimately contain dots or further slashes and must remain byte-for-byte stable.
+    String registryKey = toRegistryKey(key);
     return database.sql("""
         select r.id,r.classification,r.owner_domain,
           coalesce(sa.owner_external_id,r.external_id) owner_id
         from resource r left join superset_asset sa on sa.resource_id=r.id
-        where r.resource_key in (:key,:registryKey) and r.status='ACTIVE'
+        where (r.resource_key=:key or r.resource_key=:registryKey) and r.status='ACTIVE'
         """).param("key", key).param("registryKey", registryKey)
         .query(ResourceContext.class).optional()
-        .orElseThrow(() -> new IllegalArgumentException("Resource is not registered"));
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Resource is not registered for canonical key '" + registryKey + "'"));
+  }
+
+  static String toRegistryKey(String canonicalId) {
+    int typeSeparator = canonicalId.indexOf('/');
+    int existingSeparator = canonicalId.indexOf(':');
+    return typeSeparator < 0 || (existingSeparator >= 0 && existingSeparator < typeSeparator)
+        ? canonicalId
+        : canonicalId.substring(0, typeSeparator) + ':' + canonicalId.substring(typeSeparator + 1);
   }
 
   private Map<String, Object> trustedContext(String subject, ResourceContext resource) {
