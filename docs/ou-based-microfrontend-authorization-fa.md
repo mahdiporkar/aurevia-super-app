@@ -288,6 +288,44 @@ Migration این قابلیت `V32__ou_based_application_access.sql` است. Mig
 
 ## توسعه محلی و سناریوی انتقال
 
+### اجرای محیط توسعه بدون LDAP
+
+اتصال LDAP برای بالا آمدن محیط توسعه اجباری نیست. مقدار پیش‌فرض زیر Scheduled Directory Sync را خاموش نگه می‌دارد:
+
+```env
+DIRECTORY_SYNC_ENABLED=false
+```
+
+در این حالت Compose را بدون profile به نام `directory` اجرا کنید:
+
+```powershell
+docker compose --env-file .env -f infra/docker-compose/compose.yml up -d --build
+```
+
+Keycloak از کاربران Local موجود در Realm استفاده می‌کند و Login استاندارد OIDC، session سمت سرور BFF، User upsert، Shell، Manifest و Microfrontendها قابل استفاده می‌مانند. Roleها، Grant مستقیم User و مدل قدیمی `directory_group` نیز مستقل از OU کار می‌کنند.
+
+کاربر Local معمولاً claim معتبر `distinguishedName` ندارد. در نتیجه رفتار OU-based عمداً fail-closed است:
+
+- برای کاربر OU جاری ساخته یا جعل نمی‌شود؛
+- assignment فعال OU قبلی کاربر در Login فاقد DN معتبر غیرفعال می‌شود؛
+- عضویت‌های `CALCULATED` مبتنی بر OU دوباره محاسبه و در صورت نبود مسیر معتبر حذف می‌شوند؛
+- کاربر فقط از طریق OU به Microfrontend دسترسی نخواهد گرفت؛
+- دسترسی مستقل User، Role یا Directory Group همچنان قابل استفاده است.
+
+خلاصه قابلیت‌ها در حالت بدون LDAP:
+
+| قابلیت | وضعیت |
+|---|---|
+| Login کاربران Local در Keycloak | فعال |
+| Session و Token Vault در BFF | فعال |
+| Shell و بارگذاری Microfrontend | فعال |
+| Grant مستقیم User و Role | فعال |
+| Admin UI | فعال؛ درخت OU ممکن است خالی یا دارای آخرین داده sync باشد |
+| Scheduled LDAP Sync | غیرفعال |
+| محاسبه دسترسی جدید براساس OU | غیرفعال و fail-closed |
+
+رکوردهای OU موجود با خاموش‌شدن LDAP به‌صورت مخرب حذف نمی‌شوند. بااین‌حال Login یک User بدون DN معتبر اجازه نمی‌دهد membership محاسباتی نامطمئن همان User به‌عنوان دسترسی معتبر باقی بماند. برای آزمایش کامل OU، Compose را با profile زیر اجرا کنید؛ این profile سرویس Samba و پیکربندی LDAP Keycloak را فعال می‌کند:
+
 ```powershell
 Copy-Item .env.example .env
 # مقادیر local-only را در .env نگه دارید و commit نکنید.
