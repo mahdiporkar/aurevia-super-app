@@ -23,6 +23,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [OpenFGA deployment and endpoint configuration (فارسی)](docs/openfga-deployment-configuration-fa.md)
 - [Full-stack quality, security and UI audit — 2026-08-31 (فارسی)](docs/full-stack-quality-audit-2026-08-31-fa.md)
 - [Linux demo deployment runbook (فارسی)](docs/deployment-demo-linux-fa.md)
+- [راهنمای نصب کاملاً تازه و اعتبارسنجی دسترسی‌ها (فارسی)](docs/fresh-install-validation-fa.md)
 - [Linux production deployment runbook (فارسی)](docs/deployment-production-linux-fa.md)
 - [گزارش ممیزی Production در ۲۰۲۶-۰۸-۳۱ (فارسی)](docs/production-readiness-audit-2026-08-31-fa.md)
 - [Dynamic Proxy Route management guide (فارسی)](docs/dynamic-proxy-routing-fa.md)
@@ -61,13 +62,18 @@ docs/                         ADRs, diagrams, threat model and runbooks
 
 ## Local commands
 
-Copy `.env.example` to `.env` and replace every `change-me` value before startup.
+Copy `.env.example` to `.env` and replace every `change-me` value. On a new OpenFGA database,
+bootstrap the store/model before starting the complete stack. `infra:up` now fails early if the
+store/model are placeholders, unavailable, or the frontend artifacts have not been built.
 
 ```bash
 npm ci
+npm run build
+npm run openfga:bootstrap
 npm run infra:up
 ./mvnw verify
-npm run build && npm test
+npm test
+npm run infra:verify
 ```
 
 The microfrontends are served independently from the Shell. With Docker Compose,

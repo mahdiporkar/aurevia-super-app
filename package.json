@@ -15,7 +15,10 @@
     "dev:mfe:finance": "npm run dev --workspace=@aurevia/mfe-finance",
     "dev:mfe:reports": "npm run dev --workspace=@aurevia/mfe-reports",
     "clean": "npm run clean --workspaces --if-present",
-    "infra:up": "docker compose --env-file .env --profile superset -f infra/docker-compose/compose.yml up -d",
+    "openfga:bootstrap": "node tools/openfga-bootstrap.mjs",
+    "infra:preflight": "node tools/infra-preflight.mjs",
+    "infra:verify": "node tools/fresh-install-verify.mjs",
+    "infra:up": "npm run infra:preflight && docker compose --env-file .env --profile superset -f infra/docker-compose/compose.yml up -d --build",
     "infra:down": "docker compose --env-file .env --profile superset -f infra/docker-compose/compose.yml down"
   },
   "devDependencies": {
