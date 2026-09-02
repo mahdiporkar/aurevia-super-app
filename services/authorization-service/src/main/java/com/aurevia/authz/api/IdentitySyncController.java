@@ -13,30 +13,27 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.aurevia.authz.directory.OuAccessService;
 
 /** Idempotent projection of an authenticated OIDC identity and its directory groups. */
 @RestController
 @RequestMapping("/internal/v1/identity")
 public class IdentitySyncController {
   private final JdbcClient database;
+  private final OuAccessService ouAccess;
 
-  public IdentitySyncController(JdbcClient database) {
+  public IdentitySyncController(JdbcClient database, OuAccessService ouAccess) {
     this.database = database;
+    this.ouAccess = ouAccess;
   }
 
   @PostMapping("/login-sync")
   @Transactional
   public Map<String, Object> loginSync(@Valid @RequestBody LoginIdentity identity) {
-    UUID userId = database.sql("""
-        insert into app_user(issuer, external_id, username, display_name, email)
-        values (:issuer, :subject, :username, :displayName, :email)
-        on conflict(issuer, external_id) do update set
-          username=excluded.username, display_name=excluded.display_name,
-          email=excluded.email, status='ACTIVE', updated_at=now()
-        returning id
-        """).param("issuer", identity.issuer()).param("subject", identity.subject())
-        .param("username", identity.username()).param("displayName", identity.displayName())
-        .param("email", identity.email()).query(UUID.class).single();
+    var directoryResult=ouAccess.syncLogin(new OuAccessService.LoginDirectoryIdentity(
+        identity.issuer(),identity.subject(),identity.username(),identity.displayName(),identity.email(),
+        identity.distinguishedName(),identity.ouExternalId(),identity.directoryExternalId(),identity.attributes()));
+    UUID userId=directoryResult.userId();
 
     Set<UUID> previousGroups = new HashSet<>(database.sql(
         "select group_id from user_group_membership where user_id=:userId")
@@ -73,7 +70,10 @@ public class IdentitySyncController {
             .param("user", userId).param("group", removed).update();
       }
     }
-    return Map.of("userId", userId, "groups", identity.groups() == null ? 0 : identity.groups().size());
+    Map<String,Object> result=new java.util.LinkedHashMap<>();result.put("userId",userId);
+    result.put("groups",identity.groups()==null?0:identity.groups().size());
+    result.put("ouId",directoryResult.ouId());result.put("effectiveGroups",directoryResult.effectiveGroups());
+    return result;
   }
 
   private static String normalizePath(String path) {
@@ -95,7 +95,8 @@ public class IdentitySyncController {
   }
 
   public record LoginIdentity(@NotBlank String issuer, @NotBlank String subject,
-      @NotBlank String username, String displayName, String email, List<DirectoryGroup> groups) {}
+      @NotBlank String username, String displayName, String email, List<DirectoryGroup> groups,
+      String distinguishedName,String ouExternalId,String directoryExternalId,Map<String,String> attributes) {}
   public record DirectoryGroup(@NotBlank String externalId, @NotBlank String path,
       @NotBlank String displayName) {}
 }

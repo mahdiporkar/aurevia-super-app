@@ -33,3 +33,11 @@ aurevia:
     cache:
       namespace: ${OPENFGA_CACHE_NAMESPACE:aurevia:openfga:check}
       ttl: ${OPENFGA_CACHE_TTL:5s}
+  directory:
+    enabled: ${DIRECTORY_SYNC_ENABLED:false}
+    url: ${DIRECTORY_LDAP_URL:}
+    base-dn: ${DIRECTORY_BASE_DN:}
+    bind-dn: ${DIRECTORY_BIND_DN:}
+    bind-password: ${DIRECTORY_BIND_PASSWORD:}
+    issuer: ${DIRECTORY_ISSUER:http://localhost:8180/realms/aurevia}
+    sync-interval-ms: ${DIRECTORY_SYNC_INTERVAL_MS:300000}

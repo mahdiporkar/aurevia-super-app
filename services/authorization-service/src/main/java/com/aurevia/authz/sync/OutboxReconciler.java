@@ -47,8 +47,10 @@ public class OutboxReconciler {
         markApplied(id);
         return;
       }
-      boolean write = event.equals("GRANT_WRITE") || event.equals("ROLE_ASSIGNMENT_WRITE") || event.equals("RESOURCE_PARENT_WRITE") || event.equals("GROUP_MEMBERSHIP_WRITE");
-      boolean delete = event.equals("GRANT_DELETE") || event.equals("ROLE_ASSIGNMENT_DELETE") || event.equals("RESOURCE_PARENT_DELETE") || event.equals("GROUP_MEMBERSHIP_DELETE");
+      boolean write = event.equals("GRANT_WRITE") || event.equals("ROLE_ASSIGNMENT_WRITE") || event.equals("RESOURCE_PARENT_WRITE") || event.equals("GROUP_MEMBERSHIP_WRITE")
+          || event.equals("ACCESS_GROUP_MEMBERSHIP_WRITE") || event.equals("APPLICATION_GROUP_GRANT_WRITE");
+      boolean delete = event.equals("GRANT_DELETE") || event.equals("ROLE_ASSIGNMENT_DELETE") || event.equals("RESOURCE_PARENT_DELETE") || event.equals("GROUP_MEMBERSHIP_DELETE")
+          || event.equals("ACCESS_GROUP_MEMBERSHIP_DELETE") || event.equals("APPLICATION_GROUP_GRANT_DELETE");
       if (!write && !delete) {
         retry(id, "No projection adapter for event " + event);
         return;
@@ -74,6 +76,12 @@ public class OutboxReconciler {
         update outbox_event set processed_at=now(), attempts=attempts+1, last_error=null
         where id=:id
         """).param("id", id).update();
+    database.sql("""
+      update application_group_grant set status=case
+        when revoked_at is null then 'APPLIED'::projection_status else 'REVOKED'::projection_status end
+      where id=(select aggregate_id from outbox_event where id=:id)
+        and (select aggregate_type from outbox_event where id=:id)='application-group-grant'
+      """).param("id",id).update();
   }
 
   private void retry(UUID id, String error) {
@@ -84,6 +92,13 @@ public class OutboxReconciler {
           dead_lettered_at=case when attempts+1 >= :max then now() else null end,
           last_error=:error where id=:id
         """).param("id", id).param("max", maxAttempts).param("error", error).update();
+    database.sql("""
+      update application_group_grant set status=case
+        when (select attempts from outbox_event where id=:id)>=:max then 'FAILED'::projection_status
+        else 'RETRYING'::projection_status end
+      where id=(select aggregate_id from outbox_event where id=:id)
+        and (select aggregate_type from outbox_event where id=:id)='application-group-grant'
+      """).param("id",id).param("max",maxAttempts).update();
   }
 
   private static String safeMessage(RuntimeException failure) {

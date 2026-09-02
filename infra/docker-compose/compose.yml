@@ -46,6 +46,12 @@ services:
       OPENFGA_MODEL_ID: "${OPENFGA_MODEL_ID}"
       AUTH_INTERNAL_USER: "${AUTH_INTERNAL_USER:-bff}"
       AUTH_INTERNAL_PASSWORD: "${AUTH_INTERNAL_PASSWORD:-change-me}"
+      DIRECTORY_SYNC_ENABLED: "${DIRECTORY_SYNC_ENABLED:-false}"
+      DIRECTORY_LDAP_URL: "ldap://samba-ad:389"
+      DIRECTORY_BASE_DN: "DC=aurevia,DC=test"
+      DIRECTORY_BIND_DN: "CN=Administrator,CN=Users,DC=aurevia,DC=test"
+      DIRECTORY_BIND_PASSWORD: "${SAMBA_ADMIN_PASSWORD:-local-directory-only}"
+      DIRECTORY_ISSUER: "http://localhost:8180/realms/aurevia"
     depends_on:
       auth-db: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -91,6 +97,29 @@ services:
     ports: ["127.0.0.1:8180:8080"]
     depends_on: [keycloak-db]
     networks: [public-services, public-data]
+  samba-ad:
+    profiles: [directory]
+    build: {context: ../.., dockerfile: infra/samba-ad/Dockerfile}
+    hostname: dc1.aurevia.test
+    environment:
+      SAMBA_ADMIN_PASSWORD: "${SAMBA_ADMIN_PASSWORD:-local-directory-only}"
+      SAMBA_TEST_USER_PASSWORD: "${SAMBA_TEST_USER_PASSWORD:-local-user-only}"
+    volumes: [samba-ad-data:/var/lib/samba, ../samba-ad/move-ali-to-sales.sh:/config/move-ali-to-sales.sh:ro]
+    networks: [public-services, public-data]
+    healthcheck: {test: [CMD-SHELL, "samba-tool domain info 127.0.0.1 >/dev/null"], interval: 10s, timeout: 5s, retries: 30}
+  keycloak-directory-config:
+    profiles: [directory]
+    image: quay.io/keycloak/keycloak:26.3.3
+    entrypoint: [/bin/sh, /config/configure-samba-ldap.sh]
+    environment:
+      KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:-admin}"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-change-me}"
+      SAMBA_ADMIN_PASSWORD: "${SAMBA_ADMIN_PASSWORD:-local-directory-only}"
+    volumes: [../keycloak/configure-samba-ldap.sh:/config/configure-samba-ldap.sh:ro]
+    depends_on:
+      keycloak: {condition: service_started}
+      samba-ad: {condition: service_healthy}
+    networks: [public-services]
   mock-hr:
     image: wiremock/wiremock:3.13.1
     volumes: [../mock-operation:/home/wiremock:ro]
@@ -171,4 +200,4 @@ networks:
   bff-egress: {internal: true}
   operation-services: {internal: true}
   superset-bootstrap-egress: {internal: false}
-volumes: {auth-db: {}, openfga-db: {}, redis-data: {}, keycloak-db: {}, operation-superset-db: {}}
+volumes: {auth-db: {}, openfga-db: {}, redis-data: {}, keycloak-db: {}, operation-superset-db: {}, samba-ad-data: {}}

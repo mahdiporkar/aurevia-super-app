@@ -93,7 +93,21 @@ public class OidcLoginSuccessHandler implements ServerAuthenticationSuccessHandl
     identity.put("displayName", string(claims.get("name"), subject));
     identity.put("email", claims.get("email"));
     identity.put("groups", groups);
+    // These values originate only from the validated Keycloak principal. Browser input is never used.
+    identity.put("distinguishedName", firstClaim(claims,"distinguished_name","distinguishedName","ldap_dn"));
+    identity.put("ouExternalId", firstClaim(claims,"ou_object_guid","ouObjectGuid"));
+    identity.put("directoryExternalId", firstClaim(claims,"ldap_user_id","LDAP_ID","objectGUID"));
+    Map<String,String> attributes=new LinkedHashMap<>();
+    for(String allowed:List.of("department","title","employeeType")) {
+      Object value=claims.get(allowed);if(value!=null)attributes.put(allowed,String.valueOf(value));
+    }
+    identity.put("attributes",attributes);
     return identity;
+  }
+
+  private static Object firstClaim(Map<String,Object> claims,String... names) {
+    for(String name:names) { Object value=claims.get(name);if(value!=null&&!String.valueOf(value).isBlank())return value; }
+    return null;
   }
 
   private static String string(Object value, String fallback) {

@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useState}from'react';import{createRoot}from'reac
 import { SupersetAssets } from './SupersetAssets';
 import { PanelsView } from './Panels';
 import { AccessStudio } from './AccessStudio';
+import { OuAccessManagement } from './OuAccessManagement';
 import { LogsView } from './Logs';
 import { ProxyRouteManagement } from './ProxyRoutes';
 import { OutboundAuthProfiles } from './OutboundAuthProfiles';
@@ -26,5 +27,5 @@ function IdentityAndRoles(){
     <Modal open={roleOpen} title="تعریف نقش کاربردی" onCancel={()=>setRoleOpen(false)} onOk={()=>roleForm.submit()}><Form form={roleForm} layout="vertical" onFinish={createRole}><Form.Item name="roleKey" label="کلید پایدار نقش" rules={required}><Input placeholder="hr-supervisor"/></Form.Item><Form.Item name="nameFa" label="نام فارسی" rules={required}><Input/></Form.Item><Form.Item name="nameEn" label="نام انگلیسی" rules={required}><Input/></Form.Item></Form></Modal>
   </Space>;
 }
-function App(){return <Card><Typography.Title level={3}>مرکز مدیریت Aurevia</Typography.Title><Alert showIcon type="info" message="تعریف میکروفرانت، مدل‌سازی درخت منابع و تخصیص دسترسی مستقیم به کاربران"/><Tabs style={{marginTop:16}} items={[{key:'access-studio',label:'استودیوی دسترسی',children:<AccessStudio/>},{key:'panels',label:'میکروفرانت‌ها',children:<PanelsView/>},{key:'proxy-routes',label:'راهبری Proxy',children:<ProxyRouteManagement api={api}/>},{key:'outbound-auth',label:'پروفایل‌های احراز هویت سرویس‌ها',children:<OutboundAuthProfiles api={api}/>},{key:'superset',label:'گزارش‌ها و داشبوردها',children:<SupersetAssets/>},{key:'identity',label:'گروه‌ها و نقش‌ها',children:<IdentityAndRoles/>},{key:'logs',label:'لاگ‌ها',children:<LogsView/>}]}/></Card>}
+function App(){return <Card><Typography.Title level={3}>مرکز مدیریت Aurevia</Typography.Title><Alert showIcon type="info" message="تعریف میکروفرانت، مدل‌سازی منابع و مدیریت دسترسی مبتنی بر OU"/><Tabs style={{marginTop:16}} items={[{key:'ou-access',label:'دسترسی مبتنی بر OU',children:<OuAccessManagement/>},{key:'access-studio',label:'استودیوی دسترسی',children:<AccessStudio/>},{key:'panels',label:'میکروفرانت‌ها',children:<PanelsView/>},{key:'proxy-routes',label:'راهبری Proxy',children:<ProxyRouteManagement api={api}/>},{key:'outbound-auth',label:'پروفایل‌های احراز هویت سرویس‌ها',children:<OutboundAuthProfiles api={api}/>},{key:'superset',label:'گزارش‌ها و داشبوردها',children:<SupersetAssets/>},{key:'identity',label:'گروه‌ها و نقش‌ها',children:<IdentityAndRoles/>},{key:'logs',label:'لاگ‌ها',children:<LogsView/>}]}/></Card>}
 export const mount:RemoteModule['mount']=(el:HTMLElement,_ctx:RemoteContext)=>{const root=createRoot(el);root.render(<App/>);return()=>root.unmount()};

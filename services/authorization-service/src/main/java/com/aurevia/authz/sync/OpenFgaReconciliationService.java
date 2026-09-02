@@ -66,6 +66,18 @@ public class OpenFgaReconciliationService {
       join directory_group g on g.id=m.group_id
       """).query(Tuple.class).list());
     tuples.addAll(database.sql("""
+      select distinct 'user:'||u.external_id "user",'member' relation,'group:'||lower(g.code) object
+      from effective_group_membership m join app_user u on u.id=m.user_id
+      join access_group g on g.id=m.access_group_id where m.active and g.active
+      """).query(Tuple.class).list());
+    tuples.addAll(database.sql("""
+      select 'group:'||lower(a.code)||'#member' "user",'viewer' relation,
+        'application:aurevia/'||p.slug object
+      from application_group_grant g join access_group a on a.id=g.access_group_id
+      join panel p on p.id=g.application_id
+      where g.revoked_at is null and a.active and p.active
+      """).query(Tuple.class).list());
+    tuples.addAll(database.sql("""
       select 'user:'||u.external_id "user",'assignee' relation,'role:'||r.role_key object
       from user_role_assignment x join app_user u on u.id=x.user_id
       join application_role r on r.id=x.role_id where x.expires_at is null or x.expires_at>now()
