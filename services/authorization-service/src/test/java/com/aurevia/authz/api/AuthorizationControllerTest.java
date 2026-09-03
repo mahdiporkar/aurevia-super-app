@@ -23,7 +23,8 @@ class AuthorizationControllerTest {
 
   @BeforeEach void setUp() {
     controller = new AuthorizationController(relationships, mock(JdbcClient.class),
-        new AuthorizationSemanticsRegistry(), policies, auditor);
+        new AuthorizationSemanticsRegistry(), policies, auditor,
+        new com.fasterxml.jackson.databind.ObjectMapper());
   }
 
   @Test void openFgaAllowAndPolicyAllowReturnsObligations() {

@@ -7,7 +7,10 @@ paths:
   /api/v1/me:
     get: {security: [{browserSession: []}], responses: {'200': {description: Current principal}, '401': {description: Login required}}}
   /api/v1/me/manifest:
-    get: {security: [{browserSession: []}], responses: {'200': {description: Effective UI manifest}}}
+    get: {security: [{browserSession: []}], responses: {'200': {description: Backward-compatible effective manifest plus the versioned, user-filtered uiCatalog}}}
+  /api/proxy/{serviceSlug}/{path}:
+    parameters: [{in: path, name: serviceSlug, required: true, schema: {type: string}}, {in: path, name: path, required: false, schema: {type: string}}]
+    get: {security: [{browserSession: []}], responses: {'200': {description: Registry-resolved operational response}, '403': {description: Operation denied}, '404': {description: Disabled or unknown route}}}
   /api/v1/admin/{path}:
     parameters: [{in: path, name: path, required: true, schema: {type: string}}]
     get: {security: [{browserSession: []}], responses: {'200': {description: Registry response}, '403': {description: Admin required}}}

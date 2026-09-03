@@ -10,7 +10,6 @@ import {
   Input,
   Modal,
   Row,
-  Segmented,
   Select,
   Space,
   Spin,
@@ -20,7 +19,8 @@ import {
   Typography,
   message,
 } from "antd";
-import type { RemoteContext, RemoteModule } from "@aurevia/contracts";
+import type { HostRuntime, MicroFrontendProps, RemoteContext, RemoteModule } from "@aurevia/contracts";
+import { Link, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { evaluateSHPolicy, SHAction, SHManifestProvider, SHRouteGuard } from "@aurevia/sh-core-ui";
 export const contractVersion = "1" as const;
 type Employee = {
@@ -91,39 +91,8 @@ const messages = {
     required: "This field is required",
   },
 } as const;
-let csrf: { headerName: string; token: string } | undefined;
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const method = init?.method ?? "GET";
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "X-Correlation-ID": crypto.randomUUID(),
-    ...((init?.headers as Record<string, string>) ?? {}),
-  };
-  if (method !== "GET" && method !== "HEAD") {
-    const token: { headerName: string; token: string } = csrf
-      ? csrf
-      : await fetch("/api/v1/csrf", { credentials: "same-origin" }).then(
-          async (response) => {
-            if (!response.ok) throw new Error(`CSRF HTTP ${response.status}`);
-            return (await response.json()) as {
-              headerName: string;
-              token: string;
-            };
-          },
-        );
-    csrf = token;
-    headers[token.headerName] = token.token;
-  }
-  const response = await fetch(`/hr-micro/api/v1${path}`, {
-    ...init,
-    credentials: "same-origin",
-    headers,
-  });
-  if (!response.ok)
-    throw new Error((await response.text()) || `HTTP ${response.status}`);
-  return response.json() as Promise<T>;
-}
-function HrApplication({ context }: { context: RemoteContext }) {
+async function request<T>(runtime:HostRuntime,path:string,init?:RequestInit):Promise<T>{if(init?.method==='POST')return runtime.http.post<T,unknown>(path,JSON.parse(String(init.body??'{}')));if(init?.method==='PUT')return runtime.http.put<T,unknown>(path,JSON.parse(String(init.body??'{}')));return runtime.http.get<T>(path)}
+function HrApplication({ context,runtime }: { context: RemoteContext;runtime:HostRuntime }) {
   const copy = messages[context.locale];
   const [employees, setEmployees] = useState<Employee[]>([]),
     [departments, setDepartments] = useState<Department[]>([]),
@@ -138,9 +107,9 @@ function HrApplication({ context }: { context: RemoteContext }) {
     setError("");
     try {
       const [e, d, p] = await Promise.all([
-        request<ListResponse<Employee>>("/employees"),
-        request<ListResponse<Department>>("/departments"),
-        request<ListResponse<Position>>("/positions"),
+        request<ListResponse<Employee>>(runtime,"/employees"),
+        request<ListResponse<Department>>(runtime,"/departments"),
+        request<ListResponse<Position>>(runtime,"/positions"),
       ]);
       setEmployees(e.items);
       setDepartments(d.items);
@@ -165,7 +134,7 @@ function HrApplication({ context }: { context: RemoteContext }) {
   };
   const save = async (values: Record<string, string>) => {
     const id = editor?.id;
-    await request(id ? `/employees/${id}` : "/employees", {
+    await request(runtime,id ? `/employees/${id}` : "/employees", {
       method: id ? "PUT" : "POST",
       body: JSON.stringify(values),
     });
@@ -326,12 +295,12 @@ function HrApplication({ context }: { context: RemoteContext }) {
     </Space>
   );
 }
-function HrReferencePage({ context, kind }: { context: RemoteContext; kind: "departments" | "positions" }) {
+function HrReferencePage({ context,runtime, kind }: { context: RemoteContext;runtime:HostRuntime; kind: "departments" | "positions" }) {
   const [rows, setRows] = useState<Array<Department | Position>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
-    request<ListResponse<Department | Position>>(`/${kind}`)
+    request<ListResponse<Department | Position>>(runtime,`/${kind}`)
       .then((result) => setRows(result.items))
       .catch((reason) => setError(reason instanceof Error ? reason.message : String(reason)))
       .finally(() => setLoading(false));
@@ -351,27 +320,13 @@ function HrReferencePage({ context, kind }: { context: RemoteContext; kind: "dep
     ]} /></Card>
   </Space>;
 }
-function HrWorkspace({ context }: { context: RemoteContext }) {
-  const [page, setPage] = useState("employees");
-  const fa = context.locale === "fa-IR";
-  const canView = (resource: string) => evaluateSHPolicy(context.manifest, false, resource, "view").allowed;
-  return <Space direction="vertical" size={18} style={{ width: "100%" }}>
-    <Segmented value={page} onChange={(value) => setPage(String(value))} options={[
-      { value: "employees", label: fa ? "کارکنان" : "Employees" },
-      ...(canView("page:hr.departments") ? [{ value: "departments", label: fa ? "واحدها" : "Departments" }] : []),
-      ...(canView("page:hr.positions") ? [{ value: "positions", label: fa ? "سمت‌ها" : "Positions" }] : []),
-    ]} />
-    {page === "employees" && <SHRouteGuard resource="page:hr.employee.list" action="view"><HrApplication context={context} /></SHRouteGuard>}
-    {page === "departments" && <SHRouteGuard resource="page:hr.departments" action="view"><HrReferencePage context={context} kind="departments" /></SHRouteGuard>}
-    {page === "positions" && <SHRouteGuard resource="page:hr.positions" action="view"><HrReferencePage context={context} kind="positions" /></SHRouteGuard>}
-  </Space>;
-}
+function EmployeeDetails(){const{id}=useParams();return <Card><Typography.Title level={3}>اطلاعات پرسنل</Typography.Title><Typography.Text code>{id}</Typography.Text></Card>}
+function HrWorkspace({context,runtime}:{context:RemoteContext;runtime:HostRuntime}){const fa=context.locale==='fa-IR',canView=(resource:string)=>evaluateSHPolicy(context.manifest,false,resource,'view').allowed;return <Space direction="vertical" size={18} style={{width:'100%'}}><Space><Link to="personal">{fa?'کارکنان':'Employees'}</Link>{canView('page:hr.departments')&&<Link to="departments">{fa?'واحدها':'Departments'}</Link>}{canView('page:hr.positions')&&<Link to="positions">{fa?'سمت‌ها':'Positions'}</Link>}</Space><Routes><Route index element={<Navigate to="personal" replace/>}/><Route path="personal" element={<SHRouteGuard resource="page:hr.employee.list" action="view"><HrApplication context={context} runtime={runtime}/></SHRouteGuard>}/><Route path="personal/:id" element={<EmployeeDetails/>}/><Route path="departments" element={<SHRouteGuard resource="page:hr.departments" action="view"><HrReferencePage context={context} runtime={runtime} kind="departments"/></SHRouteGuard>}/><Route path="positions" element={<SHRouteGuard resource="page:hr.positions" action="view"><HrReferencePage context={context} runtime={runtime} kind="positions"/></SHRouteGuard>}/><Route path="*" element={<Alert type="warning" message="صفحه HR یافت نشد"/>}/></Routes></Space>}
+export function App({runtime,manifest}:{runtime:HostRuntime;manifest:MicroFrontendProps['manifest']}){const context:RemoteContext={locale:runtime.theme.locale,manifest,correlationId:()=>crypto.randomUUID()};return <SHManifestProvider initial={manifest}><HrWorkspace context={context} runtime={runtime}/></SHManifestProvider>}
+export const plugin={contractVersion:'1.0' as const,App};
 export const mount: RemoteModule["mount"] = (element, context) => {
   const root = createRoot(element);
-  root.render(
-    <SHManifestProvider initial={context.manifest}>
-      <HrWorkspace context={context} />
-    </SHManifestProvider>,
-  );
+  const legacyRuntime={mode:'embedded',moduleKey:'mfe-hr',routePrefix:'hr',http:{get:<T,>(p:string)=>fetch(`/hr-micro/api/v1${p}`).then(r=>r.json()as Promise<T>),post:<T,B>(p:string,b:B)=>fetch(`/hr-micro/api/v1${p}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()as Promise<T>),put:<T,B>(p:string,b:B)=>fetch(`/hr-micro/api/v1${p}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()as Promise<T>)},navigation:{navigate:()=>{},getModuleBasePath:()=>'/hr'},session:{getCurrentUser:()=>null,subscribe:()=>()=>{}},notifications:{success:()=>{},error:()=>{}},events:{emit:()=>{},subscribe:()=>()=>{}},sharedState:{get:()=>undefined,subscribe:()=>()=>{}},theme:{locale:context.locale,direction:context.locale==='fa-IR'?'rtl':'ltr'}} satisfies HostRuntime;
+  root.render(<App runtime={legacyRuntime} manifest={context.manifest}/>);
   return () => root.unmount();
 };
