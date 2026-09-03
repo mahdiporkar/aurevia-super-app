@@ -18,6 +18,8 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [Access-control model (فارسی)](docs/access-control-fa.md)
 - [Micro Frontend access for users, roles and groups (فارسی)](docs/access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش)
 - [Code reference (فارسی)](docs/code-reference-fa.md)
+- [Feature-by-feature code and runtime reference — 2026-09-04 (فارسی)](docs/codebase-feature-reference-2026-09-04-fa.md)
+- [Architecture, Clean Code and SOLID audit — 2026-09-04 (فارسی)](docs/codebase-architecture-clean-code-solid-audit-2026-09-04-fa.md)
 - [Authorization Engine architecture (فارسی)](docs/authorization-engine-fa.md)
 - [Complete architecture and OpenFGA reference (فارسی)](docs/architecture-openfga-complete-fa.md)
 - [OpenFGA deployment and endpoint configuration (فارسی)](docs/openfga-deployment-configuration-fa.md)

@@ -10,24 +10,26 @@
 2. [راهنمای آموزشی صفر تا تسلط تیم فنی](technical-team-zero-to-production-fa.md)
 3. [سطوح دسترسی و مدل مجوزدهی](access-control-fa.md)
 4. [مرجع کد، فایل‌به‌فایل](code-reference-fa.md)
-5. [راهنمای خواندن کد به ترتیب اجرا](code-walkthrough-fa.md)
-6. [معماری Authorization Engine](authorization-engine-fa.md)
-7. [مرجع جامع معماری و OpenFGA](architecture-openfga-complete-fa.md)
-8. [پیکربندی و انتشار OpenFGA](openfga-deployment-configuration-fa.md)
-9. [عملیات، تست و عیب‌یابی](operations-fa.md)
-10. [انتشار Demo روی سرور Linux](deployment-demo-linux-fa.md)
-11. [انتشار Production روی Linux](deployment-production-linux-fa.md)
-12. [Superset عمومی، عملیاتی، Route و نمایش داخل MFE](superset-routing-and-embedding-fa.md)
-13. [ارسال امن توکن به Gateway و سرویس‌های عملیاتی](operational-token-forwarding-fa.md)
-14. [معماری Resource Catalog و دو Manifest](resource-catalog-manifest-architecture-fa.md)
-15. [Shell و بارگذاری Micro Frontendها](shell-runtime-and-mfe-loading-fa.md)
-16. [دموی دسترسی چندصفحه‌ای HR و Finance](two-page-openfga-demo-fa.md)
-17. [معماری فنی](architecture.md)
-18. [حاکمیت Git و دسترسی](git-governance-fa.md)
-19. [مدل تهدید](threat-model.md)
-20. [نمودار پایگاه داده](er-diagram.md)
-21. [تصمیم‌های معماری](adr/)
-22. [قراردادهای OpenAPI](openapi/)
+5. [مرجع فیچرها، جریان اجرا و مالکیت کد در ۲۰۲۶-۰۹-۰۴](codebase-feature-reference-2026-09-04-fa.md)
+6. [ممیزی معماری، Clean Code و SOLID در ۲۰۲۶-۰۹-۰۴](codebase-architecture-clean-code-solid-audit-2026-09-04-fa.md)
+7. [راهنمای خواندن کد به ترتیب اجرا](code-walkthrough-fa.md)
+8. [معماری Authorization Engine](authorization-engine-fa.md)
+9. [مرجع جامع معماری و OpenFGA](architecture-openfga-complete-fa.md)
+10. [پیکربندی و انتشار OpenFGA](openfga-deployment-configuration-fa.md)
+11. [عملیات، تست و عیب‌یابی](operations-fa.md)
+12. [انتشار Demo روی سرور Linux](deployment-demo-linux-fa.md)
+13. [انتشار Production روی Linux](deployment-production-linux-fa.md)
+14. [Superset عمومی، عملیاتی، Route و نمایش داخل MFE](superset-routing-and-embedding-fa.md)
+15. [ارسال امن توکن به Gateway و سرویس‌های عملیاتی](operational-token-forwarding-fa.md)
+16. [معماری Resource Catalog و دو Manifest](resource-catalog-manifest-architecture-fa.md)
+17. [Shell و بارگذاری Micro Frontendها](shell-runtime-and-mfe-loading-fa.md)
+18. [دموی دسترسی چندصفحه‌ای HR و Finance](two-page-openfga-demo-fa.md)
+19. [معماری فنی](architecture.md)
+20. [حاکمیت Git و دسترسی](git-governance-fa.md)
+21. [مدل تهدید](threat-model.md)
+22. [نمودار پایگاه داده](er-diagram.md)
+23. [تصمیم‌های معماری](adr/)
+24. [قراردادهای OpenAPI](openapi/)
 
 ## نقشه مستندات
 
@@ -51,6 +53,8 @@
 | چرا Superset بدون فرم Login دوم باز می‌شود و آیا از SSO یا password استفاده می‌کند؟ | [superset-routing-and-embedding-fa.md#احراز-هویت-و-sso-بین-super-app-و-superset](superset-routing-and-embedding-fa.md#احراز-هویت-و-sso-بین-super-app-و-superset) |
 | ادمین چگونه بدون انتشار نسخه یک میکرو و backend Legacy تعریف می‌کند؟ | [legacy-service-authentication-fa.md](legacy-service-authentication-fa.md#تعریف-یک-micro-app-از-نوع-legacy-بدون-انتشار-نسخه) |
 | هر فایل Java/React/Infra چه مسئولیتی دارد؟ | [code-reference-fa.md](code-reference-fa.md) |
+| جریان هر فیچر، مالک داده و فایل‌های اجرایی فعلی چیست؟ | [codebase-feature-reference-2026-09-04-fa.md](codebase-feature-reference-2026-09-04-fa.md) |
+| مهم‌ترین ایرادهای معماری، امنیتی، Clean Code و SOLID چیست و به چه ترتیب اصلاح شوند؟ | [codebase-architecture-clean-code-solid-audit-2026-09-04-fa.md](codebase-architecture-clean-code-solid-audit-2026-09-04-fa.md) |
 | پروژه را چگونه بالا بیاوریم و تست کنیم؟ | [operations-fa.md](operations-fa.md) |
 | Demo کامل را چگونه روی یک سرور Linux منتشر کنیم؟ | [deployment-demo-linux-fa.md](deployment-demo-linux-fa.md) |
 | انتشار واقعی Production از صفر چه الزاماتی دارد؟ | [deployment-production-linux-fa.md](deployment-production-linux-fa.md) |
