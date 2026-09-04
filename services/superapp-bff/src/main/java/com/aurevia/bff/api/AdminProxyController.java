@@ -20,6 +20,7 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import com.aurevia.bff.outboundauth.LegacyTokenManager;
+import com.aurevia.bff.security.SessionIdentity;
 
 @RestController
 public class AdminProxyController {
@@ -38,14 +39,14 @@ public class AdminProxyController {
   @PostMapping("/api/v1/admin/outbound-auth-profiles/{id}/token-test")
   public Mono<ResponseEntity<Map<String,Object>>> tokenTest(@PathVariable String id,Principal principal){long start=System.nanoTime();return requireProfilePermission(principal,"manage").then(legacyTokens.test(id)).thenReturn(ResponseEntity.ok(result(true,(System.nanoTime()-start)/1_000_000,"TOKEN_ACQUIRED"))).onErrorResume(ResponseStatusException.class,error->Mono.just(ResponseEntity.status(error.getStatusCode()).body(result(false,(System.nanoTime()-start)/1_000_000,"ACCESS_DENIED")))).onErrorReturn(ResponseEntity.status(502).body(result(false,(System.nanoTime()-start)/1_000_000,"TOKEN_ACQUISITION_FAILED")));}
   @PostMapping("/api/v1/admin/outbound-auth-profiles/{id}/connection-test")
-  public Mono<ResponseEntity<Map<String,Object>>> connectionTest(@PathVariable String id,Principal principal){return tokenTest(id,principal);}
+  public Mono<ResponseEntity<Map<String,Object>>> connectionTest(@PathVariable String id,Principal principal){long start=System.nanoTime();return requireProfilePermission(principal,"manage").then(legacyTokens.validateConnection(id)).thenReturn(ResponseEntity.ok(result(true,(System.nanoTime()-start)/1_000_000,"CONNECTION_APPROVED"))).onErrorResume(ResponseStatusException.class,error->Mono.just(ResponseEntity.status(error.getStatusCode()).body(result(false,(System.nanoTime()-start)/1_000_000,"ACCESS_DENIED")))).onErrorReturn(ResponseEntity.status(502).body(result(false,(System.nanoTime()-start)/1_000_000,"CONNECTION_REJECTED")));}
   @PostMapping("/api/v1/admin/outbound-auth-profiles/{id}/invalidate-token")
   public Mono<ResponseEntity<Map<String,Object>>> invalidate(@PathVariable String id,Principal principal){return requireProfilePermission(principal,"manage").then(legacyTokens.invalidate(id)).thenReturn(ResponseEntity.ok(Map.of("success",true,"code","CACHE_INVALIDATED")));}
   @GetMapping("/api/v1/admin/outbound-auth-profiles/{id}/cache-status")
   public Mono<ResponseEntity<Map<String,Object>>> cacheStatus(@PathVariable String id,Principal principal){return requireProfilePermission(principal,"view").then(legacyTokens.cacheStatus(id)).map(cached->ResponseEntity.ok(Map.of("cached",cached)));}
   private Mono<Void> requireProfilePermission(Principal principal,String action){
-    if(principal==null)return Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-    Map<String,Object> check=Map.of("subjectId",principal.getName(),"issuer","public-iam",
+    SessionIdentity identity=SessionIdentity.from(principal);
+    Map<String,Object> check=Map.of("subjectId",identity.subject(),"issuer",identity.issuer(),
         "resource","resource:integration.auth-profile","action",action,"context",Map.of(),
         "correlationId",UUID.randomUUID().toString());
     return authorizationClient.post().uri("/internal/v1/authorize/check")
@@ -58,9 +59,10 @@ public class AdminProxyController {
   /** Connectivity is tested server-side against the fixed approved Gateway client. */
   @PostMapping("/api/v1/admin/service-targets/{id}/health-check")
   public Mono<ResponseEntity<Map<String,Object>>> health(@PathVariable UUID id,Principal principal) {
+    SessionIdentity identity=SessionIdentity.from(principal);
     long started=System.nanoTime();
     return authorizationClient.get().uri("/internal/v1/registry/service-targets/{id}",id)
-        .header("X-Actor",principal.getName()).retrieve().bodyToMono(Map.class)
+        .headers(headers -> actorHeaders(headers,identity)).retrieve().bodyToMono(Map.class)
         .flatMap(target -> operationGateway.get().uri(String.valueOf(target.get("health_check_path")))
             .exchangeToMono(response -> Mono.just(ResponseEntity.ok(Map.of(
                 "healthy",response.statusCode().is2xxSuccessful(),"status",response.statusCode().value(),
@@ -74,6 +76,7 @@ public class AdminProxyController {
       @RequestBody(required = false) Mono<byte[]> requestBody,
       ServerWebExchange exchange,
       Principal principal) {
+    SessionIdentity identity=SessionIdentity.from(principal);
     String query = exchange.getRequest().getURI().getRawQuery();
     String targetUri = "/internal/v1/registry" + path
         + (query == null ? "" : "?" + query);
@@ -82,7 +85,7 @@ public class AdminProxyController {
         .method(exchange.getRequest().getMethod())
         .uri(targetUri)
         .contentType(MediaType.APPLICATION_JSON)
-        .header("X-Actor", principal.getName())
+        .headers(headers -> actorHeaders(headers,identity))
         .body(requestBody, byte[].class)
         .exchangeToMono(response -> response.bodyToMono(byte[].class)
             .defaultIfEmpty(new byte[0])
@@ -95,4 +98,10 @@ public class AdminProxyController {
   }
   private static boolean mutatesProfile(String path,ServerWebExchange exchange){return path.matches("/outbound-auth-profiles/[0-9a-fA-F-]+(?:/status)?")&&Set.of("PUT","PATCH").contains(exchange.getRequest().getMethod().name());}
   private static String profileId(String path){return path.split("/")[2];}
+  private static void actorHeaders(org.springframework.http.HttpHeaders headers,
+      SessionIdentity identity) {
+    headers.set("X-Actor", identity.username());
+    headers.set("X-Actor-Subject", identity.subject());
+    headers.set("X-Actor-Issuer", identity.issuer());
+  }
 }

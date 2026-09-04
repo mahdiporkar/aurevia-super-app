@@ -12,4 +12,15 @@ class TokenVaultCryptoTest {
     assertThat(first).isNotEqualTo(second).doesNotContain("secret-token");
     assertThat(crypto.decrypt(first)).isEqualTo("secret-token");
   }
+
+  @Test void decryptsPreviousKeyDuringRotationAndEncryptsWithCurrentKey() {
+    String previous = Base64.getEncoder().encodeToString(new byte[32]);
+    byte[] currentBytes = new byte[32];
+    java.util.Arrays.fill(currentBytes, (byte) 7);
+    String current = Base64.getEncoder().encodeToString(currentBytes);
+    String oldEnvelope = new TokenVaultCrypto("old", previous).encrypt("refresh-token");
+    var rotating = new TokenVaultCrypto("current", current, "old=" + previous);
+    assertThat(rotating.decrypt(oldEnvelope)).isEqualTo("refresh-token");
+    assertThat(rotating.encrypt("access-token")).startsWith("current.");
+  }
 }

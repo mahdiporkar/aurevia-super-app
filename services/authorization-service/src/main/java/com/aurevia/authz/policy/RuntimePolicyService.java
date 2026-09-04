@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,33 +15,26 @@ import org.slf4j.LoggerFactory;
 @Service
 public class RuntimePolicyService {
   private static final Logger LOG = LoggerFactory.getLogger(RuntimePolicyService.class);
-  private final JdbcClient database;
+  private final RuntimePolicyRepository policies;
   private final ObjectMapper json;
   private final StructuredPolicyEvaluator evaluator;
 
-  public RuntimePolicyService(JdbcClient database, ObjectMapper json,
+  public RuntimePolicyService(RuntimePolicyRepository policies, ObjectMapper json,
       StructuredPolicyEvaluator evaluator) {
-    this.database = database;
+    this.policies = policies;
     this.json = json;
     this.evaluator = evaluator;
   }
 
-  public Evaluation evaluate(String subject, String canonicalObject, String action) {
+  public Evaluation evaluate(String issuer, String subject, String canonicalObject, String action) {
     try {
-      ResourceContext resource = loadResource(canonicalObject);
-      Map<String, Object> trusted = trustedContext(subject, resource);
-      List<PolicyRow> policies = database.sql("""
-          select p.policy_key,p.version,c.expression::text expression,p.obligations::text obligations
-          from data_policy p
-          left join condition_definition c on c.id=p.condition_id and c.active=true
-          join action a on a.id=p.action_id
-          where p.resource_id=:resource and p.active=true and a.action_key=:action
-          order by p.policy_key
-          """).param("resource", resource.id()).param("action", action)
-          .query(PolicyRow.class).list();
+      RuntimePolicyRepository.ResourceContext resource = loadResource(canonicalObject);
+      Map<String, Object> trusted = trustedContext(issuer, subject, resource);
+      List<RuntimePolicyRepository.PolicyRow> policies = this.policies.activePolicies(
+          resource.id(),action);
       Map<String, Object> combined = new LinkedHashMap<>();
       List<String> applied = new ArrayList<>();
-      for (PolicyRow policy : policies) {
+      for (RuntimePolicyRepository.PolicyRow policy : policies) {
         if (policy.expression() == null) return Evaluation.deny("POLICY_DEFINITION_MISSING", applied);
         List<StructuredPolicyEvaluator.Clause> clauses = json.readValue(policy.expression(),
             new TypeReference<>() {});
@@ -62,7 +54,7 @@ public class RuntimePolicyService {
     }
   }
 
-  private ResourceContext loadResource(String canonicalObject) {
+  private RuntimePolicyRepository.ResourceContext loadResource(String canonicalObject) {
     String key;
     if (canonicalObject.startsWith("application:")) {
       key = canonicalObject;
@@ -77,13 +69,7 @@ public class RuntimePolicyService {
     // OpenFGA canonicalizes only the resource-type separator. The resource id itself may
     // legitimately contain dots or further slashes and must remain byte-for-byte stable.
     String registryKey = toRegistryKey(key);
-    return database.sql("""
-        select r.id,r.classification,r.owner_domain,
-          coalesce(sa.owner_external_id,r.external_id) owner_id
-        from resource r left join superset_asset sa on sa.resource_id=r.id
-        where (r.resource_key=:key or r.resource_key=:registryKey) and r.status='ACTIVE'
-        """).param("key", key).param("registryKey", registryKey)
-        .query(ResourceContext.class).optional()
+    return policies.activeResource(key,registryKey)
         .orElseThrow(() -> new IllegalArgumentException(
             "Resource is not registered for canonical key '" + registryKey + "'"));
   }
@@ -96,18 +82,13 @@ public class RuntimePolicyService {
         : canonicalId.substring(0, typeSeparator) + ':' + canonicalId.substring(typeSeparator + 1);
   }
 
-  private Map<String, Object> trustedContext(String subject, ResourceContext resource) {
+  private Map<String, Object> trustedContext(String issuer, String subject,
+      RuntimePolicyRepository.ResourceContext resource) {
     Map<String, Object> context = new LinkedHashMap<>();
     put(context, "ownerId", resource.ownerId());
     put(context, "classification", resource.classification());
     put(context, "time", Instant.now().toString());
-    database.sql("""
-        select g.external_id org_unit,g.normalized_path branch
-        from app_user u join user_group_membership m on m.user_id=u.id
-        join directory_group g on g.id=m.group_id and g.status='ACTIVE'
-        where u.external_id=:subject or u.username=:subject
-        order by g.normalized_path limit 1
-        """).param("subject", subject).query(OrgContext.class).optional().ifPresent(org -> {
+    policies.primaryOrganization(issuer,subject).ifPresent(org -> {
           put(context, "orgUnit", org.orgUnit());
           put(context, "branch", org.branch());
         });
@@ -118,9 +99,6 @@ public class RuntimePolicyService {
     if (value != null) context.put(key, value);
   }
 
-  record ResourceContext(java.util.UUID id,String classification,String ownerDomain,String ownerId) {}
-  record OrgContext(String orgUnit,String branch) {}
-  record PolicyRow(String policyKey,long version,String expression,String obligations) {}
   public record Evaluation(boolean allowed,String reasonCode,Map<String,Object> obligations,
       List<String> policies) {
     static Evaluation deny(String reason,List<String> policies) {

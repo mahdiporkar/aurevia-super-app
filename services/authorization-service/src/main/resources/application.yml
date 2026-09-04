@@ -41,3 +41,10 @@ aurevia:
     bind-password: ${DIRECTORY_BIND_PASSWORD:}
     issuer: ${DIRECTORY_ISSUER:http://localhost:8180/realms/aurevia}
     sync-interval-ms: ${DIRECTORY_SYNC_INTERVAL_MS:300000}
+    page-size: ${DIRECTORY_PAGE_SIZE:500}
+    max-removal-ratio: ${DIRECTORY_MAX_REMOVAL_RATIO:0.25}
+    require-tls: ${DIRECTORY_REQUIRE_TLS:false}
+  ui-artifacts:
+    allowed-origins: ${UI_ARTIFACT_ALLOWED_ORIGINS:http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004}
+    allow-http: ${UI_ARTIFACT_ALLOW_HTTP:true}
+    require-integrity: ${UI_ARTIFACT_REQUIRE_INTEGRITY:false}

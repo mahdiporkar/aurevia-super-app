@@ -63,7 +63,7 @@ export interface PanelManifest {
     routes?: PluginRoute[];
     menus?: PluginMenu[];
 }
-export type ResourceType = 'APPLICATION' | 'MODULE' | 'PAGE' | 'UI_COMPONENT' | 'FIELD' | 'BUSINESS_RESOURCE' | 'EXTERNAL_RESOURCE';
+export type ResourceType = 'APPLICATION' | 'MODULE' | 'PAGE' | 'UI_COMPONENT' | 'FIELD' | 'BUSINESS_RESOURCE' | 'EXTERNAL_RESOURCE' | 'API_RESOURCE' | 'DATA_RESOURCE' | 'DATA_GOVERNANCE_RESOURCE';
 export interface ManifestResource {
     id: string;
     parent_id?: string | null;
@@ -79,6 +79,7 @@ export interface EffectiveManifest {
     manifestType?: 'EFFECTIVE_USER_MANIFEST';
     subject?: {
         type: 'user';
+        issuer: string;
         id: string;
     };
     version: string;
@@ -110,7 +111,9 @@ export interface ResourceDefinitionManifest {
     resources: readonly ResourceDefinition[];
 }
 export interface CurrentUser {
+    issuer: string;
     subject: string;
+    username: string;
     displayName?: string;
     groups: readonly {
         id: string;

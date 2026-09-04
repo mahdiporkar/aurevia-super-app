@@ -1,30 +1,53 @@
 package com.aurevia.authz.api;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.validation.constraints.NotBlank;
-import java.net.URI;
-import java.util.*;
-import org.springframework.http.*;
-import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
+import static com.aurevia.authz.api.dto.UiPluginDtos.*;
 
-/** Artifact/version operations extend the existing panel registry; panel remains the stable module identity. */
-@RestController @RequestMapping("/internal/v1/registry/panels/{panelId}")
-public class UiPluginRegistryController {
-  private final JdbcClient db; private final ObjectMapper json;
-  public UiPluginRegistryController(JdbcClient db,ObjectMapper json){this.db=db;this.json=json;}
-  @GetMapping("/artifacts") public List<Map<String,Object>> artifacts(@PathVariable UUID panelId){return db.sql("select id,panel_id,artifact_version,remote_entry_url,remote_name,exposed_module,contract_version,schema_version,integrity,manifest_snapshot,validation_status,validation_error,immutable,created_at,created_by,(id=(select active_artifact_id from panel where id=:panel)) active from ui_module_artifact where panel_id=:panel order by created_at desc").param("panel",panelId).query().listOfRows();}
-  @PostMapping("/artifacts") @ResponseStatus(HttpStatus.CREATED) @Transactional
-  public Map<String,Object> publish(@PathVariable UUID panelId,@RequestHeader(name="X-Actor",defaultValue="unknown") String actor,@RequestBody ArtifactWrite request){
-    JsonNode manifest=validate(request);UUID id=UUID.randomUUID();db.sql("insert into ui_module_artifact(id,panel_id,artifact_version,remote_entry_url,remote_name,exposed_module,contract_version,schema_version,integrity,manifest_snapshot,validation_status,created_by) values(:id,:panel,:version,:url,:name,:module,:contract,:schema,:integrity,cast(:manifest as jsonb),'VALID',:actor)").param("id",id).param("panel",panelId).param("version",request.artifactVersion()).param("url",request.remoteEntryUrl()).param("name",request.remoteName()).param("module",request.exposedModule()).param("contract",request.contractVersion()).param("schema",manifest.path("schemaVersion").asText()).param("integrity",request.integrity()).param("manifest",manifest.toString()).param("actor",actor).update();audit(actor,"UI_ARTIFACT_PUBLISHED",panelId,Map.of("artifactId",id,"version",request.artifactVersion()));return Map.of("id",id,"validationStatus","VALID");
+import com.aurevia.authz.ui.UiPluginRegistryService;
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+/** HTTP adapter for immutable UI artifacts and operator-owned menu overrides. */
+@RestController
+@RequestMapping("/internal/v1/registry/panels/{panelId}")
+public final class UiPluginRegistryController {
+  private final UiPluginRegistryService plugins;
+
+  public UiPluginRegistryController(UiPluginRegistryService plugins) { this.plugins=plugins; }
+
+  @GetMapping("/artifacts")
+  public List<ArtifactView> artifacts(@PathVariable UUID panelId) {
+    return plugins.artifacts(panelId);
   }
-  @PostMapping("/artifacts/{artifactId}/activate") @Transactional public Map<String,Object> activate(@PathVariable UUID panelId,@PathVariable UUID artifactId,@RequestHeader(name="X-Actor",defaultValue="unknown") String actor){Long valid=db.sql("select count(*) from ui_module_artifact where id=:id and panel_id=:panel and validation_status='VALID'").param("id",artifactId).param("panel",panelId).query(Long.class).single();if(valid==0)throw new IllegalArgumentException("artifact is not valid for this module");Map<String,Object> prior=db.sql("select active_artifact_id,version from panel where id=:id").param("id",panelId).query().singleRow();db.sql("update panel set active_artifact_id=:artifact,version=version+1,updated_at=now() where id=:panel").param("artifact",artifactId).param("panel",panelId).update();audit(actor,"UI_ARTIFACT_ACTIVATED",panelId,Map.of("oldArtifact",String.valueOf(prior.get("active_artifact_id")),"newArtifact",artifactId));return Map.of("activeArtifactId",artifactId,"version",((Number)prior.get("version")).longValue()+1);}
-  @PutMapping("/menu-overrides/{menuId}") @Transactional public Map<String,Object> menu(@PathVariable UUID panelId,@PathVariable String menuId,@RequestHeader(name="X-Actor",defaultValue="unknown") String actor,@RequestBody MenuOverride request){ensureMenu(panelId,menuId);db.sql("insert into ui_menu_override(panel_id,menu_id,title,icon,sort_order,hidden,updated_by) values(:panel,:menu,:title,:icon,:sort,:hidden,:actor) on conflict(panel_id,menu_id) do update set title=excluded.title,icon=excluded.icon,sort_order=excluded.sort_order,hidden=excluded.hidden,version=ui_menu_override.version+1,updated_at=now(),updated_by=excluded.updated_by").param("panel",panelId).param("menu",menuId).param("title",request.title()).param("icon",request.icon()).param("sort",request.order()).param("hidden",request.hidden()).param("actor",actor).update();audit(actor,"UI_MENU_OVERRIDE_CHANGED",panelId,Map.of("menuId",menuId));return Map.of("menuId",menuId);}
-  private JsonNode validate(ArtifactWrite r){try{URI uri=URI.create(r.remoteEntryUrl());if(!Set.of("http","https").contains(uri.getScheme())||uri.getHost()==null)throw new IllegalArgumentException("invalid remote URL");if(!r.remoteName().matches("^[A-Za-z][A-Za-z0-9_]*$"))throw new IllegalArgumentException("invalid remoteName");if(!"1.0".equals(r.contractVersion()))throw new IllegalArgumentException("unsupported contractVersion");JsonNode root=json.readTree(r.manifest());if(!"1.0".equals(root.path("schemaVersion").asText())||root.path("moduleKey").asText().isBlank()||!root.path("routes").isArray()||!root.path("menus").isArray())throw new IllegalArgumentException("invalid manifest schema");Set<String> routes=new HashSet<>();for(JsonNode route:root.path("routes")){String id=route.path("id").asText(),path=route.path("path").asText();if(id.isBlank()||!routes.add(id)||path.startsWith("/")||path.contains(".."))throw new IllegalArgumentException("invalid or duplicate route");}Set<String> menus=new HashSet<>();for(JsonNode menu:root.path("menus"))if(!menus.add(menu.path("id").asText())||!routes.contains(menu.path("routeId").asText()))throw new IllegalArgumentException("menu references an invalid route");return root;}catch(IllegalArgumentException e){throw e;}catch(Exception e){throw new IllegalArgumentException("manifest is not valid JSON",e);}}
-  private void ensureMenu(UUID panel,String menu){String snapshot=db.sql("select manifest_snapshot::text from ui_module_artifact where id=(select active_artifact_id from panel where id=:panel)").param("panel",panel).query(String.class).single();try{for(JsonNode node:json.readTree(snapshot).path("menus"))if(menu.equals(node.path("id").asText()))return;}catch(Exception ignored){}throw new IllegalArgumentException("menuId is not declared by active manifest");}
-  private void audit(String actor,String event,UUID panel,Map<String,Object> details){try{db.sql("insert into audit_event(actor_key,event_type,target_type,target_key,correlation_id,safe_details) values(:actor,:event,'panel',:target,:correlation,cast(:details as jsonb))").param("actor",actor).param("event",event).param("target",panel.toString()).param("correlation",UUID.randomUUID().toString()).param("details",json.writeValueAsString(details)).update();}catch(Exception e){throw new IllegalStateException(e);}}
-  public record ArtifactWrite(@NotBlank String artifactVersion,@NotBlank String remoteEntryUrl,@NotBlank String remoteName,@NotBlank String exposedModule,@NotBlank String contractVersion,String integrity,@NotBlank String manifest){}
-  public record MenuOverride(String title,String icon,Integer order,boolean hidden){}
+
+  @PostMapping("/artifacts")
+  @ResponseStatus(HttpStatus.CREATED)
+  public ArtifactPublishedResponse publish(@PathVariable UUID panelId,
+      @RequestHeader("X-Actor") String actor,@Valid @RequestBody ArtifactRequest request) {
+    return plugins.publish(panelId,actor,request);
+  }
+
+  @PostMapping("/artifacts/{artifactId}/activate")
+  public ArtifactActivatedResponse activate(@PathVariable UUID panelId,
+      @PathVariable UUID artifactId,@RequestParam long version) {
+    return plugins.activate(panelId,artifactId,version);
+  }
+
+  @PutMapping("/menu-overrides/{menuId}")
+  public MenuOverrideResponse menu(@PathVariable UUID panelId,@PathVariable String menuId,
+      @RequestHeader(name="X-Actor",defaultValue="unknown") String actor,
+      @Valid @RequestBody MenuOverrideRequest request) {
+    return plugins.overrideMenu(panelId,menuId,actor,request);
+  }
 }

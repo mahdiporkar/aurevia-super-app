@@ -44,8 +44,8 @@ export function AccessStudio(){
   const[grants,setGrants]=useState<RowData[]>([]),[grantLoading,setGrantLoading]=useState(false);
 
   const load=useCallback(async()=>{setLoading(true);setError(undefined);try{
-    const[r,a,u,g,ro]=await Promise.all([api('/resource-tree'),api('/actions'),api('/users'),api('/groups'),api('/roles')]);
-    setResources(r.map((item:RowData)=>({...item,actions:JSON.parse(item.actions_json??'[]')})));setActions(a);setUsers(u);setGroups(g);setRoles(ro);
+    const[r,a,u,g,ro]=await Promise.all([api('/resource-tree'),api('/actions'),api('/users'),api('/directory-groups'),api('/roles')]);
+    setResources(r.map((item:RowData)=>({...item,actions:Array.isArray(item.actions)?item.actions:JSON.parse(item.actions_json??'[]')})));setActions(a);setUsers(u);setGroups(g);setRoles(ro);
   }catch(reason){setError((reason as Error).message)}finally{setLoading(false)}},[]);
   useEffect(()=>{void load()},[load]);
 
@@ -60,7 +60,7 @@ export function AccessStudio(){
     resourceKey:resource.resource_key,type:resource.type,parentId:resource.parent_id,nameFa:resource.name_fa,nameEn:resource.name_en,ownerDomain:resource.owner_domain,classification:resource.classification,externalSystem:resource.external_system,externalType:resource.external_type,externalId:resource.external_id,source:resource.source,
   }:{type:parent?'PAGE':'APPLICATION',parentId:parent?.id,classification:'INTERNAL',source:'ADMIN'});setEditorOpen(true)};
   const save=async(values:RowData)=>{try{await api(editing?`/resources/${editing.id}?version=${editing.version}`:'/resources',{method:editing?'PUT':'POST',body:JSON.stringify(values)});message.success('منبع با موفقیت ذخیره شد');setEditorOpen(false);form.resetFields();await load()}catch(reason){message.error((reason as Error).message)}};
-  const toggleAction=async(action:RowData,on:boolean)=>{if(!selected)return;try{await api(`/resources/${selected.id}/actions/${action.id}`,{method:on?'PUT':'DELETE'});await load();setSelected((await api('/resource-tree')).map((r:RowData)=>({...r,actions:JSON.parse(r.actions_json??'[]')})).find((r:RowData)=>r.id===selected.id));message.success('عملیات منبع به‌روزرسانی شد')}catch(reason){message.error((reason as Error).message)}};
+  const toggleAction=async(action:RowData,on:boolean)=>{if(!selected)return;try{await api(`/resources/${selected.id}/actions/${action.id}`,{method:on?'PUT':'DELETE'});await load();setSelected((await api('/resource-tree')).map((r:RowData)=>({...r,actions:Array.isArray(r.actions)?r.actions:JSON.parse(r.actions_json??'[]')})).find((r:RowData)=>r.id===selected.id));message.success('عملیات منبع به‌روزرسانی شد')}catch(reason){message.error((reason as Error).message)}};
   const loadGrants=async(type:SubjectType,id:string)=>{setGrantLoading(true);try{setGrants(await api(`/subjects/${type}/${id}/grants`))}catch(reason){setGrants([]);message.error((reason as Error).message)}finally{setGrantLoading(false)}};
   const chooseSubject=(id:string)=>{setSubjectId(id);void loadGrants(subjectType,id)};
   const changeSubjectType=(value:string|number)=>{const next=value as SubjectType;setSubjectType(next);setSubjectId(undefined);setGrants([])};

@@ -1,110 +1,86 @@
 package com.aurevia.authz.sync;
 
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
-import java.util.Map;
-import java.util.UUID;
-import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Value;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
-/** Idempotently projects transactional grant events into OpenFGA. */
+/** Claims rows transactionally, then performs network I/O outside database transactions. */
 @Component
-public class OutboxReconciler {
-  private final JdbcClient database;
+public final class OutboxReconciler {
+  private static final List<String> WRITES=List.of("GRANT_WRITE","ROLE_ASSIGNMENT_WRITE",
+      "RESOURCE_PARENT_WRITE","GROUP_MEMBERSHIP_WRITE","ACCESS_GROUP_MEMBERSHIP_WRITE",
+      "APPLICATION_GROUP_GRANT_WRITE");
+  private static final List<String> DELETES=List.of("GRANT_DELETE","ROLE_ASSIGNMENT_DELETE",
+      "RESOURCE_PARENT_DELETE","GROUP_MEMBERSHIP_DELETE","ACCESS_GROUP_MEMBERSHIP_DELETE",
+      "APPLICATION_GROUP_GRANT_DELETE");
+
+  private final OutboxRepository outbox;
   private final RelationshipAuthorizationPort relationships;
   private final int maxAttempts;
+  private final int claimTimeoutSeconds;
   private final Timer projectionLatency;
 
-  public OutboxReconciler(JdbcClient database, RelationshipAuthorizationPort relationships,
-      @Value("${aurevia.outbox.max-attempts:12}") int maxAttempts, MeterRegistry metrics) {
-    this.database = database;
-    this.relationships = relationships;
-    this.maxAttempts = maxAttempts;
-    this.projectionLatency = metrics.timer("aurevia.openfga.projection.latency");
+  public OutboxReconciler(OutboxRepository outbox,RelationshipAuthorizationPort relationships,
+      @Value("${aurevia.outbox.max-attempts:12}") int maxAttempts,
+      @Value("${aurevia.outbox.claim-timeout-seconds:120}") int claimTimeoutSeconds,
+      MeterRegistry metrics) {
+    this.outbox=outbox;this.relationships=relationships;this.maxAttempts=maxAttempts;
+    this.claimTimeoutSeconds=claimTimeoutSeconds;
+    this.projectionLatency=metrics.timer("aurevia.openfga.projection.latency");
   }
 
-  @Scheduled(fixedDelayString = "${aurevia.outbox.interval-ms:5000}")
-  @Transactional
+  @Scheduled(fixedDelayString="${aurevia.outbox.interval-ms:5000}")
   public void reconcile() {
-    var rows = database.sql("""
-        select id, event_type, payload::text payload
-        from outbox_event
-        where processed_at is null and dead_lettered_at is null and available_at <= now()
-        order by created_at for update skip locked limit 50
-        """).query().listOfRows();
-    for (var row : rows) process(row);
+    UUID owner=UUID.randomUUID();
+    for(OutboxRepository.Event event:outbox.claim(owner,claimTimeoutSeconds,50)) process(event,owner);
   }
 
-  private void process(Map<String, Object> row) {
-    UUID id = (UUID) row.get("id");
-    String event = (String) row.get("event_type");
+  private void process(OutboxRepository.Event event,UUID owner) {
     try {
-      if (event.startsWith("PANEL_")) {
-        markApplied(id);
-        return;
-      }
-      boolean write = event.equals("GRANT_WRITE") || event.equals("ROLE_ASSIGNMENT_WRITE") || event.equals("RESOURCE_PARENT_WRITE") || event.equals("GROUP_MEMBERSHIP_WRITE")
-          || event.equals("ACCESS_GROUP_MEMBERSHIP_WRITE") || event.equals("APPLICATION_GROUP_GRANT_WRITE");
-      boolean delete = event.equals("GRANT_DELETE") || event.equals("ROLE_ASSIGNMENT_DELETE") || event.equals("RESOURCE_PARENT_DELETE") || event.equals("GROUP_MEMBERSHIP_DELETE")
-          || event.equals("ACCESS_GROUP_MEMBERSHIP_DELETE") || event.equals("APPLICATION_GROUP_GRANT_DELETE");
-      if (!write && !delete) {
-        retry(id, "No projection adapter for event " + event);
-        return;
-      }
-      Tuple tuple = database.sql("""
-          select payload->>'user' as "user", payload->>'relation' as relation,
-                 payload->>'object' as object
-          from outbox_event where id=:id
-          """).param("id", id).query(Tuple.class).single();
-      if (write) {
-        projectionLatency.record(() -> relationships.write(tuple.user(), tuple.relation(), tuple.object()));
+      if(event.eventType().startsWith("PANEL_")) {
+        markApplied(event.id(),owner);
+      } else if(WRITES.contains(event.eventType())) {
+        requireTuple(event);
+        projectionLatency.record(()->relationships.write(
+            event.user(),event.relation(),event.object()));
+        markApplied(event.id(),owner);
+      } else if(DELETES.contains(event.eventType())) {
+        requireTuple(event);
+        projectionLatency.record(()->relationships.delete(
+            event.user(),event.relation(),event.object()));
+        markApplied(event.id(),owner);
       } else {
-        projectionLatency.record(() -> relationships.delete(tuple.user(), tuple.relation(), tuple.object()));
+        retry(event.id(),owner,"No projection adapter for event "+event.eventType());
       }
-      markApplied(id);
-    } catch (RuntimeException failure) {
-      retry(id, safeMessage(failure));
+    } catch(RuntimeException failure) {
+      retry(event.id(),owner,safeMessage(failure));
     }
   }
 
-  private void markApplied(UUID id) {
-    database.sql("""
-        update outbox_event set processed_at=now(), attempts=attempts+1, last_error=null
-        where id=:id
-        """).param("id", id).update();
-    database.sql("""
-      update application_group_grant set status=case
-        when revoked_at is null then 'APPLIED'::projection_status else 'REVOKED'::projection_status end
-      where id=(select aggregate_id from outbox_event where id=:id)
-        and (select aggregate_type from outbox_event where id=:id)='application-group-grant'
-      """).param("id",id).update();
+  private void markApplied(UUID id,UUID owner) {
+    if(!outbox.markApplied(id,owner,maxAttempts)) {
+      throw new IllegalStateException("Outbox claim was lost before completion");
+    }
   }
 
-  private void retry(UUID id, String error) {
-    database.sql("""
-        update outbox_event set attempts=attempts+1,
-          available_at=now() + make_interval(secs => least(300,
-            cast(power(2, least(attempts, 10)) as integer))),
-          dead_lettered_at=case when attempts+1 >= :max then now() else null end,
-          last_error=:error where id=:id
-        """).param("id", id).param("max", maxAttempts).param("error", error).update();
-    database.sql("""
-      update application_group_grant set status=case
-        when (select attempts from outbox_event where id=:id)>=:max then 'FAILED'::projection_status
-        else 'RETRYING'::projection_status end
-      where id=(select aggregate_id from outbox_event where id=:id)
-        and (select aggregate_type from outbox_event where id=:id)='application-group-grant'
-      """).param("id",id).param("max",maxAttempts).update();
+  private void retry(UUID id,UUID owner,String error) {
+    outbox.markRetry(id,owner,error,maxAttempts);
   }
 
+  private static void requireTuple(OutboxRepository.Event event) {
+    if(blank(event.user())||blank(event.relation())||blank(event.object())) {
+      throw new IllegalStateException("Outbox tuple payload is incomplete");
+    }
+  }
+  private static boolean blank(String value) { return value==null||value.isBlank(); }
   private static String safeMessage(RuntimeException failure) {
-    String message = failure.getClass().getSimpleName() + ": " + failure.getMessage();
-    return message.length() > 900 ? message.substring(0, 900) : message;
+    String message=failure.getClass().getSimpleName()+": "+failure.getMessage();
+    return message.length()>900?message.substring(0,900):message;
   }
 
-  record Tuple(String user, String relation, String object) {}
 }

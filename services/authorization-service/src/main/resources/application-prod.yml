@@ -10,6 +10,13 @@ server:
     client-auth: need
   shutdown: graceful
 spring.lifecycle.timeout-per-shutdown-phase: 30s
-aurevia.internal:
-  authentication-mode: mtls
-  bff-identity: ${AUTH_BFF_CERT_IDENTITY:aurevia-bff}
+aurevia:
+  internal:
+    authentication-mode: mtls
+    bff-identity: ${AUTH_BFF_CERT_IDENTITY:aurevia-bff}
+  directory:
+    require-tls: true
+  ui-artifacts:
+    allowed-origins: ${UI_ARTIFACT_ALLOWED_ORIGINS}
+    allow-http: false
+    require-integrity: true

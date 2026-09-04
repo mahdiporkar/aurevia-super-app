@@ -1,0 +1,22 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "GET",
+    "urlPath": "/api/v1/ping",
+    "headers": {
+      "Authorization": {"matches": "Bearer .+"},
+      "X-Demo-Keycloak-Validation": {"equalTo": "passed"}
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {"Content-Type": "application/json", "Cache-Control": "no-store"},
+    "jsonBody": {
+      "service": "oauth2-demo",
+      "authenticated": true,
+      "credentialType": "KEYCLOAK_ACCESS_TOKEN",
+      "keycloakValidation": "passed",
+      "proof": "user bearer accepted"
+    }
+  }
+}

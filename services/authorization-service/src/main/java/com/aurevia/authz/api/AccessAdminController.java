@@ -1,83 +1,95 @@
 package com.aurevia.authz.api;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import java.time.Instant;
-import java.util.*;
-import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
-import com.aurevia.authz.semantics.AuthorizationSemanticsRegistry;
-import com.aurevia.authz.observability.AuditTrail;
+import static com.aurevia.authz.access.AccessModels.*;
+import static com.aurevia.authz.api.dto.AccessAdminDtos.*;
 
-@RestController @RequestMapping("/internal/v1/registry")
+import com.aurevia.authz.access.AccessAdministrationService;
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
+/** HTTP adapter only: validation, DTO mapping, and use-case invocation. */
+@RestController
+@RequestMapping("/internal/v1/registry")
 public class AccessAdminController {
- private static final Set<String> RESOURCE_TYPES=Set.of("APPLICATION","MODULE","PAGE","UI_COMPONENT","FIELD","BUSINESS_RESOURCE","EXTERNAL_RESOURCE");
- private static final Set<String> SOURCES=Set.of("APPLICATION_MANIFEST","ADMIN","EXTERNAL_SYNC","SYSTEM");
- private static final Map<String,String> PREFIXES=Map.of("APPLICATION","application:","MODULE","module:","PAGE","page:","UI_COMPONENT","component:","FIELD","field:","BUSINESS_RESOURCE","business:","EXTERNAL_RESOURCE","external:");
- private static final java.util.regex.Pattern KEY=java.util.regex.Pattern.compile("^[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9._/-]*$");
- private static final java.util.regex.Pattern BUTTON=java.util.regex.Pattern.compile("(?i).*(?:create|delete|edit|export|approve|reject)[-_]?button.*");
- private final JdbcClient db; private final AuthorizationSemanticsRegistry semantics;private final AuditTrail auditTrail;
- public AccessAdminController(JdbcClient db,AuthorizationSemanticsRegistry semantics,AuditTrail auditTrail){this.db=db;this.semantics=semantics;this.auditTrail=auditTrail;}
- @GetMapping("/resource-types") public Set<String> resourceTypes(){return RESOURCE_TYPES;}
- @GetMapping({"/resources","/resource-tree"}) public List<Map<String,Object>> resources(){return db.sql("select r.id,r.resource_key,r.type,r.parent_id,r.name_fa,r.name_en,r.owner_domain,r.classification,r.external_system,r.external_type,r.external_id,r.source,r.metadata,r.status,r.version,count(distinct g.id) grant_count,coalesce((jsonb_agg(distinct jsonb_build_object('id',a.id,'key',a.action_key,'nameFa',a.name_fa,'nameEn',a.name_en)) filter(where a.id is not null))::text,'[]') actions_json from resource r left join resource_action ra on ra.resource_id=r.id left join action a on a.id=ra.action_id left join authorization_grant g on g.resource_id=r.id and g.status='ACTIVE' where r.type::text in ('APPLICATION','MODULE','PAGE','UI_COMPONENT','FIELD','BUSINESS_RESOURCE','EXTERNAL_RESOURCE') group by r.id order by r.resource_key").query().listOfRows();}
- @PostMapping("/resources") @ResponseStatus(HttpStatus.CREATED) @Transactional public Map<String,Object> createResource(@Valid @RequestBody ResourceWrite r){validateResource(r,null);UUID id=UUID.randomUUID();db.sql("insert into resource(id,resource_key,type,parent_id,name_fa,name_en,owner_domain,classification,external_system,external_type,external_id,source,metadata,status) values(:id,:key,cast(:type as resource_type),:parent,:fa,:en,:owner,:classification,:system,:externalType,:externalId,:source,cast(:metadata as jsonb),'ACTIVE')").param("id",id).param("key",r.resourceKey()).param("type",r.type()).param("parent",r.parentId()).param("fa",r.nameFa()).param("en",r.nameEn()).param("owner",r.ownerDomain()).param("classification",r.classification()).param("system",r.externalSystem()).param("externalType",r.externalType()).param("externalId",r.externalId()).param("source",source(r.source())).param("metadata",json(r.metadata())).update();enqueueParent(id,r.parentId(),"RESOURCE_PARENT_WRITE");audit("RESOURCE_CREATED","resource",r.resourceKey());return Map.of("id",id,"version",0);}
- @PutMapping("/resources/{id}") @Transactional public Map<String,Object> updateResource(@PathVariable("id") UUID id,@RequestParam("version") long version,@Valid @RequestBody ResourceWrite r){validateResource(r,id);Map<String,Object> old=db.sql("select resource_key,parent_id from resource where id=:id").param("id",id).query().singleRow();if(!Objects.equals(old.get("resource_key"),r.resourceKey()))throw new IllegalArgumentException("resource_key is immutable; use an explicit migration");UUID oldParent=(UUID)old.get("parent_id");if(!Objects.equals(oldParent,r.parentId()))enqueueParent(id,oldParent,"RESOURCE_PARENT_DELETE");int n=db.sql("update resource set type=cast(:type as resource_type),parent_id=:parent,name_fa=:fa,name_en=:en,owner_domain=:owner,classification=:classification,external_system=:system,external_type=:externalType,external_id=:externalId,source=:source,metadata=cast(:metadata as jsonb),version=version+1,updated_at=now() where id=:id and version=:version").param("id",id).param("version",version).param("type",r.type()).param("parent",r.parentId()).param("fa",r.nameFa()).param("en",r.nameEn()).param("owner",r.ownerDomain()).param("classification",r.classification()).param("system",r.externalSystem()).param("externalType",r.externalType()).param("externalId",r.externalId()).param("source",source(r.source())).param("metadata",json(r.metadata())).update();if(n==0)throw new org.springframework.dao.OptimisticLockingFailureException("resource changed or missing");if(!Objects.equals(oldParent,r.parentId()))enqueueParent(id,r.parentId(),"RESOURCE_PARENT_WRITE");audit("RESOURCE_UPDATED","resource",r.resourceKey());return Map.of("id",id,"version",version+1);}
- @GetMapping("/actions") public List<Map<String,Object>> actions(){return db.sql("select id,action_key,name_fa,name_en from action order by action_key").query().listOfRows();}
- @PostMapping("/actions") @ResponseStatus(HttpStatus.CREATED) @Transactional public Map<String,Object> createAction(@Valid @RequestBody ActionWrite a){UUID id=UUID.randomUUID();db.sql("insert into action(id,action_key,name_fa,name_en) values(:id,:key,:fa,:en)").param("id",id).param("key",a.actionKey()).param("fa",a.nameFa()).param("en",a.nameEn()).update();audit("ACTION_CREATED","action",a.actionKey());return Map.of("id",id);}
- @PutMapping("/resources/{resourceId}/actions/{actionId}") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional public void attach(@PathVariable("resourceId") UUID resourceId,@PathVariable("actionId") UUID actionId){db.sql("insert into resource_action(resource_id,action_id) values(:resource,:action) on conflict do nothing").param("resource",resourceId).param("action",actionId).update();audit("RESOURCE_ACTION_ATTACHED","resource",resourceId.toString());}
- @DeleteMapping("/resources/{resourceId}/actions/{actionId}") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional public void detach(@PathVariable("resourceId") UUID resourceId,@PathVariable("actionId") UUID actionId){db.sql("delete from resource_action where resource_id=:resource and action_id=:action").param("resource",resourceId).param("action",actionId).update();audit("RESOURCE_ACTION_DETACHED","resource",resourceId.toString());}
- @GetMapping("/users") public List<Map<String,Object>> users(){return db.sql("select id,external_id,username,display_name,email,status,version from app_user order by username").query().listOfRows();}
- @PostMapping("/users") @ResponseStatus(HttpStatus.CREATED) @Transactional public Map<String,Object> createUser(@Valid @RequestBody UserWrite u){UUID id=UUID.randomUUID();db.sql("insert into app_user(id,issuer,external_id,username,display_name,email) values(:id,:issuer,:external,:username,:display,:email)").param("id",id).param("issuer",u.issuer()).param("external",u.externalId()).param("username",u.username()).param("display",u.displayName()).param("email",u.email()).update();audit("USER_REGISTERED","user",u.username());return Map.of("id",id,"version",0);}
- @GetMapping("/users/{id}/grants") public List<Map<String,Object>> grants(@PathVariable("id") UUID id){return db.sql("select g.id,g.resource_id,r.resource_key,r.name_fa,r.name_en,g.action_id,a.action_key,a.name_fa action_name_fa,g.relation,g.expires_at,g.status,g.version from authorization_grant g join resource r on r.id=g.resource_id join action a on a.id=g.action_id where g.subject_type='USER' and g.subject_id=:id and g.status='ACTIVE' order by r.resource_key,a.action_key").param("id",id).query().listOfRows();}
- @GetMapping("/subjects/{type}/{id}/grants") public List<Map<String,Object>> subjectGrants(@PathVariable("type") String type,@PathVariable("id") UUID id){String normalized=type.toUpperCase(Locale.ROOT);if(!Set.of("USER","GROUP","ROLE").contains(normalized))throw new IllegalArgumentException("invalid subject type");return db.sql("select g.id,g.resource_id,r.resource_key,r.name_fa,r.name_en,g.action_id,a.action_key,a.name_fa action_name_fa,g.relation,g.expires_at,g.status,g.version from authorization_grant g join resource r on r.id=g.resource_id join action a on a.id=g.action_id where g.subject_type=cast(:type as subject_type) and g.subject_id=:id and g.status='ACTIVE' order by r.resource_key,a.action_key").param("type",normalized).param("id",id).query().listOfRows();}
- @PostMapping("/grants") @ResponseStatus(HttpStatus.CREATED) @Transactional public Map<String,Object> grant(@Valid @RequestBody GrantWrite g){
-   String subjectType=g.subjectType()==null?"USER":g.subjectType().toUpperCase(Locale.ROOT);UUID subjectId=g.subjectId()!=null?g.subjectId():g.userId();
-   if(subjectId==null||!Set.of("USER","GROUP","ROLE").contains(subjectType))throw new IllegalArgumentException("A valid USER, GROUP, or ROLE subject is required");
-   GrantTarget target=db.sql("select r.type::text resource_type,a.action_key from resource r join resource_action ra on ra.resource_id=r.id join action a on a.id=ra.action_id where r.id=:resource and a.id=:action and r.status='ACTIVE'").param("resource",g.resourceId()).param("action",g.actionId()).query(GrantTarget.class).optional().orElseThrow(()->new IllegalArgumentException("Action is not attached to an active resource"));
-   String relation=semantics.resolve(target.resourceType(),target.actionKey()).relation();
-   db.sql("update authorization_grant set status='ARCHIVED',version=version+1 where subject_type=cast(:type as subject_type) and subject_id=:subject and resource_id=:resource and action_id=:action and status='ACTIVE' and expires_at<=now()").param("type",subjectType).param("subject",subjectId).param("resource",g.resourceId()).param("action",g.actionId()).update();
-   Optional<ExistingGrant> existing=db.sql("select id,version from authorization_grant where subject_type=cast(:type as subject_type) and subject_id=:subject and resource_id=:resource and action_id=:action and status='ACTIVE'").param("type",subjectType).param("subject",subjectId).param("resource",g.resourceId()).param("action",g.actionId()).query(ExistingGrant.class).optional();
-   if(existing.isPresent())return Map.of("id",existing.get().id(),"version",existing.get().version(),"existing",true);
-   UUID id=UUID.randomUUID();db.sql("insert into authorization_grant(id,subject_type,subject_id,resource_id,action_id,relation,expires_at) values(:id,cast(:subjectType as subject_type),:subject,:resource,:action,:relation,:expires)").param("id",id).param("subjectType",subjectType).param("subject",subjectId).param("resource",g.resourceId()).param("action",g.actionId()).param("relation",relation).param("expires",g.expiresAt()).update();enqueueGrant(id,"GRANT_WRITE",0);audit("GRANT_CREATED","grant",id.toString());return Map.of("id",id,"version",0,"existing",false);
- }
- @DeleteMapping("/grants/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) @Transactional public void revoke(@PathVariable("id") UUID id){Long active=db.sql("select count(*) from authorization_grant where id=:id and status='ACTIVE'").param("id",id).query(Long.class).single();if(active==0)throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND,"Active grant not found");enqueueGrant(id,"GRANT_DELETE",1);db.sql("update authorization_grant set status='ARCHIVED',version=version+1 where id=:id and status='ACTIVE'").param("id",id).update();audit("GRANT_REVOKED","grant",id.toString());}
- private void enqueueGrant(UUID id,String event,long version){db.sql("""
-   insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
-   select 'grant',g.id,:event,
-     jsonb_build_object(
-       'user',case g.subject_type
-         when 'USER' then 'user:'||u.external_id
-         when 'GROUP' then 'group:'||dg.external_id||'#member'
-         when 'ROLE' then 'role:'||ar.role_key||'#assignee' end,
-       'relation',g.relation,
-       'object',case
-         when r.type='APPLICATION' then 'application:'||regexp_replace(r.resource_key,'^application:','')
-         when r.type='EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(r.resource_key,'^external_resource:',''),':','/')
-         else 'resource:'||replace(r.resource_key,':','/') end),
-     :event||':'||g.id||':'||cast(:version as text)
-   from authorization_grant g left join app_user u on g.subject_type='USER' and u.id=g.subject_id
-   left join directory_group dg on g.subject_type='GROUP' and dg.id=g.subject_id
-   left join application_role ar on g.subject_type='ROLE' and ar.id=g.subject_id
-   join resource r on r.id=g.resource_id join action a on a.id=g.action_id where g.id=:id
-   on conflict(idempotency_key) do nothing
-   """).param("id",id).param("event",event).param("version",version).update();}
- private void audit(String event,String type,String key){db.sql("insert into audit_event(actor_key,event_type,target_type,target_key,correlation_id) values('bff-admin',:event,:type,:key,:correlation)").param("event",event).param("type",type).param("key",key).param("correlation",UUID.randomUUID().toString()).update();auditTrail.success("ACCESS_CONTROL",event.toLowerCase(Locale.ROOT).replace('_','.'),null,null,type,key,key,event,null,Map.of("target",key));}
- private void enqueueParent(UUID childId,UUID parentId,String event){if(parentId==null)return;db.sql("""
-   insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
-   select 'resource',c.id,:event,jsonb_build_object('user',case when p.type='APPLICATION' then 'application:'||regexp_replace(p.resource_key,'^application:','') when p.type='EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(p.resource_key,'^external_resource:',''),':','/') else 'resource:'||replace(p.resource_key,':','/') end,'relation','parent','object',case when c.type='APPLICATION' then 'application:'||regexp_replace(c.resource_key,'^application:','') when c.type='EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(c.resource_key,'^external_resource:',''),':','/') else 'resource:'||replace(c.resource_key,':','/') end),:event||':'||c.id||':'||p.id||':'||c.version
-   from resource c join resource p on p.id=:parent where c.id=:child on conflict(idempotency_key) do nothing
-   """).param("event",event).param("parent",parentId).param("child",childId).update();}
- private void validateResource(ResourceWrite r,UUID currentId){String type=r.type().toUpperCase(Locale.ROOT);String key=r.resourceKey();if(!RESOURCE_TYPES.contains(type))throw new IllegalArgumentException("unsupported resource type; exactly seven logical types are accepted");if(!KEY.matcher(key).matches()||!key.startsWith(PREFIXES.get(type)))throw new IllegalArgumentException("resource_key must be normalized and use the canonical type prefix");if(key.startsWith("http:")||key.startsWith("https:")||key.contains("/api/")||key.matches("(?i)^(GET|POST|PUT|PATCH|DELETE)-.*"))throw new IllegalArgumentException("API routes are bindings, not resource identities");if(type.equals("UI_COMPONENT")&&BUTTON.matcher(key).matches())throw new IllegalArgumentException("buttons that execute actions are not resources; attach the action to the business resource");if(type.equals("EXTERNAL_RESOURCE")&&(blank(r.externalSystem())||blank(r.externalType())||blank(r.externalId())))throw new IllegalArgumentException("external resources require provider, external type, and external id");if(currentId!=null&&currentId.equals(r.parentId()))throw new IllegalArgumentException("resource cannot be its own parent");if(r.parentId()!=null){Long parents=db.sql("select count(*) from resource where id=:id").param("id",r.parentId()).query(Long.class).single();if(parents==0)throw new IllegalArgumentException("parent resource does not exist");if(currentId!=null){Long cycle=db.sql("with recursive ancestors as (select id,parent_id from resource where id=:parent union all select r.id,r.parent_id from resource r join ancestors a on r.id=a.parent_id) select count(*) from ancestors where id=:current").param("parent",r.parentId()).param("current",currentId).query(Long.class).single();if(cycle>0)throw new IllegalArgumentException("resource hierarchy cannot contain a cycle");}}}
- private static boolean blank(String value){return value==null||value.isBlank();}
- private static String source(String value){String normalized=blank(value)?"ADMIN":value.toUpperCase(Locale.ROOT);if(!SOURCES.contains(normalized))throw new IllegalArgumentException("unsupported resource source");return normalized;}
- private static String json(Map<String,Object> value){try{return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value==null?Map.of():value);}catch(com.fasterxml.jackson.core.JsonProcessingException e){throw new IllegalArgumentException("invalid metadata",e);}}
- public record ResourceWrite(@NotBlank String resourceKey,@NotBlank String type,UUID parentId,@NotBlank String nameFa,@NotBlank String nameEn,String ownerDomain,String classification,String externalSystem,String externalType,String externalId,String source,Map<String,Object> metadata){}
- public record ActionWrite(@NotBlank String actionKey,@NotBlank String nameFa,@NotBlank String nameEn){}
- public record UserWrite(@NotBlank String issuer,@NotBlank String externalId,@NotBlank String username,String displayName,String email){}
- record GrantTarget(String resourceType,String actionKey){}
- record ExistingGrant(UUID id,long version){}
- public record GrantWrite(UUID userId,String subjectType,UUID subjectId,@NotNull UUID resourceId,@NotNull UUID actionId,String relation,Instant expiresAt){}
+  private final AccessAdministrationService service;
+
+  public AccessAdminController(AccessAdministrationService service) { this.service = service; }
+
+  @GetMapping("/resource-types")
+  public Set<String> resourceTypes() { return AccessAdministrationService.RESOURCE_TYPES; }
+
+  @GetMapping({"/resources", "/resource-tree"})
+  public List<ResourceView> resources() { return service.resources(); }
+
+  @PostMapping("/resources")
+  @ResponseStatus(HttpStatus.CREATED)
+  public MutationResult createResource(@Valid @RequestBody ResourceRequest request,
+      @RequestHeader("X-Actor") String actor) {
+    return service.createResource(request.toCommand(), actor);
+  }
+
+  @PutMapping("/resources/{id}")
+  public MutationResult updateResource(@PathVariable UUID id, @RequestParam long version,
+      @Valid @RequestBody ResourceRequest request, @RequestHeader("X-Actor") String actor) {
+    return service.updateResource(id, version, request.toCommand(), actor);
+  }
+
+  @GetMapping("/actions")
+  public List<ActionView> actions() { return service.actions(); }
+
+  @PostMapping("/actions")
+  @ResponseStatus(HttpStatus.CREATED)
+  public MutationResult createAction(@Valid @RequestBody ActionRequest request,
+      @RequestHeader("X-Actor") String actor) {
+    return service.createAction(request.toCommand(), actor);
+  }
+
+  @PutMapping("/resources/{resourceId}/actions/{actionId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void attachAction(@PathVariable UUID resourceId, @PathVariable UUID actionId,
+      @RequestHeader("X-Actor") String actor) {
+    service.attachAction(resourceId, actionId, actor);
+  }
+
+  @DeleteMapping("/resources/{resourceId}/actions/{actionId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void detachAction(@PathVariable UUID resourceId, @PathVariable UUID actionId,
+      @RequestHeader("X-Actor") String actor) {
+    service.detachAction(resourceId, actionId, actor);
+  }
+
+  @GetMapping("/users")
+  public List<UserView> users() { return service.users(); }
+
+  @PostMapping("/users")
+  @ResponseStatus(HttpStatus.CREATED)
+  public MutationResult createUser(@Valid @RequestBody UserRequest request,
+      @RequestHeader("X-Actor") String actor) {
+    return service.createUser(request.toCommand(), actor);
+  }
+
+  @GetMapping("/users/{id}/grants")
+  public List<GrantView> userGrants(@PathVariable UUID id) { return service.grants("USER", id); }
+
+  @GetMapping("/subjects/{type}/{id}/grants")
+  public List<GrantView> subjectGrants(@PathVariable String type, @PathVariable UUID id) {
+    return service.grants(type, id);
+  }
+
+  @PostMapping("/grants")
+  @ResponseStatus(HttpStatus.CREATED)
+  public GrantResult grant(@Valid @RequestBody GrantRequest request,
+      @RequestHeader("X-Actor") String actor) {
+    return service.grant(request.toCommand(), actor);
+  }
+
+  @DeleteMapping("/grants/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void revoke(@PathVariable UUID id, @RequestHeader("X-Actor") String actor) {
+    service.revoke(id, actor);
+  }
 }

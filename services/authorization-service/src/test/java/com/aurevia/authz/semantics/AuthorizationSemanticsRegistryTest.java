@@ -3,6 +3,7 @@ package com.aurevia.authz.semantics;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -23,7 +24,10 @@ class AuthorizationSemanticsRegistryTest {
   static Stream<Arguments> validMappings() {
     return Stream.of(
         Arguments.of("APPLICATION", "view", "viewer", "can_view"),
+        Arguments.of("APPLICATION", "access", "viewer", "can_view"),
         Arguments.of("APPLICATION", "list", "viewer", "can_view"),
+        Arguments.of("APPLICATION", "create", "manager", "can_create"),
+        Arguments.of("APPLICATION", "share", "manager", "can_share"),
         Arguments.of("APPLICATION", "admin", "manager", "can_manage"),
         Arguments.of("APPLICATION", "manage", "manager", "can_manage"),
         Arguments.of("RESOURCE", "view", "viewer", "can_view"),
@@ -34,11 +38,17 @@ class AuthorizationSemanticsRegistryTest {
         Arguments.of("RESOURCE", "approve", "editor", "can_edit"),
         Arguments.of("RESOURCE", "reject", "editor", "can_edit"),
         Arguments.of("RESOURCE", "delete", "deleter", "can_delete"),
+        Arguments.of("RESOURCE", "export", "manager", "can_export"),
+        Arguments.of("API_RESOURCE", "test", "manager", "can_manage"),
+        Arguments.of("API_RESOURCE", "activate", "manager", "can_manage"),
+        Arguments.of("API_RESOURCE", "invalidate-token", "manager", "can_manage"),
         Arguments.of("RESOURCE", "admin", "manager", "can_manage"),
         Arguments.of("EXTERNAL_RESOURCE", "view", "viewer", "can_view"),
+        Arguments.of("EXTERNAL_RESOURCE", "create", "manager", "can_create"),
         Arguments.of("EXTERNAL_RESOURCE", "update", "editor", "can_edit"),
         Arguments.of("EXTERNAL_RESOURCE", "share", "sharer", "can_share"),
         Arguments.of("EXTERNAL_RESOURCE", "export", "exporter", "can_export"),
+        Arguments.of("EXTERNAL_RESOURCE", "download", "exporter", "can_export"),
         Arguments.of("EXTERNAL_RESOURCE", "delete", "manager", "can_delete"),
         Arguments.of("EXTERNAL_RESOURCE", "manage", "manager", "can_manage"));
   }
@@ -46,12 +56,23 @@ class AuthorizationSemanticsRegistryTest {
   @Test
   void rejectsUnknownAndInvalidCombinations() {
     assertThatIllegalArgumentException().isThrownBy(() -> registry.resolve("RESOURCE", "fly"));
-    assertThatIllegalArgumentException().isThrownBy(() -> registry.resolve("APPLICATION", "create"));
-    assertThatIllegalArgumentException().isThrownBy(() -> registry.resolve("EXTERNAL_RESOURCE", "create"));
-    assertThatIllegalArgumentException().isThrownBy(() -> registry.resolve("APPLICATION", "share"));
-    assertThatIllegalArgumentException().isThrownBy(() -> registry.resolve("RESOURCE", "export"));
     assertThatIllegalArgumentException().isThrownBy(() -> registry.resolve("RESOURCE", "can_view"));
     assertThatIllegalArgumentException().isThrownBy(() -> registry.resolve("UNKNOWN", "view"));
+  }
+
+  @Test
+  void mapsTheCompleteBusinessActionCatalogForEveryOpenFgaObjectFamily() {
+    List<String> actions = List.of("access", "activate", "admin", "approve", "assign",
+        "create", "delete", "download", "execute", "export", "import",
+        "invalidate-token", "list", "manage", "reject", "share", "test", "update",
+        "update-credential-reference", "upload", "view", "view_api", "view_audit",
+        "view_errors");
+
+    for (String type : List.of("APPLICATION", "RESOURCE", "EXTERNAL_RESOURCE")) {
+      for (String action : actions) {
+        assertThat(registry.resolve(type, action).permission()).startsWith("can_");
+      }
+    }
   }
 
   @Test

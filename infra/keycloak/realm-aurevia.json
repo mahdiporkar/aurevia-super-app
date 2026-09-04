@@ -40,6 +40,7 @@
   ],
   "users": [
     {
+      "id": "administrator",
       "username": "administrator",
       "enabled": true,
       "firstName": "Aurevia",
@@ -49,6 +50,7 @@
       "credentials": [{ "type": "password", "value": "local-change-me", "temporary": false }]
     },
     {
+      "id": "hr-user",
       "username": "hr-user",
       "enabled": true,
       "firstName": "HR",
@@ -59,6 +61,7 @@
       "credentials": [{ "type": "password", "value": "local-change-me", "temporary": false }]
     },
     {
+      "id": "finance-maker",
       "username": "finance-maker",
       "enabled": true,
       "firstName": "Finance",
@@ -68,6 +71,7 @@
       "credentials": [{ "type": "password", "value": "local-change-me", "temporary": false }]
     },
     {
+      "id": "finance-approver",
       "username": "finance-approver",
       "enabled": true,
       "firstName": "Finance",
@@ -77,6 +81,7 @@
       "credentials": [{ "type": "password", "value": "local-change-me", "temporary": false }]
     },
     {
+      "id": "report-designer",
       "username": "report-designer",
       "enabled": true,
       "firstName": "Report",
@@ -86,6 +91,7 @@
       "credentials": [{ "type": "password", "value": "local-change-me", "temporary": false }]
     },
     {
+      "id": "viewer",
       "username": "viewer",
       "enabled": true,
       "firstName": "Report",
@@ -95,6 +101,7 @@
       "credentials": [{ "type": "password", "value": "local-change-me", "temporary": false }]
     },
     {
+      "id": "demo-full-access",
       "username": "demo-full-access",
       "enabled": true,
       "firstName": "Demo",
@@ -104,6 +111,7 @@
       "credentials": [{ "type": "password", "value": "local-change-me", "temporary": false }]
     },
     {
+      "id": "demo-hr-only",
       "username": "demo-hr-only",
       "enabled": true,
       "firstName": "Demo",

@@ -67,6 +67,8 @@ public class OidcLoginSuccessHandler implements ServerAuthenticationSuccessHandl
                     });
               });
         })
+        .then(authorizedClients.removeAuthorizedClient(
+            oauth.getAuthorizedClientRegistrationId(), authentication, exchange))
         .then(redirect.onAuthenticationSuccess(webFilterExchange, authentication));
   }
 

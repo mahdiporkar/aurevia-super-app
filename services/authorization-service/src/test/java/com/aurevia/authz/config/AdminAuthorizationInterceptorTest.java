@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
+import com.aurevia.authz.identity.SubjectKey;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -22,9 +23,13 @@ class AdminAuthorizationInterceptorTest {
   }
 
   private void assertAllowed(String method,String uri,String permission,String object) throws Exception {
-    var request=new MockHttpServletRequest(method,uri);request.addHeader("X-Actor","alice");
-    when(relationships.check("user:alice",permission,object)).thenReturn(true);
+    var request=new MockHttpServletRequest(method,uri);
+    request.addHeader("X-Actor","alice");
+    request.addHeader("X-Actor-Issuer","https://issuer.example");
+    request.addHeader("X-Actor-Subject","subject-1");
+    String canonical=new SubjectKey("https://issuer.example","subject-1").openFgaUser();
+    when(relationships.check(canonical,permission,object)).thenReturn(true);
     assertTrue(interceptor.preHandle(request,new MockHttpServletResponse(),new Object()));
-    verify(relationships).check("user:alice",permission,object);
+    verify(relationships).check(canonical,permission,object);
   }
 }

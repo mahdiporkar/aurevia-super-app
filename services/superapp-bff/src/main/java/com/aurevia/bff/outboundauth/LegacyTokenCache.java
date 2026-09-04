@@ -1,16 +1,83 @@
 package com.aurevia.bff.outboundauth;
+
 import com.aurevia.bff.security.TokenVaultCrypto;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.time.Duration;import java.time.Instant;import java.util.Map;
-import org.springframework.beans.factory.annotation.Value;import org.springframework.data.redis.core.ReactiveStringRedisTemplate;import org.springframework.stereotype.Component;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-@Component class LegacyTokenCache {
- private final ReactiveStringRedisTemplate redis;private final ObjectMapper json;private final TokenVaultCrypto crypto;private final String environment;
- LegacyTokenCache(ReactiveStringRedisTemplate redis,ObjectMapper json,@Value("${aurevia.legacy.token-vault.key-id:${aurevia.token-vault.key-id}}") String keyId,@Value("${aurevia.legacy.token-vault.key-base64:${aurevia.token-vault.key-base64}}") String key,@Value("${aurevia.legacy.environment:local}") String env){this.redis=redis;this.json=json;this.crypto=new TokenVaultCrypto(keyId,key);this.environment=env;}
- Mono<Cached> read(String profile,long profileVersion,int skew){String index=index(profile);return redis.opsForValue().get(index).flatMap(version->redis.opsForValue().get(key(profile,version)).flatMap(raw->{try{Map p=json.readValue(raw,Map.class);if(((Number)p.get("profileVersion")).longValue()!=profileVersion)return Mono.empty();Instant expiry=Instant.parse(String.valueOf(p.get("expiresAt")));if(!Instant.now().isBefore(expiry.minusSeconds(skew)))return Mono.empty();return Mono.just(new Cached(crypto.decrypt(String.valueOf(p.get("encryptedAccessToken"))),p.get("encryptedRefreshToken")==null?null:crypto.decrypt(String.valueOf(p.get("encryptedRefreshToken"))),String.valueOf(p.get("tokenType")),expiry,version,profileVersion));}catch(Exception e){return Mono.empty();}}));}
- Mono<Void> write(String profile,LegacyTokenResponseParser.Parsed token,String credentialVersion,long profileVersion){try{long ttl=Math.max(1,Duration.between(Instant.now(),token.expiresAt()).toSeconds());Map<String,Object> p=new java.util.LinkedHashMap<>();p.put("encryptedAccessToken",crypto.encrypt(token.accessToken()));p.put("encryptedRefreshToken",token.refreshToken()==null?null:crypto.encrypt(token.refreshToken()));p.put("tokenType",token.tokenType());p.put("expiresAt",token.expiresAt().toString());p.put("credentialVersion",credentialVersion);p.put("profileVersion",profileVersion);return redis.opsForValue().set(key(profile,credentialVersion),json.writeValueAsString(p),Duration.ofSeconds(ttl)).then(redis.opsForValue().set(index(profile),credentialVersion,Duration.ofSeconds(ttl))).then();}catch(Exception e){return Mono.error(new IllegalStateException("Legacy token cache write failed"));}}
- Mono<Void> invalidate(String profile){return redis.opsForValue().get(index(profile)).flatMap(v->redis.delete(key(profile,v))).then(redis.delete(index(profile))).then();}
- Mono<Boolean> cached(String profile){return redis.hasKey(index(profile));}
- String lock(String profile){return "legacy-token-lock:"+environment+":"+profile;}private String index(String p){return "legacy-token-vault:"+environment+":"+p+":credential-version";}private String key(String p,String v){return "legacy-token-vault:"+environment+":"+p+":"+v;}
- record Cached(String accessToken,String refreshToken,String tokenType,Instant expiresAt,String credentialVersion,long profileVersion){@Override public String toString(){return "Cached[REDACTED]";}}
+
+/** Encrypted, single-key Redis cache. A write is atomic from a reader's perspective. */
+@Component
+final class LegacyTokenCache {
+  private final ReactiveStringRedisTemplate redis;
+  private final ObjectMapper json;
+  private final TokenVaultCrypto crypto;
+  private final String environment;
+
+  LegacyTokenCache(ReactiveStringRedisTemplate redis,ObjectMapper json,
+      @Value("${aurevia.legacy.token-vault.key-id:${aurevia.token-vault.key-id}}") String keyId,
+      @Value("${aurevia.legacy.token-vault.key-base64:${aurevia.token-vault.key-base64}}") String key,
+      @Value("${aurevia.legacy.token-vault.previous-keys:${aurevia.token-vault.previous-keys:}}") String previousKeys,
+      @Value("${aurevia.legacy.environment:local}") String environment) {
+    this.redis=redis;this.json=json;this.crypto=new TokenVaultCrypto(keyId,key,previousKeys);
+    this.environment=environment;
+  }
+
+  Mono<Cached> read(String profile,long profileVersion,int skewSeconds) {
+    return redis.opsForValue().get(key(profile)).flatMap(raw->{
+      try {
+        Map<?,?> payload=json.readValue(raw,Map.class);
+        if(number(payload,"profileVersion").longValue()!=profileVersion) return Mono.empty();
+        Instant expiry=Instant.parse(required(payload,"expiresAt"));
+        if(!Instant.now().isBefore(expiry.minusSeconds(skewSeconds))) return Mono.empty();
+        return Mono.just(new Cached(crypto.decrypt(required(payload,"encryptedAccessToken")),
+            required(payload,"tokenType"),expiry,required(payload,"credentialVersion"),profileVersion));
+      } catch(Exception error) {
+        return Mono.error(new IllegalStateException("Legacy token cache entry is invalid",error));
+      }
+    });
+  }
+
+  Mono<Void> write(String profile,LegacyTokenResponseParser.Parsed token,
+      String credentialVersion,long profileVersion) {
+    try {
+      long ttl=Math.max(1,Duration.between(Instant.now(),token.expiresAt()).toSeconds());
+      Map<String,Object> payload=new LinkedHashMap<>();
+      payload.put("encryptedAccessToken",crypto.encrypt(token.accessToken()));
+      payload.put("tokenType",token.tokenType());
+      payload.put("expiresAt",token.expiresAt().toString());
+      payload.put("credentialVersion",credentialVersion);
+      payload.put("profileVersion",profileVersion);
+      return redis.opsForValue().set(key(profile),json.writeValueAsString(payload),
+          Duration.ofSeconds(ttl)).then();
+    } catch(Exception error) {
+      return Mono.error(new IllegalStateException("Legacy token cache write failed",error));
+    }
+  }
+
+  Mono<Void> invalidate(String profile) { return redis.delete(key(profile)).then(); }
+  Mono<Boolean> cached(String profile) { return redis.hasKey(key(profile)); }
+  String lock(String profile) { return "legacy-token-lock:"+environment+":"+profile; }
+  private String key(String profile) { return "legacy-token-vault:"+environment+":"+profile; }
+
+  private static String required(Map<?,?> payload,String key) {
+    Object value=payload.get(key);
+    if(value==null || String.valueOf(value).isBlank()) throw new IllegalArgumentException("Missing cache field");
+    return String.valueOf(value);
+  }
+  private static Number number(Map<?,?> payload,String key) {
+    Object value=payload.get(key);
+    if(!(value instanceof Number number)) throw new IllegalArgumentException("Missing cache field");
+    return number;
+  }
+
+  record Cached(String accessToken,String tokenType,Instant expiresAt,
+      String credentialVersion,long profileVersion) {
+    @Override public String toString() { return "Cached[REDACTED]"; }
+  }
 }

@@ -29,9 +29,10 @@ public class TokenVaultService {
   public TokenVaultService(ReactiveStringRedisTemplate redis, ObjectMapper json,
       @Value("${aurevia.token-vault.namespace}") String namespace,
       @Value("${aurevia.token-vault.key-id}") String keyId,
-      @Value("${aurevia.token-vault.key-base64}") String key) {
+      @Value("${aurevia.token-vault.key-base64}") String key,
+      @Value("${aurevia.token-vault.previous-keys:}") String previousKeys) {
     this.redis=redis; this.json=json; this.namespace=namespace;
-    this.crypto=new TokenVaultCrypto(keyId,key);
+    this.crypto=new TokenVaultCrypto(keyId,key,previousKeys);
   }
   public Mono<String> store(Tokens tokens) {
     String handle=UUID.randomUUID().toString();
@@ -39,23 +40,43 @@ public class TokenVaultService {
   }
   public Mono<Void> write(String handle, Tokens tokens) {
     Instant vaultExpiry = tokens.vaultExpiresAt() == null ? tokens.expiresAt() : tokens.vaultExpiresAt();
-    if (vaultExpiry.isBefore(Instant.now())) {
+    if (!vaultExpiry.isAfter(Instant.now())) {
       return Mono.error(new IllegalArgumentException("expired token vault record"));
     }
     try {
       var value=json.writeValueAsString(new EncryptedTokens(crypto.encrypt(tokens.accessToken()),
           tokens.refreshToken()==null?null:crypto.encrypt(tokens.refreshToken()),tokens.expiresAt(),
           vaultExpiry));
-      Duration ttl=Duration.between(Instant.now(),vaultExpiry).plus(Duration.ofMinutes(5));
+      Duration ttl=Duration.between(Instant.now(),vaultExpiry);
       return redis.opsForValue().set(key(handle),value,ttl).flatMap(ok -> ok?Mono.empty():Mono.error(new IllegalStateException("vault write failed")));
     } catch(Exception e){ return Mono.error(new IllegalStateException("vault serialization failed",e)); }
   }
   public Mono<Tokens> read(String handle) {
     return redis.opsForValue().get(key(handle)).switchIfEmpty(Mono.error(new TokenNotFoundException()))
-      .map(value -> { try { var v=json.readValue(value,EncryptedTokens.class); return new Tokens(crypto.decrypt(v.accessToken()),v.refreshToken()==null?null:crypto.decrypt(v.refreshToken()),v.expiresAt(),v.vaultExpiresAt()==null?v.expiresAt():v.vaultExpiresAt()); }
-        catch(Exception e){throw new IllegalStateException("vault record invalid",e);} });
+      .flatMap(value -> {
+        try {
+          var encrypted=json.readValue(value,EncryptedTokens.class);
+          Instant vaultExpiry=encrypted.vaultExpiresAt()==null
+              ? encrypted.expiresAt():encrypted.vaultExpiresAt();
+          if(!Instant.now().isBefore(vaultExpiry)) {
+            return delete(handle).then(Mono.error(new TokenExpiredException()));
+          }
+          return Mono.just(new Tokens(crypto.decrypt(encrypted.accessToken()),
+              encrypted.refreshToken()==null?null:crypto.decrypt(encrypted.refreshToken()),
+              encrypted.expiresAt(),vaultExpiry));
+        } catch(TokenExpiredException expired) {
+          return Mono.error(expired);
+        } catch(Exception invalid) {
+          return Mono.error(new IllegalStateException("vault record invalid",invalid));
+        }
+      });
   }
   public Mono<Boolean> delete(String handle){return redis.delete(key(handle)).map(n->n>0);}
-  private String key(String handle){if(!handle.matches("[0-9a-f-]{36}"))throw new IllegalArgumentException("invalid vault handle");return namespace+":"+handle;}
+  private String key(String handle){
+    try { UUID.fromString(handle); }
+    catch(RuntimeException invalid){throw new IllegalArgumentException("invalid vault handle",invalid);}
+    return namespace+":"+handle;
+  }
   public static final class TokenNotFoundException extends RuntimeException {}
+  public static final class TokenExpiredException extends RuntimeException {}
 }

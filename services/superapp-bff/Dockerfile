@@ -1,7 +1,7 @@
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /workspace
 COPY . .
-RUN ./mvnw -pl services/superapp-bff -am package -DskipTests
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -pl services/superapp-bff -am package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app

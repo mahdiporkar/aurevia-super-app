@@ -58,6 +58,15 @@ services:
       openfga: {condition: service_started}
     networks: [public-services, public-data]
     healthcheck: {test: [CMD-SHELL, "curl -fsS http://127.0.0.1:8082/actuator/health | grep -q UP"], interval: 10s, timeout: 5s, retries: 30}
+  demo-catalog-init:
+    image: postgres:17.6-alpine
+    command: [psql, -h, auth-db, -U, aurevia, -d, aurevia_auth, -f, /bootstrap/integration-catalog.sql]
+    environment:
+      PGPASSWORD: "${POSTGRES_AUTH_PASSWORD:-change-me}"
+    volumes: [../demo/integration-catalog.sql:/bootstrap/integration-catalog.sql:ro]
+    depends_on:
+      authorization-service: {condition: service_healthy}
+    networks: [public-data]
   aurevia-bff:
     image: aurevia/superapp-bff:local
     build: {context: ../.., dockerfile: services/superapp-bff/Dockerfile}
@@ -77,9 +86,16 @@ services:
       OIDC_USER_INFO_URI: "http://keycloak:8080/realms/aurevia/protocol/openid-connect/userinfo"
       OIDC_CLIENT_ID: "${OIDC_CLIENT_ID:-aurevia-bff}"
       OIDC_CLIENT_SECRET: "${OIDC_CLIENT_SECRET:-change-me}"
+      LEGACY_ALLOWED_HOSTS: "mock-legacy"
+      LEGACY_ALLOWED_PORTS: "8080"
+      LEGACY_ALLOW_INSECURE_LOCAL: "true"
+      LEGACY_LOCAL_SECRETS_ENABLED: "true"
+      LEGACY_LOCAL_SECRETS_JSON: '{"secret://demo/legacy":{"username":"legacy-demo","password":"local-demo-only","version":"fixture-v1"}}'
+      TOKEN_EVIDENCE_LOGGING_ENABLED: "true"
     depends_on:
       redis: {condition: service_healthy}
       authorization-service: {condition: service_healthy}
+      demo-catalog-init: {condition: service_completed_successfully}
       keycloak: {condition: service_started}
       operation-gateway: {condition: service_started}
     networks: [public-services, public-data, bff-egress]
@@ -96,7 +112,7 @@ services:
     volumes: [../keycloak/realm-aurevia.json:/opt/keycloak/data/import/realm-aurevia.json:ro]
     ports: ["127.0.0.1:8180:8080"]
     depends_on: [keycloak-db]
-    networks: [public-services, public-data]
+    networks: [public-services, public-data, operation-services]
   samba-ad:
     profiles: [directory]
     build: {context: ../.., dockerfile: infra/samba-ad/Dockerfile}
@@ -128,12 +144,24 @@ services:
     image: wiremock/wiremock:3.13.1
     volumes: [../mock-operation:/home/wiremock:ro]
     networks: [operation-services]
+  mock-legacy:
+    image: wiremock/wiremock:3.13.1
+    volumes: [../mock-legacy:/home/wiremock:ro]
+    # The gateway reaches the protected API on operation-services while the
+    # Java BFF reaches only this approved token endpoint on bff-egress.
+    networks: [operation-services, bff-egress]
+  mock-oauth:
+    image: wiremock/wiremock:3.13.1
+    volumes: [../mock-oauth:/home/wiremock:ro]
+    networks: [operation-services]
   operation-gateway:
     image: nginx:1.29.1-alpine
     volumes: [../mock-operation/gateway.conf:/etc/nginx/conf.d/default.conf:ro]
     depends_on:
       mock-hr: {condition: service_started}
       mock-finance: {condition: service_started}
+      mock-legacy: {condition: service_started}
+      mock-oauth: {condition: service_started}
       operation-superset: {condition: service_started, required: false}
     networks: [operation-services, bff-egress]
     # Deliberately no host port: only the BFF network can reach this gateway.

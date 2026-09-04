@@ -5,7 +5,11 @@ server:
     http-only: true
     same-site: lax
 spring.lifecycle.timeout-per-shutdown-phase: 30s
+spring.data.redis.ssl.enabled: true
 aurevia:
+  development:
+    token-evidence-logging:
+      enabled: false
   gateway:
     require-mtls: true
     base-url: ${OPERATION_GATEWAY_URL}
@@ -13,12 +17,23 @@ aurevia:
     mtls-key-store-password: ${GATEWAY_MTLS_KEYSTORE_PASSWORD}
     mtls-trust-store: ${GATEWAY_MTLS_TRUSTSTORE}
     mtls-trust-store-password: ${GATEWAY_MTLS_TRUSTSTORE_PASSWORD}
+  superset:
+    default-public-instance: ${SUPERSET_DEFAULT_PUBLIC_INSTANCE}
+    allowed-hosts: ${SUPERSET_ALLOWED_HOSTS}
+    allowed-ports: ${SUPERSET_ALLOWED_PORTS:443}
+    allow-http: false
   legacy:
+    allowed-hosts: ${LEGACY_ALLOWED_HOSTS}
+    allowed-ports: ${LEGACY_ALLOWED_PORTS:443}
     allow-insecure-local: false
     local-secrets.enabled: false
+    file-secrets:
+      enabled: true
+      root: ${LEGACY_SECRET_ROOT}
     token-vault:
       key-id: ${LEGACY_TOKEN_VAULT_KEY_ID}
       key-base64: ${LEGACY_TOKEN_VAULT_KEY_BASE64}
+      previous-keys: ${LEGACY_TOKEN_VAULT_PREVIOUS_KEYS:}
   authorization-service:
     authentication-mode: mtls
     base-url: ${AUTHORIZATION_URL}

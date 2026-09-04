@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
+import com.aurevia.authz.identity.SubjectKey;
 
 @Component
 class AdminAuthorizationInterceptor implements HandlerInterceptor {
@@ -18,11 +19,12 @@ class AdminAuthorizationInterceptor implements HandlerInterceptor {
   @Override
   public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
       throws Exception {
-    String actor = request.getHeader("X-Actor");
+    String issuer = request.getHeader("X-Actor-Issuer");
+    String subject = request.getHeader("X-Actor-Subject");
     String object=resourceFor(request.getRequestURI());
     String permission=permissionFor(request);
-    boolean allowed = actor != null && relationships.check(
-        "user:" + actor, permission, object);
+    boolean allowed = issuer != null && subject != null && relationships.check(
+        new SubjectKey(issuer, subject).openFgaUser(), permission, object);
     if (!allowed) {
       response.sendError(HttpStatus.FORBIDDEN.value(),
           "Administrative permission required: " + permission);
@@ -50,6 +52,7 @@ class AdminAuthorizationInterceptor implements HandlerInterceptor {
   }
 
   private static String resourceFor(String uri) {
+    if(uri.contains("/superset-assets")) return "resource:module/admin.superset-catalog";
     if(uri.contains("/outbound-auth-profiles")) return "resource:integration.auth-profile";
     if(uri.contains("/service-targets")) return "resource:proxy.target";
     if(uri.contains("/proxy-routes/") && uri.contains("/operations")) return "resource:proxy.operation";

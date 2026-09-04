@@ -6,6 +6,7 @@ import java.util.Map;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.*;
 import reactor.core.publisher.Mono;
+import com.aurevia.bff.security.SessionIdentity;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -13,7 +14,16 @@ class MeController {
   private final AuthorizationServiceClient authorization;
   MeController(AuthorizationServiceClient authorization){this.authorization=authorization;}
   @GetMapping("/me") Mono<Map<String,Object>> me(Principal principal) {
-    return Mono.just(Map.of("subject", principal.getName(), "groups", List.of()));
+    SessionIdentity identity = SessionIdentity.from(principal);
+    return Mono.just(Map.of("issuer", identity.issuer(), "subject", identity.subject(),
+        "username", identity.username(), "groups", List.of()));
   }
-  @GetMapping("/me/manifest") Mono<ResponseEntity<Map>> manifest(Principal principal) {return authorization.manifest(principal.getName()).map(body->ResponseEntity.ok().cacheControl(CacheControl.noCache().cachePrivate()).eTag("\""+body.get("version")+"\"").body(body));}
+  @GetMapping("/me/manifest") Mono<ResponseEntity<Map>> manifest(Principal principal) {
+    SessionIdentity identity = SessionIdentity.from(principal);
+    return authorization.manifest(identity.issuer(), identity.subject())
+        .map(body -> ResponseEntity.ok()
+            .cacheControl(CacheControl.noCache().cachePrivate())
+            .eTag("\"" + body.get("version") + "\"")
+            .body(body));
+  }
 }

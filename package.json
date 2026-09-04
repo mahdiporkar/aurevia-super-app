@@ -18,6 +18,7 @@
     "openfga:bootstrap": "node tools/openfga-bootstrap.mjs",
     "infra:preflight": "node tools/infra-preflight.mjs",
     "infra:verify": "node tools/fresh-install-verify.mjs",
+    "infra:verify:token-proxy": "node tools/verify-token-proxy.mjs",
     "infra:up": "npm run infra:preflight && docker compose --env-file .env --profile superset -f infra/docker-compose/compose.yml up -d --build",
     "infra:down": "docker compose --env-file .env --profile superset -f infra/docker-compose/compose.yml down"
   },

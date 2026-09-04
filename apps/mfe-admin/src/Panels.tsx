@@ -112,7 +112,7 @@ export function PanelsView() {
   };
   const openArtifacts=async(row:PanelRow)=>{setArtifactPanel(row);setArtifacts(await panelsApi(`/panels/${row.id}/artifacts`));artifactForm.setFieldsValue({artifactVersion:row.semantic_version,remoteEntryUrl:row.remote_entry_path,remoteName:row.remote_name,exposedModule:'./plugin',contractVersion:'1.0',manifest:JSON.stringify({schemaVersion:'1.0',moduleKey:row.slug,defaultRouteId:'index',routes:[{id:'index',path:'',title:row.name_fa,resource:`application:aurevia/${row.slug}`,action:'view'}],menus:[{id:'main',routeId:'index',title:row.name_fa,order:10}]},null,2)});};
   const publish=async(values:PanelRow)=>{await panelsApi(`/panels/${artifactPanel!.id}/artifacts`,{method:'POST',body:JSON.stringify(values)});message.success('نسخه معتبر منتشر شد');await openArtifacts(artifactPanel!)};
-  const activate=async(id:string)=>{await panelsApi(`/panels/${artifactPanel!.id}/artifacts/${id}/activate`,{method:'POST'});message.success('نسخه فعال شد؛ Catalog تغییر کرد');await Promise.all([openArtifacts(artifactPanel!),load()])};
+  const activate=async(id:string)=>{const row=artifacts.find(item=>item.id===id);await panelsApi(`/panels/${artifactPanel!.id}/artifacts/${id}/activate?version=${row?.panel_version??artifactPanel!.version}`,{method:'POST'});message.success('نسخه فعال شد؛ Catalog تغییر کرد');await Promise.all([openArtifacts(artifactPanel!),load()])};
 
   return <Card
     title="مدیریت میکروفرانت‌ها"
