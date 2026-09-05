@@ -4,7 +4,7 @@
 "dependencies":{
     "@aurevia/contracts":"*",
     "@aurevia/sh-core-ui":"*",
-    "antd":"5.27.1",
+    "antd":"6.6.2",
     "react":"19.1.1",
     "react-dom":"19.1.1",
     "react-router-dom":"7.18.3"
