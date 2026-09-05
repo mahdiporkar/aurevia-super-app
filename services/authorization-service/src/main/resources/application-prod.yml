@@ -10,6 +10,7 @@ server:
     client-auth: need
   shutdown: graceful
 spring.lifecycle.timeout-per-shutdown-phase: 30s
+springdoc.api-docs.enabled: false
 aurevia:
   internal:
     authentication-mode: mtls

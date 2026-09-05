@@ -32,6 +32,24 @@ spring:
       # Runtime identity is always issuer + sub. preferred_username is display metadata only.
       user-name-attribute: sub
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  default-produces-media-type: application/json
+  swagger-ui:
+    path: /swagger-ui.html
+    disable-swagger-default-url: true
+    display-request-duration: true
+    filter: true
+    operations-sorter: method
+    persist-authorization: false
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    urls:
+      - name: 1 - BFF عمومی سوپر اپ
+        url: /v3/api-docs
+      - name: 2 - سرویس مجوزدهی
+        url: /api/v1/docs/authorization/openapi
 aurevia:
   token-vault:
     namespace: aurevia:token-vault

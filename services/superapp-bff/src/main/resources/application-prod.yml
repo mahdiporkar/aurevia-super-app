@@ -6,6 +6,9 @@ server:
     same-site: lax
 spring.lifecycle.timeout-per-shutdown-phase: 30s
 spring.data.redis.ssl.enabled: true
+springdoc:
+  api-docs.enabled: false
+  swagger-ui.enabled: false
 aurevia:
   development:
     token-evidence-logging:

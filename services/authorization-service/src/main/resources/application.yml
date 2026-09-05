@@ -16,6 +16,11 @@ spring:
     password: ${REDIS_PASSWORD:change-me}
     ssl.enabled: ${REDIS_TLS:false}
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  default-produces-media-type: application/json
+  model-and-view-allowed: false
 logging:
   error-response.max-bytes: ${LOG_ERROR_RESPONSE_MAX_BYTES:8192}
   retention:

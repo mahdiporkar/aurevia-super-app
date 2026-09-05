@@ -31,7 +31,8 @@
 23. [مدل تهدید](threat-model.md)
 24. [نمودار پایگاه داده](er-diagram.md)
 25. [تصمیم‌های معماری](adr/)
-26. [قراردادهای OpenAPI](openapi/)
+26. [Swagger و OpenAPI فارسی همه سرویس‌های Backend](swagger-openapi-fa.md)
+27. [سیاست تولید و خروجی قرارداد OpenAPI](openapi/)
 
 ## نقشه مستندات
 
@@ -60,6 +61,7 @@
 | جریان هر فیچر، مالک داده و فایل‌های اجرایی فعلی چیست؟ | [codebase-feature-reference-2026-09-04-fa.md](codebase-feature-reference-2026-09-04-fa.md) |
 | مهم‌ترین ایرادهای معماری، امنیتی، Clean Code و SOLID چیست و به چه ترتیب اصلاح شوند؟ | [codebase-architecture-clean-code-solid-audit-2026-09-04-fa.md](codebase-architecture-clean-code-solid-audit-2026-09-04-fa.md) |
 | پروژه را چگونه بالا بیاوریم و تست کنیم؟ | [operations-fa.md](operations-fa.md) |
+| Swagger همه سرویس‌های Backend کجاست و Try it out امن چگونه انجام می‌شود؟ | [swagger-openapi-fa.md](swagger-openapi-fa.md) |
 | Demo کامل را چگونه روی یک سرور Linux منتشر کنیم؟ | [deployment-demo-linux-fa.md](deployment-demo-linux-fa.md) |
 | انتشار واقعی Production از صفر چه الزاماتی دارد؟ | [deployment-production-linux-fa.md](deployment-production-linux-fa.md) |
 | خطاهای Login، CSRF، 403، 404 و Superset را چگونه بررسی کنیم؟ | [operations-fa.md](operations-fa.md#عیب‌یابی) |
