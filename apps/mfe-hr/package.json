@@ -5,8 +5,8 @@
     "@aurevia/contracts":"*",
     "@aurevia/sh-core-ui":"*",
     "antd":"5.27.1",
-    "react":"19.1.1",
-    "react-dom":"19.1.1",
+    "react":"19.2.8",
+    "react-dom":"19.2.8",
     "react-router-dom":"7.18.3"
     },
     "scripts":{
