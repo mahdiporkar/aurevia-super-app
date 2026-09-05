@@ -9,7 +9,6 @@ import com.aurevia.authz.openfga.RelationshipAuthorizationPort.RelationshipCheck
 import com.aurevia.authz.policy.RuntimePolicyService;
 import com.aurevia.authz.semantics.AuthorizationSemanticsRegistry;
 import com.aurevia.authz.semantics.ResourceObjectKey;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.security.MessageDigest;
@@ -31,7 +30,6 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class AuthorizationDecisionService {
-  private static final TypeReference<Map<String,Object>> OBJECT_MAP=new TypeReference<>() {};
   private final RelationshipAuthorizationPort relationships;
   private final AuthorizationQueryRepository queries;
   private final AuthorizationSemanticsRegistry semantics;
@@ -105,7 +103,7 @@ public class AuthorizationDecisionService {
             resource.type(),resource.nameFa(),resource.nameEn(),resource.ownerDomain(),
             resource.classification(),permissions.getOrDefault(resource.resourceKey(),List.of())))
         .toList();
-    List<Map<String,Object>> modules=panels.stream()
+    List<UiModuleDefinition> modules=panels.stream()
         .map(panel->uiModule(panel,permissions)).filter(Objects::nonNull).toList();
     List<PanelSummary> publicPanels=panels.stream().map(AuthorizationDecisionService::panelSummary)
         .toList();
@@ -116,55 +114,57 @@ public class AuthorizationDecisionService {
         publicPanels,permissions,tree,new UiCatalog(version,generated,"1.0",modules));
   }
 
-  private Map<String,Object> uiModule(AuthorizationQueryRepository.PanelRecord panel,
+  private UiModuleDefinition uiModule(AuthorizationQueryRepository.PanelRecord panel,
       Map<String,List<String>> permissions) {
     try {
       JsonNode manifest=json.readTree(panel.manifestJson());
-      List<Map<String,Object>> routes=new ArrayList<>();
+      List<UiRoute> routes=new ArrayList<>();
       Set<String> routeIds=new HashSet<>();
       for(JsonNode route:manifest.path("routes")) {
         String resource=route.path("resource").asText(null);
         String action=route.path("action").asText("view");
-        if(resource!=null&&!permissions.getOrDefault(resource,List.of()).contains(action)) continue;
-        routes.add(json.convertValue(route,OBJECT_MAP));
-        routeIds.add(route.path("id").asText());
+        if(resource==null||!permissions.getOrDefault(resource,List.of()).contains(action)) continue;
+        String routeId=route.path("id").asText();
+        routes.add(new UiRoute(routeId,route.path("path").asText(),
+            route.path("title").asText(),resource,action));
+        routeIds.add(routeId);
       }
+      if(routes.isEmpty()) return null;
       Map<String,AuthorizationQueryRepository.MenuOverride> overrides=
           queries.menuOverrides(panel.id()).stream().collect(Collectors.toMap(
               AuthorizationQueryRepository.MenuOverride::menuId,value->value));
-      List<Map<String,Object>> menus=new ArrayList<>();
+      List<UiMenu> menus=new ArrayList<>();
       for(JsonNode item:manifest.path("menus")) {
         if(!routeIds.contains(item.path("routeId").asText())) continue;
         var override=overrides.get(item.path("id").asText());
         if(override!=null&&override.hidden()) continue;
-        Map<String,Object> menu=json.convertValue(item,OBJECT_MAP);
-        if(override!=null) {
-          if(override.title()!=null) menu.put("title",override.title());
-          if(override.icon()!=null) menu.put("icon",override.icon());
-          if(override.sortOrder()!=null) menu.put("order",override.sortOrder());
-        }
-        menus.add(menu);
+        String title=override!=null&&override.title()!=null?override.title():item.path("title").asText();
+        String icon=override!=null&&override.icon()!=null?override.icon():textOrNull(item,"icon");
+        int order=override!=null&&override.sortOrder()!=null?override.sortOrder():item.path("order").asInt(0);
+        menus.add(new UiMenu(item.path("id").asText(),textOrNull(item,"parentId"),
+            item.path("routeId").asText(),title,icon,order));
       }
-      menus.sort(Comparator.comparingInt(value->((Number)value.getOrDefault("order",0)).intValue()));
-      Map<String,Object> remote=new LinkedHashMap<>();
-      remote.put("remoteEntryUrl",panel.remoteEntryUrl());
-      remote.put("remoteName",panel.artifactRemoteName());
-      remote.put("exposedModule",panel.artifactExposedModule());
-      remote.put("contractVersion",panel.artifactContractVersion());
-      remote.put("artifactVersion",panel.artifactVersion());
-      if(panel.artifactIntegrity()!=null) remote.put("integrity",panel.artifactIntegrity());
-      Map<String,Object> module=new LinkedHashMap<>();
-      module.put("registrationId",panel.id());module.put("moduleKey",panel.slug());
-      module.put("displayName",panel.nameFa());module.put("displayNameEn",panel.nameEn());
-      module.put("description",panel.description());module.put("order",panel.sortOrder());
-      module.put("routePrefix",panel.routeBasePath().replaceFirst("^/",""));
-      module.put("defaultRouteId",panel.defaultRouteId());module.put("remote",remote);
-      module.put("runtime",Map.of("apiBasePath","/api/proxy/"+panel.serviceSlug()));
-      module.put("routes",routes);module.put("menus",menus);
-      return module;
+      menus.sort(Comparator.comparingInt(UiMenu::order));
+      String declaredDefault=textOrNull(manifest,"defaultRouteId");
+      String defaultRouteId=routeIds.contains(declaredDefault)?declaredDefault:
+          routeIds.contains(panel.defaultRouteId())?panel.defaultRouteId():routes.getFirst().id();
+      String apiBasePath=manifest.path("runtime").path("apiBasePath")
+          .asText("/api/proxy/"+panel.serviceSlug());
+      var remote=new RemoteDescriptor(panel.remoteEntryUrl(),panel.artifactRemoteName(),
+          panel.artifactExposedModule(),panel.artifactContractVersion(),panel.artifactVersion(),
+          panel.artifactIntegrity());
+      return new UiModuleDefinition(panel.id(),panel.slug(),panel.nameFa(),panel.nameEn(),
+          panel.description(),panel.icon(),panel.sortOrder(),
+          panel.routeBasePath().replaceFirst("^/",""),defaultRouteId,remote,
+          new RuntimeDescriptor(apiBasePath),List.copyOf(routes),List.copyOf(menus));
     } catch(Exception failure) {
       throw new IllegalStateException("stored UI manifest is invalid",failure);
     }
+  }
+
+  private static String textOrNull(JsonNode parent,String field) {
+    JsonNode value=parent.get(field);
+    return value==null||value.isNull()||value.asText().isBlank()?null:value.asText();
   }
 
   private static PanelSummary panelSummary(AuthorizationQueryRepository.PanelRecord panel) {

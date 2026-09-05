@@ -13,7 +13,7 @@ class JdbcAuthorizationQueryRepository implements AuthorizationQueryRepository {
   @Override public List<PanelRecord> activePanels() {
     return database.sql("""
         select p.id,p.code,p.slug,p.name_fa as "nameFa",p.name_en as "nameEn",
-          p.route_base_path as "routeBasePath",p.description,p.service_slug as "serviceSlug",
+          p.route_base_path as "routeBasePath",p.description,p.icon,p.service_slug as "serviceSlug",
           p.default_route_id as "defaultRouteId",p.sort_order as "sortOrder",
           a.artifact_version as "artifactVersion",a.remote_entry_url as "remoteEntryUrl",
           a.remote_name as "artifactRemoteName",a.exposed_module as "artifactExposedModule",

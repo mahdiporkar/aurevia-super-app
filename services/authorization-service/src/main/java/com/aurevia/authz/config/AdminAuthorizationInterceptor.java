@@ -35,6 +35,9 @@ class AdminAuthorizationInterceptor implements HandlerInterceptor {
   private static String permissionFor(HttpServletRequest request) {
     String method=request.getMethod();
     String uri=request.getRequestURI();
+    if (("GET".equals(method) || "HEAD".equals(method)) && uri.contains("/logs/audit")) {
+      return "can_manage";
+    }
     if ("GET".equals(method) || "HEAD".equals(method)) return "can_view";
     if ("DELETE".equals(method)) return "can_delete";
     if ("PUT".equals(method) || "PATCH".equals(method)) return "can_edit";
@@ -53,7 +56,10 @@ class AdminAuthorizationInterceptor implements HandlerInterceptor {
 
   private static String resourceFor(String uri) {
     if(uri.contains("/superset-assets")) return "resource:module/admin.superset-catalog";
-    if(uri.contains("/outbound-auth-profiles")) return "resource:integration.auth-profile";
+    if(uri.contains("/outbound-auth-profiles")||uri.contains("/outbound-connections")) {
+      return "resource:integration.auth-profile";
+    }
+    if(uri.contains("/logs")) return "resource:business_resource/public-zone-logs";
     if(uri.contains("/service-targets")) return "resource:proxy.target";
     if(uri.contains("/proxy-routes/") && uri.contains("/operations")) return "resource:proxy.operation";
     if(uri.contains("/proxy-routes")) return "resource:proxy.route";

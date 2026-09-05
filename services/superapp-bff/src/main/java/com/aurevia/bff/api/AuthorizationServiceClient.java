@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -18,13 +19,13 @@ public class AuthorizationServiceClient {
     this.client = client;
   }
 
-  Mono<Map> manifest(String issuer, String subject) {
+  Mono<Map<String,Object>> manifest(String issuer, String subject) {
     return client.get()
         .uri(builder -> builder.path("/internal/v1/subjects/{id}/manifest")
             .queryParam("issuer", issuer).build(subject))
         .accept(MediaType.APPLICATION_JSON)
         .retrieve()
-        .bodyToMono(Map.class);
+        .bodyToMono(new ParameterizedTypeReference<>() {});
   }
 
   public Mono<Void> syncLogin(Map<String, Object> identity) {

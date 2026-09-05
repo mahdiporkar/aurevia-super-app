@@ -32,6 +32,14 @@ class JdbcUiPluginRepository implements UiPluginRepository {
         .param("id",panelId).query(String.class).optional();
   }
 
+  @Override public boolean remoteNameBelongsToOtherPanel(String remoteName,UUID panelId) {
+    Long count=database.sql("""
+        select count(*) from ui_module_artifact
+        where remote_name=:name and panel_id<>:panel
+        """).param("name",remoteName).param("panel",panelId).query(Long.class).single();
+    return count>0;
+  }
+
   @Override public boolean resourceActionExists(String resourceKey,String actionKey) {
     Long count=database.sql("""
         select count(*) from resource r

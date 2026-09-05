@@ -1,1 +1,3 @@
-export declare function LogsView(): import("react/jsx-runtime").JSX.Element;
+export declare function LogsView({ section }: {
+    section: 'api' | 'audit';
+}): import("react/jsx-runtime").JSX.Element;

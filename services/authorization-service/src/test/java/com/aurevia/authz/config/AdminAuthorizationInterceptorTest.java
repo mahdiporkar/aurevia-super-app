@@ -20,6 +20,9 @@ class AdminAuthorizationInterceptorTest {
     assertAllowed("PATCH","/internal/v1/registry/proxy-routes/1","can_edit","resource:proxy.route");
     assertAllowed("DELETE","/internal/v1/registry/proxy-routes/1","can_delete","resource:proxy.route");
     assertAllowed("POST","/internal/v1/registry/outbound-auth-profiles/1/token-test","can_manage","resource:integration.auth-profile");
+    assertAllowed("GET","/internal/v1/registry/outbound-connections","can_view","resource:integration.auth-profile");
+    assertAllowed("GET","/internal/v1/registry/logs/api","can_view","resource:business_resource/public-zone-logs");
+    assertAllowed("GET","/internal/v1/registry/logs/audit","can_manage","resource:business_resource/public-zone-logs");
   }
 
   private void assertAllowed(String method,String uri,String permission,String object) throws Exception {

@@ -1,200 +1,118 @@
-import React, { useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
-import {
-  Alert, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Table, Tabs,
-  Tag, Typography, message,
-} from 'antd';
-import type { RemoteContext, RemoteModule } from '@aurevia/contracts';
-import { AccessStudio } from './AccessStudio';
-import { IntegrationTestLab } from './IntegrationTestLab';
-import { LogsView } from './Logs';
-import { OperatorGuide } from './OperatorGuide';
-import { OuAccessManagement } from './OuAccessManagement';
-import { OutboundAuthProfiles } from './OutboundAuthProfiles';
-import { OutboundConnections } from './OutboundConnections';
-import { PanelsView } from './Panels';
-import { ProxyRouteManagement } from './ProxyRoutes';
-import { SupersetAssets } from './SupersetAssets';
-import { SupersetInstances } from './SupersetInstances';
+import React from'react';
+import{createRoot}from'react-dom/client';
+import{Alert,Card,Tabs,Typography}from'antd';
+import{Navigate,Route,Routes,useLocation,useNavigate}from'react-router-dom';
+import type{HostRuntime,MicroFrontendProps,RemoteContext}from'@aurevia/contracts';
+import{AccessStudio}from'./AccessStudio';
+import{IntegrationTestLab}from'./IntegrationTestLab';
+import{LogsView}from'./Logs';
+import{OperatorGuide}from'./OperatorGuide';
+import{OuAccessManagement}from'./OuAccessManagement';
+import{OutboundAuthProfiles}from'./OutboundAuthProfiles';
+import{OutboundConnections}from'./OutboundConnections';
+import{PanelsView}from'./Panels';
+import{ProxyRouteManagement}from'./ProxyRoutes';
+import{SupersetAssets}from'./SupersetAssets';
+import{SupersetInstances}from'./SupersetInstances';
+import{IdentityAndRoles}from'./IdentityAndRoles';
+import{adminApi}from'./api';
+import{
+  ADMIN_PUBLISHED_MANIFEST,authorizedAdminPages,defaultAdminPage,internalPathname,
+  type AdminPageDefinition,type AdminSectionKey,
+}from'./admin-route-catalog';
 
-export const contractVersion = '1' as const;
-type Row = Record<string, any>;
-let csrf: { headerName: string; token: string } | undefined;
-const required = [{ required: true, message: 'این فیلد الزامی است' }];
+export const contractVersion='1.0' as const;
+export{ADMIN_PUBLISHED_MANIFEST as publishedManifest};
 
-async function api(path: string, init: RequestInit = {}) {
-  const method = init.method ?? 'GET';
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(init.headers as Record<string, string> ?? {}),
-  };
-  if (method !== 'GET') {
-    const token = csrf ?? await fetch('/api/v1/csrf', { credentials: 'same-origin' })
-      .then(response => response.json());
-    csrf = token;
-    headers[token.headerName] = token.token;
+function Page({page}:{page:AdminPageDefinition}) {
+  switch(page.id) {
+    case'operator-guide':return <OperatorGuide/>;
+    case'ou-access-ous':return <OuAccessManagement section="ous"/>;
+    case'ou-access-groups':return <OuAccessManagement section="groups"/>;
+    case'ou-access-applications':return <OuAccessManagement section="applications"/>;
+    case'ou-access-explain':return <OuAccessManagement section="explain"/>;
+    case'access-studio':return <AccessStudio/>;
+    case'panels':return <PanelsView/>;
+    case'proxy-targets':return <ProxyRouteManagement api={adminApi} section="targets"/>;
+    case'proxy-routes':return <ProxyRouteManagement api={adminApi} section="routes"/>;
+    case'proxy-operations':return <ProxyRouteManagement api={adminApi} section="operations"/>;
+    case'outbound-connections':return <OutboundConnections api={adminApi}/>;
+    case'outbound-auth':return <OutboundAuthProfiles api={adminApi}/>;
+    case'integration-test':return <IntegrationTestLab api={adminApi}/>;
+    case'superset-instances':return <SupersetInstances api={adminApi}/>;
+    case'identity':return <IdentityAndRoles/>;
+    case'logs-api':return <LogsView section="api"/>;
+    case'logs-audit':return <LogsView section="audit"/>;
+    case'superset':return <SupersetAssets/>;
+    default:return <Alert type="warning" showIcon message="صفحه مدیریت یافت نشد"/>;
   }
-  const response = await fetch(`/api/v1/admin${path}`, {
-    ...init, headers, credentials: 'same-origin',
-  });
-  if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
-  return response.status === 204 ? undefined : response.json();
 }
 
-function IdentityAndRoles() {
-  const [users, setUsers] = useState<Row[]>([]);
-  const [groups, setGroups] = useState<Row[]>([]);
-  const [accessGroups, setAccessGroups] = useState<Row[]>([]);
-  const [roles, setRoles] = useState<Row[]>([]);
-  const [assignments, setAssignments] = useState<Row[]>([]);
-  const [roleOpen, setRoleOpen] = useState(false);
-  const [roleForm] = Form.useForm();
-  const [assignmentForm] = Form.useForm();
-
-  const load = () => Promise.all([
-    api('/users'), api('/directory-groups'), api('/ou-access/access-groups'),
-    api('/roles'), api('/role-assignments'),
-  ]).then(([nextUsers, nextGroups, nextAccessGroups, nextRoles, nextAssignments]) => {
-    setUsers(nextUsers);setGroups(nextGroups);setAccessGroups(nextAccessGroups);
-    setRoles(nextRoles);setAssignments(nextAssignments);
-  }).catch(error => message.error(error.message));
-
-  useEffect(() => { void load(); }, []);
-
-  const createRole = async (values: Row) => {
-    try {
-      await api('/roles', { method: 'POST', body: JSON.stringify(values) });
-      setRoleOpen(false);roleForm.resetFields();await load();
-      message.success('نقش کاربردی ایجاد شد');
-    } catch(error) { message.error((error as Error).message); }
-  };
-  const assign = async (values: Row) => {
-    try {
-      await api('/role-assignments', {
-        method: 'POST', body: JSON.stringify({ ...values, expiresAt: values.expiresAt || null }),
-      });
-      assignmentForm.resetFields();await load();message.success('نقش تخصیص یافت');
-    } catch(error) { message.error((error as Error).message); }
-  };
-  const subjectOptions = (type: string) =>
-    (type === 'DIRECTORY_GROUP' ? groups : type === 'ACCESS_GROUP' ? accessGroups : users)
-      .map(item => ({
-        value: item.id,
-        label: type === 'DIRECTORY_GROUP'
-          ? `${item.display_name} — ${item.normalized_path}`
-          : type === 'ACCESS_GROUP'
-            ? `${item.name} — ${item.code}`
-            : `${item.display_name ?? item.username} — ${item.username}`,
-      }));
-
-  return <Space direction="vertical" size={16} style={{ width: '100%' }}>
-    <Alert showIcon type="info" message="گروه‌های سازمانی نقش نیستند"
-      description="گروه‌ها از Keycloak/LDAP همگام و فقط‌خواندنی‌اند. نقش‌های کاربردی بسته‌های قابلیت هستند و می‌توان آن‌ها را به کاربر یا گروه تخصیص داد." />
-    <Card title="گروه‌های سازمانی همگام‌شده">
-      <Table rowKey="id" dataSource={groups} pagination={{ pageSize: 8 }} columns={[
-        { title: 'نام', dataIndex: 'display_name' },
-        { title: 'مسیر پایدار', dataIndex: 'normalized_path' },
-        { title: 'شناسه خارجی', dataIndex: 'external_id' },
-        { title: 'وضعیت', render: (_, row) => <Tag color={row.status === 'ACTIVE' ? 'green' : 'default'}>{row.status}</Tag> },
-        { title: 'آخرین همگام‌سازی', dataIndex: 'sync_at', render: value => value ? new Date(value).toLocaleString('fa-IR') : '—' },
-      ]} />
-    </Card>
-    <Card title="نقش‌های کاربردی" extra={<Button type="primary" onClick={() => setRoleOpen(true)}>نقش جدید</Button>}>
-      <Table rowKey="id" dataSource={roles} pagination={false} columns={[
-        { title: 'کلید نقش', dataIndex: 'role_key' },
-        { title: 'نام فارسی', dataIndex: 'name_fa' },
-        { title: 'نام انگلیسی', dataIndex: 'name_en' },
-        { title: 'وضعیت', dataIndex: 'status' },
-      ]} />
-    </Card>
-    <Card title="تخصیص نقش">
-      <Form form={assignmentForm} layout="inline" onFinish={assign} initialValues={{ subjectType: 'USER' }}>
-        <Form.Item name="subjectType" rules={required}>
-          <Select style={{ width: 180 }} options={[
-            { value: 'USER', label: 'کاربر' },
-            { value: 'DIRECTORY_GROUP', label: 'گروه LDAP' },
-            { value: 'ACCESS_GROUP', label: 'گروه OU' },
-          ]} />
-        </Form.Item>
-        <Form.Item noStyle shouldUpdate={(before, after) => before.subjectType !== after.subjectType}>
-          {() => {
-            const type = assignmentForm.getFieldValue('subjectType');
-            return <Form.Item name="subjectId" rules={required}>
-              <Select showSearch optionFilterProp="label" style={{ width: 340 }}
-                placeholder={type === 'USER' ? 'انتخاب کاربر' : 'انتخاب گروه'}
-                options={subjectOptions(type)} />
-            </Form.Item>;
-          }}
-        </Form.Item>
-        <Form.Item name="roleId" rules={required}>
-          <Select style={{ width: 260 }} placeholder="نقش" options={roles
-            .filter(role => role.status === 'ACTIVE')
-            .map(role => ({ value: role.id, label: `${role.name_fa} (${role.role_key})` }))} />
-        </Form.Item>
-        <Button type="primary" htmlType="submit">تخصیص</Button>
-      </Form>
-      <Table style={{ marginTop: 16 }}
-        rowKey={row => `${row.subject_type}:${row.subject_id}:${row.role_id}`}
-        dataSource={assignments} pagination={{ pageSize: 8 }} columns={[
-          { title: 'نوع', dataIndex: 'subject_type', render: value => value === 'USER' ? 'کاربر' : value === 'ACCESS_GROUP' ? 'گروه OU' : 'گروه LDAP' },
-          { title: 'کاربر/گروه', dataIndex: 'subject_name' },
-          { title: 'نقش', dataIndex: 'role_key' },
-          { title: 'انقضا', dataIndex: 'expires_at', render: value => value ? new Date(value).toLocaleString('fa-IR') : 'بدون انقضا' },
-          { title: '', render: (_, row) => <Popconfirm title="این تخصیص لغو شود؟"
-            onConfirm={() => api(`/role-assignments/${row.subject_type}/${row.subject_id}/${row.role_id}`,
-              { method: 'DELETE' }).then(load).catch(error => message.error((error as Error).message))}>
-            <Button danger>لغو</Button>
-          </Popconfirm> },
-        ]} />
-    </Card>
-    <Modal open={roleOpen} title="تعریف نقش کاربردی" onCancel={() => setRoleOpen(false)}
-      onOk={() => roleForm.submit()}>
-      <Form form={roleForm} layout="vertical" onFinish={createRole}>
-        <Form.Item name="roleKey" label="کلید پایدار نقش" rules={required}>
-          <Input placeholder="hr-supervisor" />
-        </Form.Item>
-        <Form.Item name="nameFa" label="نام فارسی" rules={required}><Input /></Form.Item>
-        <Form.Item name="nameEn" label="نام انگلیسی" rules={required}><Input /></Form.Item>
-      </Form>
-    </Modal>
-  </Space>;
+function sectionPages(pages:readonly AdminPageDefinition[],section:AdminSectionKey) {
+  return pages.filter(page=>page.section===section);
 }
 
-function App({ context }: { context: RemoteContext }) {
-  const standalone = context.manifest.version === 'standalone';
-  const permissions = context.manifest.permissions;
-  const platformAdmin = standalone || (permissions['application:aurevia'] ?? []).includes('admin');
-  const reportDesigner = platformAdmin ||
-    (permissions['module:admin.superset-catalog'] ?? []).some(action =>
-      ['view', 'admin', 'assign'].includes(action));
-  const administration = [
-    { key: 'operator-guide', label: 'راهنمای فرم‌ها', children: <OperatorGuide /> },
-    { key: 'ou-access', label: 'دسترسی مبتنی بر OU', children: <OuAccessManagement /> },
-    { key: 'access-studio', label: 'استودیوی دسترسی', children: <AccessStudio /> },
-    { key: 'panels', label: 'میکروفرانت‌ها', children: <PanelsView /> },
-    { key: 'proxy-routes', label: 'راهبری Proxy', children: <ProxyRouteManagement api={api} /> },
-    { key: 'outbound-connections', label: 'اتصال‌های Legacy', children: <OutboundConnections api={api} /> },
-    { key: 'outbound-auth', label: 'پروفایل‌های احراز هویت سرویس‌ها', children: <OutboundAuthProfiles api={api} /> },
-    { key: 'integration-test', label: 'آزمایشگاه اتصال', children: <IntegrationTestLab api={api} /> },
-    { key: 'superset-instances', label: 'محیط‌های Superset', children: <SupersetInstances api={api} /> },
-    { key: 'identity', label: 'گروه‌ها و نقش‌ها', children: <IdentityAndRoles /> },
-    { key: 'logs', label: 'لاگ‌ها', children: <LogsView /> },
-  ];
-  const items = [
-    ...(platformAdmin ? administration : []),
-    ...(reportDesigner ? [{ key: 'superset', label: 'گزارش‌ها و داشبوردها', children: <SupersetAssets /> }] : []),
-  ];
+export function App({runtime,manifest}:MicroFrontendProps) {
+  const location=useLocation(),navigate=useNavigate();
+  const module=manifest.uiCatalog?.modules.find(item=>item.moduleKey===runtime.moduleKey);
+  const pages=runtime.mode==='standalone'
+    ?authorizedAdminPages(undefined)
+    :authorizedAdminPages(module?module.routes.map(route=>route.id):manifest.uiCatalog?[]:undefined,
+        manifest.uiCatalog?undefined:manifest.permissions);
+  const defaultPage=defaultAdminPage(pages,module?.defaultRouteId);
+  const base=runtime.mode==='embedded'?runtime.navigation.getModuleBasePath():'';
+  const internalPath=internalPathname(location.pathname,base);
+  const activePage=pages.find(page=>page.path===internalPath);
+  const activeSection=activePage?.section??pages.find(page=>internalPath===page.section||
+    internalPath.startsWith(`${page.section}/`))?.section;
+  const sections=pages.reduce<Array<{key:AdminSectionKey;label:string;page:AdminPageDefinition}>>(
+    (result,page)=>{
+      if(!result.some(item=>item.key===page.section)) {
+        result.push({key:page.section,label:page.sectionTitle,page});
+      }
+      return result;
+    },[]);
+  const go=(path:string)=>runtime.mode==='embedded'
+    ?runtime.navigation.navigate(path):navigate(`/${path}`);
+  const childPages=activeSection?sectionPages(pages,activeSection):[];
+  const groupRedirects=sections.filter(item=>item.page.path!==item.key);
+
+  if(!pages.length) return <Alert type="warning" showIcon
+    message="هیچ صفحه مجازی برای این ماژول وجود ندارد"
+    description="دسترسی صفحه‌ای از OpenFGA دریافت نشده است."/>;
+
   return <Card>
     <Typography.Title level={3}>مرکز مدیریت Aurevia</Typography.Title>
-    <Alert showIcon type="info" message={platformAdmin
-      ? 'تعریف میکروفرانت، مدل‌سازی منابع و مدیریت دسترسی مبتنی بر OU'
-      : 'راهبری گزارش‌ها و داشبوردهای مجاز'} />
-    <Tabs style={{ marginTop: 16 }} items={items} />
+    <Alert showIcon type="info" message={pages.some(page=>page.id!=='superset')
+      ?'تعریف میکروفرانت، مدل‌سازی منابع و مدیریت دسترسی مبتنی بر OU'
+      :'راهبری گزارش‌ها و داشبوردهای مجاز'}/>
+    <Tabs style={{marginTop:16}} activeKey={activeSection}
+      onChange={key=>go(sections.find(item=>item.key===key)!.page.path)}
+      items={sections.map(item=>({key:item.key,label:item.label}))}/>
+    {childPages.length>1&&<Tabs size="small" activeKey={activePage?.id}
+      onChange={id=>go(pages.find(page=>page.id===id)!.path)}
+      items={childPages.map(page=>({key:page.id,label:page.title}))}/>}
+    <Routes>
+      <Route index element={defaultPage?<Navigate to={defaultPage.path} replace/>:null}/>
+      {groupRedirects.map(item=><Route key={`${item.key}-index`} path={item.key}
+        element={<Navigate to={item.page.path.slice(item.key.length+1)} replace/>}/>)}
+      {pages.map(page=><Route key={page.id} path={page.path} element={<Page page={page}/>}/>)}
+      <Route path="*" element={<Alert type="warning" showIcon
+        message="صفحه مدیریت یافت نشد"
+        description="مسیر در کاتالوگ مؤثر این کاربر وجود ندارد."/>}/>
+    </Routes>
   </Card>;
 }
 
-export const mount: RemoteModule['mount'] = (element: HTMLElement, context: RemoteContext) => {
-  const root = createRoot(element);
-  root.render(<App context={context} />);
-  return () => root.unmount();
-};
+/** Compatibility export for consumers that still call mount directly. */
+export function mount(element:HTMLElement,context:RemoteContext) {
+  const root=createRoot(element);
+  const runtime={mode:'embedded',moduleKey:'admin',routePrefix:'',
+    http:{get:<T,>(path:string)=>adminApi(path)as Promise<T>,post:<T,B>(path:string,body:B)=>adminApi(path,{method:'POST',body:JSON.stringify(body)})as Promise<T>,put:<T,B>(path:string,body:B)=>adminApi(path,{method:'PUT',body:JSON.stringify(body)})as Promise<T>},
+    navigation:{navigate:(path:string)=>window.history.pushState({},'',path),getModuleBasePath:()=>''},
+    session:{getCurrentUser:()=>null,subscribe:()=>()=>{}},notifications:{success:()=>{},error:()=>{}},
+    events:{emit:()=>{},subscribe:()=>()=>{}},sharedState:{get:()=>undefined,subscribe:()=>()=>{}},
+    theme:{locale:context.locale,direction:context.locale==='fa-IR'?'rtl':'ltr'}} satisfies HostRuntime;
+  root.render(<App runtime={runtime} manifest={context.manifest}/>);
+  return()=>root.unmount();
+}

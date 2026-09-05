@@ -82,6 +82,9 @@ public class UiPluginRegistryService {
       if(!request.remoteName().matches("^[A-Za-z][A-Za-z0-9_]*$")) {
         throw new IllegalArgumentException("invalid remoteName");
       }
+      if(plugins.remoteNameBelongsToOtherPanel(request.remoteName(),panelId)) {
+        throw new IllegalArgumentException("remoteName is already owned by another panel");
+      }
       if(!request.exposedModule().matches("^\\./[A-Za-z][A-Za-z0-9_./-]*$")) {
         throw new IllegalArgumentException("invalid exposedModule");
       }
@@ -95,6 +98,10 @@ public class UiPluginRegistryService {
           ||!moduleKey.equals(root.path("moduleKey").asText())
           ||!root.path("routes").isArray()||!root.path("menus").isArray()) {
         throw new IllegalArgumentException("invalid manifest schema or moduleKey");
+      }
+      JsonNode apiBasePath=root.path("runtime").path("apiBasePath");
+      if(!apiBasePath.isMissingNode()&&!validApiBasePath(apiBasePath.asText())) {
+        throw new IllegalArgumentException("invalid runtime apiBasePath");
       }
       Set<String> routes=new HashSet<>();
       for(JsonNode route:root.path("routes")) {
@@ -123,6 +130,12 @@ public class UiPluginRegistryService {
     catch(Exception failure) {
       throw new IllegalArgumentException("manifest is not valid JSON",failure);
     }
+  }
+
+  private static boolean validApiBasePath(String value) {
+    return value!=null&&value.startsWith("/")&&!value.startsWith("//")
+        &&!value.contains("://")&&!value.contains("..")&&!value.contains("\\")
+        &&!value.contains("?")&&!value.contains("#");
   }
 
   private void ensureMenu(UUID panelId,String menuId) {

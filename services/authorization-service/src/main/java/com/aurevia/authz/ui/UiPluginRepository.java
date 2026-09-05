@@ -8,6 +8,7 @@ import java.util.UUID;
 public interface UiPluginRepository {
   List<ArtifactView> artifacts(UUID panelId);
   Optional<String> activePanelSlug(UUID panelId);
+  boolean remoteNameBelongsToOtherPanel(String remoteName,UUID panelId);
   boolean resourceActionExists(String resourceKey,String actionKey);
   void insertArtifact(ArtifactInsert artifact);
   Optional<ArtifactTarget> validArtifact(UUID panelId,UUID artifactId);

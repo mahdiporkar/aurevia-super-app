@@ -33,6 +33,7 @@
 25. [تصمیم‌های معماری](adr/)
 26. [Swagger و OpenAPI فارسی همه سرویس‌های Backend](swagger-openapi-fa.md)
 27. [سیاست تولید و خروجی قرارداد OpenAPI](openapi/)
+28. [قرارداد مؤثر UI Catalog و مسیریابی واقعی Admin MFE](effective-ui-catalog-and-admin-routing-fa.md)
 
 ## نقشه مستندات
 
@@ -48,6 +49,7 @@
 | دسترسی یک Micro Frontend چگونه مستقیم یا از طریق نقش/گروه داده می‌شود؟ | [access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش](access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش) |
 | دموی دو کاربر با دسترسی متفاوت به صفحات HR و Finance چگونه اجرا می‌شود؟ | [two-page-openfga-demo-fa.md](two-page-openfga-demo-fa.md) |
 | Shell چه کاری انجام می‌دهد و MFEها را چگونه بارگذاری می‌کند؟ | [shell-runtime-and-mfe-loading-fa.md](shell-runtime-and-mfe-loading-fa.md) |
+| uiCatalog مؤثر چگونه ساخته می‌شود و تب‌های Admin به چه routeهایی تبدیل شده‌اند؟ | [effective-ui-catalog-and-admin-routing-fa.md](effective-ui-catalog-and-admin-routing-fa.md) |
 | موتور مجوزدهی دقیقاً چگونه تصمیم می‌گیرد؟ | [authorization-engine-fa.md](authorization-engine-fa.md) |
 | معماری کامل، همه سطوح OpenFGA و محدودیت‌های فعلی چیست؟ | [architecture-openfga-complete-fa.md](architecture-openfga-complete-fa.md) |
 | هنگام انتشار، آدرس/پورت OpenFGA، Store ID و Model ID را کجا تعریف کنیم؟ | [openfga-deployment-configuration-fa.md](openfga-deployment-configuration-fa.md) |

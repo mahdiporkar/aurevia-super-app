@@ -18,7 +18,7 @@ class MeController {
     return Mono.just(Map.of("issuer", identity.issuer(), "subject", identity.subject(),
         "username", identity.username(), "groups", List.of()));
   }
-  @GetMapping("/me/manifest") Mono<ResponseEntity<Map>> manifest(Principal principal) {
+  @GetMapping("/me/manifest") Mono<ResponseEntity<Map<String,Object>>> manifest(Principal principal) {
     SessionIdentity identity = SessionIdentity.from(principal);
     return authorization.manifest(identity.issuer(), identity.subject())
         .map(body -> ResponseEntity.ok()

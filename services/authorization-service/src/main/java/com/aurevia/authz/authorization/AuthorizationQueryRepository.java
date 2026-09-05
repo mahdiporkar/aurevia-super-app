@@ -10,7 +10,7 @@ public interface AuthorizationQueryRepository {
   List<MenuOverride> menuOverrides(UUID panelId);
 
   record PanelRecord(UUID id,String code,String slug,String nameFa,String nameEn,
-      String routeBasePath,String description,String serviceSlug,String defaultRouteId,
+      String routeBasePath,String description,String icon,String serviceSlug,String defaultRouteId,
       int sortOrder,String artifactVersion,String remoteEntryUrl,String artifactRemoteName,
       String artifactExposedModule,String artifactContractVersion,String artifactIntegrity,
       String manifestJson) {}
