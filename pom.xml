@@ -5,7 +5,7 @@
   <groupId>com.aurevia</groupId><artifactId>aurevia-super-app</artifactId><version>0.1.0-SNAPSHOT</version><packaging>pom</packaging>
   <modules><module>services/superapp-bff</module><module>services/authorization-service</module></modules>
   <properties>
-    <java.version>21</java.version><spring-boot.version>3.5.5</spring-boot.version>
+    <java.version>21</java.version><spring-boot.version>4.1.1</spring-boot.version>
     <springdoc.version>2.8.14</springdoc.version>
     <maven.compiler.release>21</maven.compiler.release><maven.compiler.parameters>true</maven.compiler.parameters><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <mockito.version>5.17.0</mockito.version>
