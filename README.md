@@ -78,7 +78,13 @@ npm run infra:up
 ./mvnw verify
 npm test
 npm run infra:verify
+npm run infra:verify:token-proxy
 ```
+
+The local Compose profile enables a fail-fast OpenFGA startup reconciliation. `infra:verify`
+then requires Flyway V49+, zero projection drift and the complete ADMIN manifest contract;
+`infra:verify:token-proxy` exercises real OIDC login, the token-free Redis session, Superset,
+Legacy token caching and OAuth2 user-token forwarding end to end.
 
 The microfrontends are served independently from the Shell. With Docker Compose,
 their default Remote Entry URLs are:

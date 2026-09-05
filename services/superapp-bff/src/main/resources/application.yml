@@ -51,6 +51,8 @@ springdoc:
       - name: 2 - سرویس مجوزدهی
         url: /api/v1/docs/authorization/openapi
 aurevia:
+  documentation:
+    max-openapi-bytes: ${OPENAPI_MAX_BYTES:2097152}
   token-vault:
     namespace: aurevia:token-vault
     key-id: ${TOKEN_VAULT_KEY_ID:missing}

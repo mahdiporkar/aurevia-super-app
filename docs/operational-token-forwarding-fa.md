@@ -225,6 +225,9 @@ object/relation را به OpenFGA check تبدیل می‌کند.
 - Gateway قبل از forward، headerهای داخلی ورودی نامعتبر را overwrite یا پاک کند.
 - Access Token، Refresh Token و Legacy Token در log، trace، audit payload و error
   response ثبت نشوند.
+- access log لبه فقط `$uri` را در قالب JSON escape‌شده ثبت کند و هرگز `$request`،
+  `$request_uri`، `$args` یا query callback ورود را ننویسد؛ authorization code نیز credential
+  کوتاه‌عمر است. کانفیگ local این invariant را با `aurevia_safe` و contract test اعمال می‌کند.
 - Redis Token Vault باید HA، رمزنگاری‌شده، دارای TTL و خارج از دسترس مستقیم
   مرورگر و سرویس‌های عملیاتی باشد.
 - مقدارهای `change-me`، HTTP داخلی بدون mTLS و `require-mtls=false` فقط برای Local

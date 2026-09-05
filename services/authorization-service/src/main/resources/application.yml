@@ -35,6 +35,7 @@ aurevia:
     base-url: ${OPENFGA_URL:http://localhost:8080}
     store-id: ${OPENFGA_STORE_ID:bootstrap-required}
     model-id: ${OPENFGA_MODEL_ID:}
+    reconcile-on-startup: ${OPENFGA_RECONCILE_ON_STARTUP:false}
     cache:
       namespace: ${OPENFGA_CACHE_NAMESPACE:aurevia:openfga:check}
       ttl: ${OPENFGA_CACHE_TTL:5s}

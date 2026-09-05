@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import { readEnv, writeEnvValue } from './env-file.mjs';
 
 const envFile = '.env';
@@ -9,7 +10,7 @@ const storeName = process.env.FGA_STORE_NAME ?? 'aurevia-local';
 
 function fail(message) { console.error(`\nOpenFGA bootstrap failed: ${message}`); process.exit(1); }
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { stdio: 'inherit', shell: process.platform === 'win32', ...options });
+  const result = spawnSync(command, args, { stdio: 'inherit', shell: false, ...options });
   if (result.error || result.status !== 0) fail(`${command} ${args.join(' ')} returned ${result.status ?? result.error?.message}`);
 }
 async function json(url, init) {
@@ -36,11 +37,22 @@ if (!store) store = await json(`${apiUrl}/stores`, {
   method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: storeName }),
 });
 
-const probe = spawnSync('fga', ['version'], { encoding: 'utf8', shell: process.platform === 'win32' });
-if (probe.error || probe.status !== 0) fail('OpenFGA CLI (fga) is required to compile model.fga; install the pinned CLI described in docs/fresh-install-validation-fa.md');
-run('fga', ['model', 'write', '--store-id', store.id, '--file', 'infra/openfga/model.fga'], {
-  env: { ...process.env, FGA_API_URL: apiUrl },
-});
+const probe = spawnSync('fga', ['version'], { encoding: 'utf8', shell: false });
+if (!probe.error && probe.status === 0) {
+  run('fga', ['model', 'write', '--store-id', store.id, '--file', 'infra/openfga/model.fga'], {
+    env: { ...process.env, FGA_API_URL: apiUrl },
+  });
+} else {
+  const containerUrl = new URL(apiUrl);
+  if (['localhost', '127.0.0.1', '::1'].includes(containerUrl.hostname)) {
+    containerUrl.hostname = 'host.docker.internal';
+  }
+  run('docker', ['run', '--rm', '--add-host', 'host.docker.internal:host-gateway',
+    '-e', `FGA_API_URL=${containerUrl.toString().replace(/\/$/, '')}`,
+    '-v', `${resolve('infra/openfga')}:/workspace:ro`, '-w', '/workspace',
+    'openfga/cli:v0.7.20', 'model', 'write', '--store-id', store.id,
+    '--file', 'model.fga']);
+}
 const models = await json(`${apiUrl}/stores/${store.id}/authorization-models?page_size=1`);
 const modelId = models.authorization_models?.[0]?.id;
 if (!modelId) fail('model was written but its ID could not be read back');

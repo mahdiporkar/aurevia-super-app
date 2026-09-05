@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 class OpenApiDocumentationCoverageTest {
   private static final List<String> CONTROLLERS = List.of(
@@ -26,6 +27,11 @@ class OpenApiDocumentationCoverageTest {
         String key = simpleName + "#" + method.getName();
         assertNotNull(BffOpenApiConfiguration.summary(key),
             () -> "Persian OpenAPI summary is missing for " + key);
+        for (var parameter : method.getParameters()) {
+          if (!parameter.isAnnotationPresent(RequestBody.class)) continue;
+          assertNotNull(BffOpenApiConfiguration.requestExample(key),
+              () -> "OpenAPI request example is missing for " + key);
+        }
       }
     }
     assertTrue(endpoints.get() >= 13, "Controller inventory unexpectedly shrank: " + endpoints);

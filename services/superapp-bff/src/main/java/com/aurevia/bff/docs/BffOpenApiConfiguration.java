@@ -77,6 +77,7 @@ public class BffOpenApiConfiguration {
       operation.setSummary(summary);
       operation.setDescription(description(key, summary));
       documentParameters(operation);
+      addRequestExample(operation,key);
       if (isMutation(handlerMethod.getMethod())) {
         operation.setSecurity(List.of(new SecurityRequirement()
             .addList("browserSession").addList("csrfToken")));
@@ -155,6 +156,29 @@ public class BffOpenApiConfiguration {
     if (success == null || success.getContent() == null) return;
     success.getContent().values().forEach(media -> media.addExamples("پاسخ موفق",
         new io.swagger.v3.oas.models.examples.Example().value(example)));
+  }
+
+  private static void addRequestExample(io.swagger.v3.oas.models.Operation operation,String key) {
+    Object example=requestExample(key);
+    if(example==null||operation.getRequestBody()==null
+        ||operation.getRequestBody().getContent()==null) return;
+    operation.getRequestBody().getContent().values().forEach(media->media.addExamples(
+        "نمونه درخواست راهبری",
+        new io.swagger.v3.oas.models.examples.Example()
+            .summary("نمونه payload؛ path دقیق را از سند سرویس مجوزدهی انتخاب کنید")
+            .value(example)));
+  }
+
+  static Object requestExample(String key) {
+    return switch(key) {
+      case "AdminProxyController#proxy" -> map(
+          "code","hr-operation",
+          "name","سرویس عملیاتی منابع انسانی",
+          "gatewayBaseUrl","http://operation-gateway",
+          "upstreamBasePath","/hr-service",
+          "active",true);
+      default -> null;
+    };
   }
 
   private static String description(String key, String summary) {

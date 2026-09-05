@@ -6,6 +6,7 @@ import java.security.Principal;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,8 +33,13 @@ public class DeveloperDocumentationController {
   private final WebClient authorization;
 
   public DeveloperDocumentationController(
-      @Qualifier("authorizationWebClient") WebClient authorization) {
-    this.authorization = authorization;
+      @Qualifier("authorizationWebClient") WebClient authorization,
+      @Value("${aurevia.documentation.max-openapi-bytes:2097152}") int maxOpenApiBytes) {
+    if(maxOpenApiBytes<262_144||maxOpenApiBytes>8_388_608) {
+      throw new IllegalArgumentException("max-openapi-bytes must be between 256 KiB and 8 MiB");
+    }
+    this.authorization = authorization.mutate().codecs(codecs ->
+        codecs.defaultCodecs().maxInMemorySize(maxOpenApiBytes)).build();
   }
 
   @GetMapping("/api/v1/docs/authorization/openapi")

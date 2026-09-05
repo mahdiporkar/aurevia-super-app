@@ -19,6 +19,10 @@ http://localhost:8443/swagger-ui.html
 
 authorization-service مستقیماً به اینترنت منتشر نمی‌شود. BFF در محیط غیر production، JSON قرارداد و اجرای Try it out آن را با WebClient داخلی ارائه می‌کند؛ Basic password یا گواهی mTLS سرویس داخلی هرگز به browser یا Swagger UI داده نمی‌شود. اجرای endpointهای این قرارداد علاوه بر نشست و CSRF به مجوز `manage` روی `application:aurevia/admin` نیاز دارد.
 
+سند Authorization Service بزرگ‌تر از سقف پیش‌فرض ۲۵۶KB WebClient است. فقط façade توسعه مستندات
+سقف bounded مستقل `aurevia.documentation.max-openapi-bytes` (پیش‌فرض ۲MB، بازه مجاز ۲۵۶KB تا
+۸MB) دارد؛ WebClientهای عملیاتی یا profile تولید به این دلیل بزرگ‌تر نشده‌اند.
+
 ## مدل امنیتی Swagger
 
 Swagger استثنای امنیتی ایجاد نمی‌کند:
@@ -221,7 +225,7 @@ X-Correlation-ID: 5e4ddf32-1e7e-4e20-a9f3-64de1c938f97
 
 - منبع حقیقت endpointها annotationهای Spring MVC/WebFlux و DTOهای واقعی‌اند.
 - metadata فارسی و مثال‌ها در packageهای `authz.docs` و `bff.docs` نگهداری می‌شوند تا controller و service آلوده به منطق مستندسازی نشوند.
-- تست پوشش، اضافه‌شدن endpoint بدون summary فارسی را رد می‌کند.
+- تست پوشش، اضافه‌شدن endpoint بدون summary فارسی یا request body بدون example را رد می‌کند.
 - snapshot دستی YAML نگهداری نمی‌شود تا قرارداد دوم و قدیمی شکل نگیرد. برای هر release، JSON runtime را از Swagger دانلود و به artifact همان build پیوست کنید.
 - پس از هر تغییر API، تست‌ها و دریافت `/v3/api-docs` باید در CI انجام شود.
 
@@ -233,3 +237,5 @@ X-Correlation-ID: 5e4ddf32-1e7e-4e20-a9f3-64de1c938f97
 - مسیر توسعه‌ای `/api/v1/docs/authorization/execute/**` به علت `@Profile("!prod")` وجود ندارد.
 - هیچ example شامل credential یا token واقعی نیست.
 - JSON هر دو قرارداد بدون operation فاقد summary، schema یا پاسخ امنیتی است.
+- `npm run infra:verify:token-proxy` هر دو JSON runtime را می‌خواند و OpenAPI 3، متن فارسی،
+  حداقل inventory عملیات‌ها و وجود sample درخواست را کنترل می‌کند.

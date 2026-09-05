@@ -24,11 +24,12 @@ Store/Model را بررسی می‌کند و به‌جای اجرای نیمه�
 - Docker Engine + Docker Compose v2؛
 - Node.js 22 و npm 10؛
 - Java 21 (برای اجرای تست‌های Maven)؛
-- OpenFGA CLI با فرمان `fga` برای تبدیل DSL مدل canonical.
+- OpenFGA CLI با فرمان `fga` یا امکان اجرای image رسمی و pin‌شده آن در Docker.
 
-نسخه‌های image در Compose pin شده‌اند. برای نصب CLI از release رسمی OpenFGA استفاده کنید و
-پس از نصب `fga version` را اجرا کنید. در محیط Production artifact CLI را از registry داخلی،
-با checksum تأییدشده وارد کنید؛ دانلود لحظه‌ای در زمان انتشار مجاز نیست.
+نسخه‌های image در Compose و bootstrap pin شده‌اند. اگر CLI میزبان نصب باشد، bootstrap از همان
+استفاده می‌کند؛ در غیر این صورت `openfga/cli:v0.7.20` را در Docker اجرا می‌کند. در محیط
+Production artifact CLI را از registry داخلی و با checksum تأییدشده وارد کنید؛ دانلود لحظه‌ای
+در زمان انتشار مجاز نیست.
 
 ## ۲. Clone، تنظیم secret و Build
 
@@ -96,6 +97,10 @@ docker compose --env-file .env --profile superset \
 
 تا healthy شدن `authorization-service` و `aurevia-bff` صبر کنید. Flyway در اولین اجرای
 Authorization Service تمام migrationها را به‌ترتیب اجرا می‌کند؛ SQL دستی روی دیتابیس نزنید.
+در Compose محلی، `OPENFGA_RECONCILE_ON_STARTUP=true` است: پس از آماده‌شدن برنامه، DB به‌عنوان
+source of truth با OpenFGA repair و بلافاصله dry-run می‌شود و اگر drift باقی بماند startup شکست
+می‌خورد. این گزینه پیش‌فرض برنامه `false` است و در Production باید reconciliation مطابق change
+management و runbook عملیاتی زمان‌بندی شود.
 
 ## ۵. آزمون ماشینی migration، outbox و OpenFGA
 
@@ -110,8 +115,12 @@ npm run infra:verify
 - containerهای در حال اجرا unhealthy نباشند؛
 - Flyway حداقل تا آخرین migration شناخته‌شده رسیده باشد؛
 - outbox pending یا dead-letter نداشته باشد؛
+- dry-run reconciliation هیچ tuple گمشده یا غیرمنتظره‌ای نداشته باشد؛
+- artifact فعال ADMIN نسخه `0.2.0`، قرارداد `1.0` و هر ۱۸ route نسبی را داشته باشد؛
 - `administrator` روی `application:aurevia/admin` دارای `can_view` باشد؛
 - روی `application:aurevia` دارای `can_manage` باشد (شرط اعطا/ویرایش)؛
+- از زنجیره V49 روی `proxy.target`، `proxy.route`، `proxy.operation` و
+  `integration.auth-profile` دارای `can_manage` باشد؛
 - روی `resource:business_resource/public-zone-logs` دارای `can_view` و `can_manage` باشد.
 
 اگر فقط pending گزارش شد، چند ثانیه بعد دوباره اجرا کنید. dead-letter را با restart پنهان نکنید؛
@@ -138,6 +147,10 @@ Service می‌فرستد و check نهایی در OpenFGA انجام می‌ش�
 | اعطا در درخت Manifest | interceptor روی mutation | `user:administrator manager application:aurevia` |
 | API Log | check اختصاصی controller | `viewer` روی `resource:business_resource/public-zone-logs` |
 | Audit Log | check اختصاصی controller | `manager` روی همان resource |
+
+Migration `V49` اپ‌های `admin`، `hr`، `finance` و `reports` را به‌صورت persisted زیر
+`application:aurevia` قرار می‌دهد. بنابراین مدیر ریشه از مسیر رسمی مدل OpenFGA به منابع فرزند
+دسترسی می‌گیرد و این دسترسی به tuple موقتی یا seed خارج از درخت وابسته نیست.
 
 منبع حقیقت catalog/grant در PostgreSQL است، تغییرات با outbox به OpenFGA projection می‌شوند و
 OpenFGA منبع تصمیم runtime است. وجود grant در جدول بدون tuple متناظر، دسترسی مؤثر ایجاد نمی‌کند.

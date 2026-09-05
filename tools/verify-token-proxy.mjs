@@ -135,6 +135,23 @@ async function json(path, correlationId) {
   return { status: response.status, body };
 }
 
+function assertOpenApi(document,label,minimumOperations) {
+  assert.match(String(document?.openapi),/^3\./,`${label} is not an OpenAPI 3 document`);
+  const operations=Object.values(document.paths??{}).flatMap(path=>
+    Object.entries(path).filter(([method])=>
+      ['get','post','put','patch','delete','head','options'].includes(method))
+      .map(([,operation])=>operation));
+  assert(operations.length>=minimumOperations,
+    `${label} exposes only ${operations.length} documented operations`);
+  assert(operations.every(operation=>typeof operation.summary==='string'&&operation.summary.trim()),
+    `${label} contains an operation without a summary`);
+  assert(/[\u0600-\u06ff]/.test(JSON.stringify(document)),
+    `${label} does not contain Persian documentation`);
+  assert(operations.some(operation=>Object.values(operation.requestBody?.content??{})
+    .some(media=>media.example!==undefined||media.examples!==undefined)),
+    `${label} does not expose a professional request sample`);
+}
+
 const loginPage = await request('/oauth2/authorization/public-iam');
 const loginHtml = await loginPage.text();
 const formTags = loginHtml.match(/<form\b[^>]*>/gi) ?? [];
@@ -201,6 +218,59 @@ assert.equal(manifest.status,200,
 assert(Array.isArray(manifest.body?.panels)
   && manifest.body.panels.some(panel=>panel.code==='ADMIN'),
   'The runtime administrator cannot load the administration Micro Frontend');
+const adminModule=manifest.body?.uiCatalog?.modules?.find(module=>module.moduleKey==='admin');
+assert(adminModule,'The effective UI catalog does not contain the authorized ADMIN module');
+assert.equal(manifest.body.uiCatalog.contractVersion,'1.0',
+  'The effective UI catalog contract version is not supported by the Shell');
+assert.equal(adminModule.routePrefix,'admin',
+  'The ADMIN deployment registration did not provide the expected route prefix');
+assert.equal(adminModule.defaultRouteId,'operator-guide',
+  'The ADMIN effective default route is not deterministic');
+assert.equal(adminModule.remote?.remoteName,'aurevia_admin',
+  'The ADMIN Module Federation remote name is incorrect');
+assert.equal(adminModule.remote?.exposedModule,'./bootstrap',
+  'The ADMIN Module Federation exposed module is incorrect');
+assert.equal(adminModule.remote?.contractVersion,'1.0',
+  'The ADMIN artifact contract version is incorrect');
+assert.equal(adminModule.remote?.artifactVersion,'0.2.0',
+  'The ADMIN active artifact version is incorrect');
+assert.equal(adminModule.runtime?.apiBasePath,'/api/v1/admin',
+  'The ADMIN runtime API base path is incorrect');
+assert.equal(adminModule.routes?.length,18,
+  'The administrator must receive all 18 authorized ADMIN routes');
+assert(adminModule.routes.every(route=>typeof route.path==='string'&&!route.path.startsWith('/')),
+  'The ADMIN artifact contains an absolute route path');
+assert(adminModule.routes.some(route=>route.id===adminModule.defaultRouteId),
+  'The ADMIN default route is not present in the effective routes');
+assert(adminModule.menus?.every(menu=>adminModule.routes.some(route=>route.id===menu.routeId)),
+  'The effective ADMIN menu references an unauthorized or missing route');
+
+const shellDeepLink=await request('/admin/proxy-routes/routes',{headers:{accept:'text/html'}});
+const shellHtml=await shellDeepLink.text();
+assert.equal(shellDeepLink.status,200,'Shell deep link did not reach the SPA history fallback');
+assert(/<title>Aurevia<\/title>/i.test(shellHtml),
+  'Shell deep link returned an unexpected HTML application');
+const standaloneAdmin=await fetch('http://localhost:3001/proxy-routes/routes',
+  {headers:{accept:'text/html'}});
+const standaloneAdminHtml=await standaloneAdmin.text();
+assert.equal(standaloneAdmin.status,200,'Standalone ADMIN deep link did not reach its history fallback');
+assert(/<title>Aurevia Admin<\/title>/i.test(standaloneAdminHtml),
+  'Standalone ADMIN deep link returned an unexpected HTML application');
+for(const module of manifest.body.uiCatalog.modules) {
+  const remoteEntry=await fetch(module.remote.remoteEntryUrl,{headers:{accept:'application/javascript'}});
+  const remoteSource=await remoteEntry.text();
+  assert.equal(remoteEntry.status,200,`${module.moduleKey} remoteEntry is unavailable`);
+  assert(remoteSource.length>1_000,`${module.moduleKey} remoteEntry is unexpectedly empty`);
+}
+
+const bffOpenApi=await json('/v3/api-docs',`e2e-bff-openapi-${Date.now()}`);
+assert.equal(bffOpenApi.status,200,`BFF OpenAPI failed with HTTP ${bffOpenApi.status}`);
+assertOpenApi(bffOpenApi.body,'BFF OpenAPI',13);
+const authorizationOpenApi=await json('/api/v1/docs/authorization/openapi',
+  `e2e-authz-openapi-${Date.now()}`);
+assert.equal(authorizationOpenApi.status,200,
+  `Authorization OpenAPI failed with HTTP ${authorizationOpenApi.status}`);
+assertOpenApi(authorizationOpenApi.body,'Authorization OpenAPI',75);
 
 const reports=await json('/api/v1/reports?instance=public-default',`e2e-reports-${Date.now()}`);
 assert.equal(reports.status,200,
@@ -260,7 +330,15 @@ console.log(JSON.stringify({
   login: { username: me.body.username, sessionCookie: 'AUREVIA_SESSION', opaqueSession: true },
   serverSessionContainsTokenMaterial: false,
   tokenMaterialReturnedToClient: false,
-  effectiveManifest: { administrationPanel: true },
+  effectiveManifest: { administrationPanel: true, catalogContract: '1.0',
+    adminArtifact: adminModule.remote.artifactVersion, adminRouteCount: adminModule.routes.length,
+    relativeRoutes: true },
+  swagger: { bffOperations: Object.values(bffOpenApi.body.paths).flatMap(Object.values)
+      .filter(operation=>operation?.operationId).length,
+    authorizationOperations: Object.values(authorizationOpenApi.body.paths).flatMap(Object.values)
+      .filter(operation=>operation?.operationId).length, persianSamples: true },
+  frontend: { shellDeepLink: '/admin/proxy-routes/routes', standaloneAdminDeepLink: true,
+    remoteEntries: manifest.body.uiCatalog.modules.length },
   superset: { catalogStatus: reports.status, operationRuntime: supersetRuntime },
   probes: results,
 }, null, 2));
