@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   Col,
+  Descriptions,
   Empty,
   Form,
   Input,
@@ -20,9 +21,11 @@ import {
   message,
 } from "antd";
 import type { HostRuntime, MicroFrontendProps, RemoteContext, RemoteModule } from "@aurevia/contracts";
+import { createJsonHttpClient } from "@aurevia/http-client";
 import { Link, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { evaluateSHPolicy, SHAction, SHManifestProvider, SHRouteGuard } from "@aurevia/sh-core-ui";
-export const contractVersion = "1" as const;
+/** Shell-facing component contract; `mount` below is retained only for legacy hosts. */
+export const contractVersion = "1.0" as const;
 type Employee = {
   id: string;
   name: string;
@@ -47,6 +50,8 @@ const messages = {
     scope: "محدوده داده",
     add: "افزودن کارمند",
     edit: "ویرایش",
+    details: "جزئیات",
+    back: "بازگشت به فهرست",
     retry: "تلاش مجدد",
     loading: "در حال دریافت اطلاعات…",
     error: "دریافت اطلاعات منابع انسانی ناموفق بود",
@@ -74,6 +79,8 @@ const messages = {
     scope: "Data scope",
     add: "Add employee",
     edit: "Edit",
+    details: "Details",
+    back: "Back to list",
     retry: "Retry",
     loading: "Loading HR data…",
     error: "Could not load Human Resources data",
@@ -226,9 +233,15 @@ function HrApplication({ context,runtime }: { context: RemoteContext;runtime:Hos
                     {
                       title: "",
                       render: (_, row) => (
-                        <SHAction resource="business:hr.employee" action="update">
-                          <Button onClick={() => open(row)}>{copy.edit}</Button>
-                        </SHAction>
+                        <Space>
+                          {evaluateSHPolicy(context.manifest,false,'page:hr.employee.detail','view').allowed&&
+                            <SHAction resource="business:hr.employee" action="view">
+                              <Link to={encodeURIComponent(row.id)}><Button>{copy.details}</Button></Link>
+                            </SHAction>}
+                          <SHAction resource="business:hr.employee" action="update">
+                            <Button onClick={() => open(row)}>{copy.edit}</Button>
+                          </SHAction>
+                        </Space>
                       ),
                     },
                   ]}
@@ -320,13 +333,31 @@ function HrReferencePage({ context,runtime, kind }: { context: RemoteContext;run
     ]} /></Card>
   </Space>;
 }
-function EmployeeDetails(){const{id}=useParams();return <Card><Typography.Title level={3}>اطلاعات پرسنل</Typography.Title><Typography.Text code>{id}</Typography.Text></Card>}
-function HrWorkspace({context,runtime}:{context:RemoteContext;runtime:HostRuntime}){const fa=context.locale==='fa-IR',canView=(resource:string)=>evaluateSHPolicy(context.manifest,false,resource,'view').allowed;return <Space direction="vertical" size={18} style={{width:'100%'}}><Space><Link to="personal">{fa?'کارکنان':'Employees'}</Link>{canView('page:hr.departments')&&<Link to="departments">{fa?'واحدها':'Departments'}</Link>}{canView('page:hr.positions')&&<Link to="positions">{fa?'سمت‌ها':'Positions'}</Link>}</Space><Routes><Route index element={<Navigate to="personal" replace/>}/><Route path="personal" element={<SHRouteGuard resource="page:hr.employee.list" action="view"><HrApplication context={context} runtime={runtime}/></SHRouteGuard>}/><Route path="personal/:id" element={<EmployeeDetails/>}/><Route path="departments" element={<SHRouteGuard resource="page:hr.departments" action="view"><HrReferencePage context={context} runtime={runtime} kind="departments"/></SHRouteGuard>}/><Route path="positions" element={<SHRouteGuard resource="page:hr.positions" action="view"><HrReferencePage context={context} runtime={runtime} kind="positions"/></SHRouteGuard>}/><Route path="*" element={<Alert type="warning" message="صفحه HR یافت نشد"/>}/></Routes></Space>}
+function EmployeeDetails({context,runtime}:{context:RemoteContext;runtime:HostRuntime}){
+  const{id}=useParams(),copy=messages[context.locale];
+  const[employee,setEmployee]=useState<Employee>(),[loading,setLoading]=useState(true),[error,setError]=useState(''),[attempt,setAttempt]=useState(0);
+  useEffect(()=>{if(!id){setError('شناسه پرسنل معتبر نیست');setLoading(false);return}let active=true;setLoading(true);setError('');request<Employee>(runtime,`/employees/${encodeURIComponent(id)}`).then(value=>{if(active)setEmployee(value)}).catch(reason=>{if(active)setError(reason instanceof Error?reason.message:String(reason))}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[id,runtime,attempt]);
+  if(loading)return <Card><Spin tip={copy.loading}/></Card>;
+  if(error)return <Alert type="error" showIcon message={copy.error} description={error} action={<Button onClick={()=>setAttempt(value=>value+1)}>{copy.retry}</Button>}/>;
+  if(!employee)return <Empty description={copy.empty}/>;
+  return <Card title={copy.details} extra={<Link to="../personal">{copy.back}</Link>}>
+    <Descriptions bordered column={{xs:1,md:2}} items={[
+      {key:'id',label:'ID',children:employee.id},
+      {key:'name',label:copy.name,children:employee.name},
+      {key:'department',label:copy.department,children:employee.department??employee.departmentId??'—'},
+      {key:'position',label:copy.position,children:employee.positionId??'—'},
+      {key:'orgUnit',label:copy.branch,children:employee.orgUnit},
+      {key:'salary',label:'حقوق',children:<SHAction resource="field:hr.employee.salary-amount" action="view" mode="hide"><span>{employee.salary==null?'—':new Intl.NumberFormat(context.locale).format(employee.salary)}</span></SHAction>},
+    ]}/>
+  </Card>
+}
+function HrWorkspace({context,runtime}:{context:RemoteContext;runtime:HostRuntime}){const fa=context.locale==='fa-IR',canView=(resource:string)=>evaluateSHPolicy(context.manifest,false,resource,'view').allowed;return <Space direction="vertical" size={18} style={{width:'100%'}}><Space><Link to="personal">{fa?'کارکنان':'Employees'}</Link>{canView('page:hr.departments')&&<Link to="departments">{fa?'واحدها':'Departments'}</Link>}{canView('page:hr.positions')&&<Link to="positions">{fa?'سمت‌ها':'Positions'}</Link>}</Space><Routes><Route index element={<Navigate to="personal" replace/>}/><Route path="personal" element={<SHRouteGuard resource="page:hr.employee.list" action="view"><HrApplication context={context} runtime={runtime}/></SHRouteGuard>}/><Route path="personal/:id" element={<SHRouteGuard resource="page:hr.employee.detail" action="view"><EmployeeDetails context={context} runtime={runtime}/></SHRouteGuard>}/><Route path="departments" element={<SHRouteGuard resource="page:hr.departments" action="view"><HrReferencePage context={context} runtime={runtime} kind="departments"/></SHRouteGuard>}/><Route path="positions" element={<SHRouteGuard resource="page:hr.positions" action="view"><HrReferencePage context={context} runtime={runtime} kind="positions"/></SHRouteGuard>}/><Route path="*" element={<Alert type="warning" message="صفحه HR یافت نشد"/>}/></Routes></Space>}
 export function App({runtime,manifest}:{runtime:HostRuntime;manifest:MicroFrontendProps['manifest']}){const context:RemoteContext={locale:runtime.theme.locale,manifest,correlationId:()=>crypto.randomUUID()};return <SHManifestProvider initial={manifest}><HrWorkspace context={context} runtime={runtime}/></SHManifestProvider>}
 export const plugin={contractVersion:'1.0' as const,App};
 export const mount: RemoteModule["mount"] = (element, context) => {
   const root = createRoot(element);
-  const legacyRuntime={mode:'embedded',moduleKey:'mfe-hr',routePrefix:'hr',http:{get:<T,>(p:string)=>fetch(`/hr-micro/api/v1${p}`).then(r=>r.json()as Promise<T>),post:<T,B>(p:string,b:B)=>fetch(`/hr-micro/api/v1${p}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()as Promise<T>),put:<T,B>(p:string,b:B)=>fetch(`/hr-micro/api/v1${p}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()as Promise<T>)},navigation:{navigate:()=>{},getModuleBasePath:()=>'/hr'},session:{getCurrentUser:()=>null,subscribe:()=>()=>{}},notifications:{success:()=>{},error:()=>{}},events:{emit:()=>{},subscribe:()=>()=>{}},sharedState:{get:()=>undefined,subscribe:()=>()=>{}},theme:{locale:context.locale,direction:context.locale==='fa-IR'?'rtl':'ltr'}} satisfies HostRuntime;
+  const client=createJsonHttpClient({basePath:'/hr-micro/api/v1'});
+  const legacyRuntime={mode:'embedded',moduleKey:'mfe-hr',routePrefix:'hr',http:{get:<T,>(p:string,o?:{headers?:Record<string,string>;signal?:AbortSignal})=>client.get<T>(p,o),post:<T,B>(p:string,b:B,o?:{headers?:Record<string,string>;signal?:AbortSignal})=>client.post<T,B>(p,b,o),put:<T,B>(p:string,b:B,o?:{headers?:Record<string,string>;signal?:AbortSignal})=>client.put<T,B>(p,b,o)},navigation:{navigate:()=>{},getModuleBasePath:()=>'/hr'},session:{getCurrentUser:()=>null,subscribe:()=>()=>{}},notifications:{success:()=>{},error:()=>{}},events:{emit:()=>{},subscribe:()=>()=>{}},sharedState:{get:()=>undefined,subscribe:()=>()=>{}},theme:{locale:context.locale,direction:context.locale==='fa-IR'?'rtl':'ltr'}} satisfies HostRuntime;
   root.render(<App runtime={legacyRuntime} manifest={context.manifest}/>);
   return () => root.unmount();
 };

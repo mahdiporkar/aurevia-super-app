@@ -9,3 +9,4 @@ export declare function moduleBasePath(module: Pick<UiModuleDefinition, 'routePr
 export declare function composeModulePath(module: Pick<UiModuleDefinition, 'routePrefix'>, relativePath: string): string;
 export declare function catalogMenuItems(modules: readonly UiModuleDefinition[]): CatalogMenuItem[];
 export declare function activeCatalogModule(modules: readonly UiModuleDefinition[], pathname: string): UiModuleDefinition | undefined;
+export declare function activeCatalogMenuKey(items: readonly Pick<CatalogMenuItem, 'key'>[], pathname: string): string | undefined;

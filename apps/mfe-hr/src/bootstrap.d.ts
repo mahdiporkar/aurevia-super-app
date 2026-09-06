@@ -1,5 +1,6 @@
 import type { HostRuntime, MicroFrontendProps, RemoteModule } from "@aurevia/contracts";
-export declare const contractVersion: "1";
+/** Shell-facing component contract; `mount` below is retained only for legacy hosts. */
+export declare const contractVersion: "1.0";
 export declare function App({ runtime, manifest }: {
     runtime: HostRuntime;
     manifest: MicroFrontendProps['manifest'];

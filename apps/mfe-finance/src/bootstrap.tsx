@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Alert, Button, Card, Col, Empty, Form, InputNumber, Modal, Row, Segmented, Space, Spin, Statistic, Table, Tag, Typography, message } from "antd";
 import type { RemoteContext, RemoteModule } from "@aurevia/contracts";
+import { createJsonHttpClient } from "@aurevia/http-client";
 import { evaluateSHPolicy, SHAction, SHManifestProvider, SHRouteGuard } from "@aurevia/sh-core-ui";
 
 export const contractVersion = "1" as const;
@@ -13,23 +14,8 @@ const messages = {
   "fa-IR": { title: "مدیریت پرداخت‌ها", description: "صف پرداخت عملیاتی با کنترل دسترسی مستقل در OpenFGA", payments: "صف پرداخت", pending: "در انتظار تأیید", total: "مبلغ کل صف", amount: "مبلغ", status: "وضعیت", maker: "ایجادکننده", create: "پرداخت جدید", approve: "تأیید", reject: "رد", retry: "تلاش مجدد", loading: "در حال دریافت پرداخت‌ها…", error: "دریافت اطلاعات پرداخت ناموفق بود", empty: "پرداختی برای نمایش وجود ندارد", save: "ذخیره", cancel: "انصراف", saved: "عملیات با موفقیت انجام شد", required: "مبلغ الزامی است" },
   "en-US": { title: "Payment Management", description: "Operational payment queue protected independently by OpenFGA", payments: "Payment queue", pending: "Pending approval", total: "Total queued amount", amount: "Amount", status: "Status", maker: "Maker", create: "New payment", approve: "Approve", reject: "Reject", retry: "Retry", loading: "Loading payments…", error: "Could not load payment data", empty: "No payments to display", save: "Save", cancel: "Cancel", saved: "Operation completed", required: "Amount is required" },
 } as const;
-let csrf: { headerName: string; token: string } | undefined;
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const method = init?.method ?? "GET";
-  const headers: Record<string, string> = { "Content-Type": "application/json", "X-Correlation-ID": crypto.randomUUID(), ...((init?.headers as Record<string, string>) ?? {}) };
-  if (method !== "GET" && method !== "HEAD") {
-    const token: { headerName: string; token: string } = csrf ?? await fetch("/api/v1/csrf", { credentials: "same-origin" }).then(async response => {
-      if (!response.ok) throw new Error(`CSRF HTTP ${response.status}`);
-      return await response.json() as { headerName: string; token: string };
-    });
-    csrf = token;
-    headers[token.headerName] = token.token;
-  }
-  const response = await fetch(`/finance-micro/api/v1${path}`, { ...init, credentials: "same-origin", headers });
-  if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
-  return response.json() as Promise<T>;
-}
+const financeClient = createJsonHttpClient({ basePath: "/finance-micro/api/v1" });
+const request = <T,>(path: string, init?: RequestInit) => financeClient.request<T>(path, init);
 
 function PaymentPage({ context }: { context: RemoteContext }) {
   const copy = messages[context.locale];

@@ -27,3 +27,8 @@ export function activeCatalogModule(modules:readonly UiModuleDefinition[],pathna
   return modules.find(module=>pathname===moduleBasePath(module)||
     pathname.startsWith(`${moduleBasePath(module)}/`));
 }
+
+export function activeCatalogMenuKey(items:readonly Pick<CatalogMenuItem,'key'>[],pathname:string) {
+  return items.filter(item=>pathname===item.key||pathname.startsWith(`${item.key}/`))
+    .sort((left,right)=>right.key.length-left.key.length)[0]?.key;
+}

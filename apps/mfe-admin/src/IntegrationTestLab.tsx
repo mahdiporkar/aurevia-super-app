@@ -51,6 +51,11 @@ export function IntegrationTestLab({ api }: { api: AdminApi }) {
       try { body = raw ? JSON.parse(raw) : null; } catch { /* retain safe response text */ }
       setResults(current => [{ scenario, correlationId, status: response.status,
         durationMs: Math.round(performance.now() - started), body }, ...current].slice(0, 10));
+    } catch (reason) {
+      const body = reason instanceof Error ? reason.message : String(reason);
+      setResults(current => [{ scenario, correlationId, status: 0,
+        durationMs: Math.round(performance.now() - started), body }, ...current].slice(0, 10));
+      message.error(`ارتباط با سناریوی ${scenario} برقرار نشد: ${body}`);
     } finally { setRunning(undefined); }
   };
 

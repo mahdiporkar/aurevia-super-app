@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Alert, Button, Card, Col, Empty, Input, Row, Skeleton, Space, Tag, Typography } from 'antd';
 import type { RemoteContext, RemoteModule } from '@aurevia/contracts';
+import { createJsonHttpClient } from '@aurevia/http-client';
 import { parseReportTags, safeReportPath } from './report-security';
 
 export const contractVersion = '1' as const;
+const reportsClient = createJsonHttpClient({ basePath: '/api/v1' });
 
 type ReportAsset = {
   id: string;
@@ -21,14 +23,13 @@ function ReportsCatalog() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/v1/reports', { credentials: 'same-origin', signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
-        return response.json();
-      })
+    setLoading(true);
+    setError(undefined);
+    reportsClient.get<ReportAsset[]>('/reports', { signal: controller.signal })
       .then(setReports)
       .catch((reason) => {
         if (reason instanceof DOMException && reason.name === 'AbortError') return;
@@ -36,9 +37,9 @@ function ReportsCatalog() {
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
-      });
+    });
     return () => controller.abort();
-  }, []);
+  }, [attempt]);
 
   const visibleReports = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('fa');
@@ -62,7 +63,8 @@ function ReportsCatalog() {
       <Input.Search allowClear size="large" aria-label="جستجوی گزارش" placeholder="نام گزارش، مالک یا برچسب..." style={{ marginTop: 18, maxWidth: 620 }} onChange={(event) => setQuery(event.target.value)} />
     </Card>
 
-    {error && <Alert showIcon type="error" message="دریافت کاتالوگ گزارش‌ها ناموفق بود" description={error} />}
+    {error && <Alert showIcon type="error" message="دریافت کاتالوگ گزارش‌ها ناموفق بود" description={error}
+      action={<Button onClick={() => setAttempt(value => value + 1)}>تلاش مجدد</Button>} />}
 
     {loading ? <Row gutter={[16, 16]}>
       {[1, 2, 3].map((item) => <Col xs={24} md={12} xl={8} key={item}><Card><Skeleton active /></Card></Col>)}

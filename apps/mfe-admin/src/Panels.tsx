@@ -14,30 +14,11 @@ import {
   Tag,
   message,
 } from 'antd';
+import { adminApi } from './api';
 
 type PanelRow = Record<string, any>;
 const required = [{ required: true, message: 'این فیلد الزامی است' }];
-let csrf: { headerName: string; token: string } | undefined;
-
-async function panelsApi(path: string, init: RequestInit = {}) {
-  const method = init.method ?? 'GET';
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-
-  if (method !== 'GET') {
-    const token = csrf ?? await fetch('/api/v1/csrf', { credentials: 'same-origin' })
-      .then((response) => response.json());
-    csrf = token;
-    headers[token.headerName] = token.token;
-  }
-
-  const response = await fetch(`/api/v1/admin${path}`, {
-    ...init,
-    headers,
-    credentials: 'same-origin',
-  });
-  if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
-  return response.status === 204 ? undefined : response.json();
-}
+const panelsApi = adminApi;
 
 export function PanelsView() {
   const [rows, setRows] = useState<PanelRow[]>([]);
@@ -54,7 +35,7 @@ export function PanelsView() {
     setLoading(true);
     setError(undefined);
     try {
-      setRows(await panelsApi('/panels'));
+      setRows(await panelsApi<PanelRow[]>('/panels'));
     } catch (reason) {
       setError((reason as Error).message);
     } finally {
@@ -110,7 +91,7 @@ export function PanelsView() {
       message.error((reason as Error).message);
     }
   };
-  const openArtifacts=async(row:PanelRow)=>{setArtifactPanel(row);setArtifacts(await panelsApi(`/panels/${row.id}/artifacts`));artifactForm.setFieldsValue({artifactVersion:row.semantic_version,remoteEntryUrl:row.remote_entry_path,remoteName:row.remote_name,exposedModule:'./plugin',contractVersion:'1.0',manifest:JSON.stringify({schemaVersion:'1.0',moduleKey:row.slug,defaultRouteId:'index',routes:[{id:'index',path:'',title:row.name_fa,resource:`application:aurevia/${row.slug}`,action:'view'}],menus:[{id:'main',routeId:'index',title:row.name_fa,order:10}]},null,2)});};
+  const openArtifacts=async(row:PanelRow)=>{setArtifactPanel(row);setArtifacts(await panelsApi<PanelRow[]>(`/panels/${row.id}/artifacts`));artifactForm.setFieldsValue({artifactVersion:row.semantic_version,remoteEntryUrl:row.remote_entry_path,remoteName:row.remote_name,exposedModule:'./plugin',contractVersion:'1.0',manifest:JSON.stringify({schemaVersion:'1.0',moduleKey:row.slug,defaultRouteId:'index',routes:[{id:'index',path:'',title:row.name_fa,resource:`application:aurevia/${row.slug}`,action:'view'}],menus:[{id:'main',routeId:'index',title:row.name_fa,order:10}]},null,2)});};
   const publish=async(values:PanelRow)=>{await panelsApi(`/panels/${artifactPanel!.id}/artifacts`,{method:'POST',body:JSON.stringify(values)});message.success('نسخه معتبر منتشر شد');await openArtifacts(artifactPanel!)};
   const activate=async(id:string)=>{const row=artifacts.find(item=>item.id===id);await panelsApi(`/panels/${artifactPanel!.id}/artifacts/${id}/activate?version=${row?.panel_version??artifactPanel!.version}`,{method:'POST'});message.success('نسخه فعال شد؛ Catalog تغییر کرد');await Promise.all([openArtifacts(artifactPanel!),load()])};
 

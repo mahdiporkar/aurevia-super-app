@@ -3,6 +3,7 @@
 "private":true,
 "dependencies":{
     "@aurevia/contracts":"*",
+    "@aurevia/http-client":"*",
     "@aurevia/sh-core-ui":"*",
     "antd":"5.27.1",
     "react":"19.1.1",

@@ -1,6 +1,6 @@
 import{describe,expect,it}from'vitest';
 import type{UiModuleDefinition}from'@aurevia/contracts';
-import{activeCatalogModule,catalogMenuItems,composeModulePath}from'./manifest-routing';
+import{activeCatalogMenuKey,activeCatalogModule,catalogMenuItems,composeModulePath}from'./manifest-routing';
 
 function module(routePrefix='management'):UiModuleDefinition{return{
   registrationId:'11111111-1111-1111-1111-111111111111',moduleKey:'admin',
@@ -27,5 +27,12 @@ describe('effective uiCatalog routing',()=>{
 
   it('recognizes deep links beneath the registered module prefix',()=>{
     expect(activeCatalogModule([module()],'/management/resources')?.moduleKey).toBe('admin');
+  });
+
+  it('keeps the nearest parent menu selected on detail routes',()=>{
+    const items=[{key:'/hr/personal'},{key:'/hr/personal/archive'}];
+    expect(activeCatalogMenuKey(items,'/hr/personal/e-101')).toBe('/hr/personal');
+    expect(activeCatalogMenuKey(items,'/hr/personal/archive/2025')).toBe('/hr/personal/archive');
+    expect(activeCatalogMenuKey(items,'/finance/payments')).toBeUndefined();
   });
 });

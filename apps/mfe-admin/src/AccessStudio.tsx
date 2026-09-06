@@ -4,6 +4,7 @@ import {
   InputNumber, Modal, Progress, Row, Segmented, Select, Space, Statistic, Switch, Table,
   Tag, Tree, Typography, message,
 } from 'antd';
+import { adminApi } from './api';
 
 type RowData = Record<string, any>;
 type SubjectType = 'USER' | 'GROUP' | 'ROLE';
@@ -19,18 +20,7 @@ const typeMeta: Record<string,ResourceMeta> & Record<(typeof resourceTypes)[numb
   EXTERNAL_RESOURCE:{label:'منبع خارجی',color:'magenta',icon:'↗',hint:'سامانه، گزارش یا دارایی بیرونی'},
 };
 const relationFor:Record<string,string>={view:'viewer',list:'viewer',create:'creator',update:'editor',approve:'editor',reject:'editor',delete:'deleter',admin:'manager',manage:'manager',share:'sharer',export:'exporter'};
-let csrf:{headerName:string;token:string}|undefined;
-
-async function api(path:string,init:RequestInit={}){
-  const method=init.method??'GET',headers:Record<string,string>={'Content-Type':'application/json'};
-  if(method!=='GET'){
-    const token=csrf??await fetch('/api/v1/csrf',{credentials:'same-origin'}).then(r=>r.json());
-    csrf=token;headers[token.headerName]=token.token;
-  }
-  const response=await fetch(`/api/v1/admin${path}`,{...init,headers,credentials:'same-origin'});
-  if(!response.ok)throw new Error((await response.text())||`HTTP ${response.status}`);
-  return response.status===204?undefined:response.json();
-}
+const api = adminApi;
 
 function TypeTag({type}:{type:string}){const meta=typeMeta[type]??{label:type,color:'default',icon:'•'};return <Tag color={meta.color}>{meta.icon} {meta.label}</Tag>}
 
@@ -44,7 +34,7 @@ export function AccessStudio(){
   const[grants,setGrants]=useState<RowData[]>([]),[grantLoading,setGrantLoading]=useState(false);
 
   const load=useCallback(async()=>{setLoading(true);setError(undefined);try{
-    const[r,a,u,g,ro]=await Promise.all([api('/resource-tree'),api('/actions'),api('/users'),api('/directory-groups'),api('/roles')]);
+    const[r,a,u,g,ro]=await Promise.all([api<RowData[]>('/resource-tree'),api<RowData[]>('/actions'),api<RowData[]>('/users'),api<RowData[]>('/directory-groups'),api<RowData[]>('/roles')]);
     setResources(r.map((item:RowData)=>({...item,actions:Array.isArray(item.actions)?item.actions:JSON.parse(item.actions_json??'[]')})));setActions(a);setUsers(u);setGroups(g);setRoles(ro);
   }catch(reason){setError((reason as Error).message)}finally{setLoading(false)}},[]);
   useEffect(()=>{void load()},[load]);
@@ -60,8 +50,8 @@ export function AccessStudio(){
     resourceKey:resource.resource_key,type:resource.type,parentId:resource.parent_id,nameFa:resource.name_fa,nameEn:resource.name_en,ownerDomain:resource.owner_domain,classification:resource.classification,externalSystem:resource.external_system,externalType:resource.external_type,externalId:resource.external_id,source:resource.source,
   }:{type:parent?'PAGE':'APPLICATION',parentId:parent?.id,classification:'INTERNAL',source:'ADMIN'});setEditorOpen(true)};
   const save=async(values:RowData)=>{try{await api(editing?`/resources/${editing.id}?version=${editing.version}`:'/resources',{method:editing?'PUT':'POST',body:JSON.stringify(values)});message.success('منبع با موفقیت ذخیره شد');setEditorOpen(false);form.resetFields();await load()}catch(reason){message.error((reason as Error).message)}};
-  const toggleAction=async(action:RowData,on:boolean)=>{if(!selected)return;try{await api(`/resources/${selected.id}/actions/${action.id}`,{method:on?'PUT':'DELETE'});await load();setSelected((await api('/resource-tree')).map((r:RowData)=>({...r,actions:Array.isArray(r.actions)?r.actions:JSON.parse(r.actions_json??'[]')})).find((r:RowData)=>r.id===selected.id));message.success('عملیات منبع به‌روزرسانی شد')}catch(reason){message.error((reason as Error).message)}};
-  const loadGrants=async(type:SubjectType,id:string)=>{setGrantLoading(true);try{setGrants(await api(`/subjects/${type}/${id}/grants`))}catch(reason){setGrants([]);message.error((reason as Error).message)}finally{setGrantLoading(false)}};
+  const toggleAction=async(action:RowData,on:boolean)=>{if(!selected)return;try{await api<void>(`/resources/${selected.id}/actions/${action.id}`,{method:on?'PUT':'DELETE'});await load();setSelected((await api<RowData[]>('/resource-tree')).map((r:RowData)=>({...r,actions:Array.isArray(r.actions)?r.actions:JSON.parse(r.actions_json??'[]')})).find((r:RowData)=>r.id===selected.id));message.success('عملیات منبع به‌روزرسانی شد')}catch(reason){message.error((reason as Error).message)}};
+  const loadGrants=async(type:SubjectType,id:string)=>{setGrantLoading(true);try{setGrants(await api<RowData[]>(`/subjects/${type}/${id}/grants`))}catch(reason){setGrants([]);message.error((reason as Error).message)}finally{setGrantLoading(false)}};
   const chooseSubject=(id:string)=>{setSubjectId(id);void loadGrants(subjectType,id)};
   const changeSubjectType=(value:string|number)=>{const next=value as SubjectType;setSubjectType(next);setSubjectId(undefined);setGrants([])};
   const grant=async(action:RowData)=>{if(!selected||!subjectId)return;try{await api('/grants',{method:'POST',body:JSON.stringify({subjectType,subjectId,resourceId:selected.id,actionId:action.id,relation:relationFor[action.action_key]??action.action_key,expiresAt:null})});message.success('دسترسی ثبت شد و برای همگام‌سازی با OpenFGA در صف قرار گرفت');await loadGrants(subjectType,subjectId);await load()}catch(reason){message.error((reason as Error).message)}};

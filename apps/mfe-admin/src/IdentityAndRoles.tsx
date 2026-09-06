@@ -8,7 +8,7 @@ const required=[{required:true,message:'این فیلد الزامی است'}];
 export function IdentityAndRoles(){
   const[users,setUsers]=useState<Row[]>([]),[groups,setGroups]=useState<Row[]>([]),[accessGroups,setAccessGroups]=useState<Row[]>([]),[roles,setRoles]=useState<Row[]>([]),[assignments,setAssignments]=useState<Row[]>([]),[roleOpen,setRoleOpen]=useState(false);
   const[roleForm]=Form.useForm(),[assignmentForm]=Form.useForm();
-  const load=()=>Promise.all([adminApi('/users'),adminApi('/directory-groups'),adminApi('/ou-access/access-groups'),adminApi('/roles'),adminApi('/role-assignments')]).then(([u,g,ag,r,a])=>{setUsers(u);setGroups(g);setAccessGroups(ag);setRoles(r);setAssignments(a)}).catch(error=>message.error(error.message));
+  const load=()=>Promise.all([adminApi<Row[]>('/users'),adminApi<Row[]>('/directory-groups'),adminApi<Row[]>('/ou-access/access-groups'),adminApi<Row[]>('/roles'),adminApi<Row[]>('/role-assignments')]).then(([u,g,ag,r,a])=>{setUsers(u);setGroups(g);setAccessGroups(ag);setRoles(r);setAssignments(a)}).catch(error=>message.error(error.message));
   useEffect(()=>{void load()},[]);
   const createRole=async(values:Row)=>{try{await adminApi('/roles',{method:'POST',body:JSON.stringify(values)});setRoleOpen(false);roleForm.resetFields();await load();message.success('نقش کاربردی ایجاد شد')}catch(error){message.error((error as Error).message)}};
   const assign=async(values:Row)=>{try{await adminApi('/role-assignments',{method:'POST',body:JSON.stringify({...values,expiresAt:values.expiresAt||null})});assignmentForm.resetFields();await load();message.success('نقش تخصیص یافت')}catch(error){message.error((error as Error).message)}};

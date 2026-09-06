@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Form, Modal, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { adminApi, sameOriginApi } from './api';
 
 type Row = Record<string, any>;
 type Level = 'VIEW' | 'EDIT' | 'MANAGE';
@@ -9,32 +10,15 @@ const levels: Record<Level, { action: string; relation: string; label: string }>
   EDIT: { action: 'update', relation: 'editor', label: 'ویرایش' },
   MANAGE: { action: 'admin', relation: 'manager', label: 'مدیریت' },
 };
-let csrf: { headerName: string; token: string } | undefined;
-
-async function json(url: string, init: RequestInit = {}) {
-  const response = await fetch(url, { ...init, credentials: 'same-origin' });
-  if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
-  return response.status === 204 ? undefined : response.json();
-}
-
-async function admin(path: string, init: RequestInit = {}) {
-  const method = init.method ?? 'GET';
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (method !== 'GET') {
-    const token = csrf ?? await json('/api/v1/csrf');
-    csrf = token;
-    headers[token.headerName] = token.token;
-  }
-  return json(`/api/v1/admin${path}`, { ...init, headers });
-}
+const admin = adminApi;
 
 async function liveCatalog(publicInstance: string) {
   const tunnel = `/api/v1/superset-instances/${encodeURIComponent(publicInstance)}`;
-  await fetch(`${tunnel}/superset/welcome/`, { credentials: 'same-origin' });
+  await sameOriginApi<unknown>(`${tunnel}/superset/welcome/`);
   const query = '?q=(page:0,page_size:100)';
   const [dashboards, charts] = await Promise.all([
-    json(`${tunnel}/api/v1/dashboard/${query}`),
-    json(`${tunnel}/api/v1/chart/${query}`),
+    sameOriginApi<Row>(`${tunnel}/api/v1/dashboard/${query}`),
+    sameOriginApi<Row>(`${tunnel}/api/v1/chart/${query}`),
   ]);
   return [
     ...(dashboards.result ?? []).map((item: Row) => ({
@@ -74,7 +58,7 @@ export function SupersetAssets() {
       if (!selected) throw new Error('نگاشت فعال Superset عمومی به عملیاتی تعریف نشده است');
       setPublicInstance(selected.public_code); setMappings(nextMappings);
       const [live, allAssets, accessOptions] = await Promise.all([
-        liveCatalog(selected.public_code), admin('/superset-assets'), admin('/superset-assets/access-options'),
+        liveCatalog(selected.public_code), admin<Row[]>('/superset-assets'), admin<Row>('/superset-assets/access-options'),
       ]);
       setCatalog(live); setStored(allAssets.filter((asset:Row)=>asset.instance_code===selected.operation_code));
       setSubjects(accessOptions.subjects);
