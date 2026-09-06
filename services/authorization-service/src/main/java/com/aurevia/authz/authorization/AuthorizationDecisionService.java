@@ -48,6 +48,16 @@ public class AuthorizationDecisionService {
     long started=System.nanoTime();
     String decisionId=UUID.randomUUID().toString();
     String permission=semantics.resolveObject(request.resource(),request.action()).permission();
+    if(queries.runtimeResourceActionEnabled(request.resource(),request.action())
+        .filter(enabled->!enabled).isPresent()) {
+      long latency=(System.nanoTime()-started)/1_000_000;
+      String reason="RESOURCE_DISABLED";
+      auditor.record(new AuthorizationDecisionAuditor.Record(decisionId,request.subjectId(),
+          request.resource(),request.action(),permission,false,false,false,reason,latency,
+          request.correlationId(),List.of()));
+      return new CheckEvaluation(new Decision("DENY",reason,"configured-model",decisionId,
+          Map.of()),permission,0);
+    }
     SubjectKey subject=new SubjectKey(request.issuer(),request.subjectId());
     long openFgaStarted=System.nanoTime();
     boolean relationshipAllowed=relationships.check(subject.openFgaUser(),permission,
@@ -121,29 +131,71 @@ public class AuthorizationDecisionService {
       List<UiRoute> routes=new ArrayList<>();
       Set<String> routeIds=new HashSet<>();
       for(JsonNode route:manifest.path("routes")) {
-        String resource=route.path("resource").asText(null);
+        String resource=preferredText(route,"resourceKey","resource");
         String action=route.path("action").asText("view");
         if(resource==null||!permissions.getOrDefault(resource,List.of()).contains(action)) continue;
-        String routeId=route.path("id").asText();
-        routes.add(new UiRoute(routeId,route.path("path").asText(),
-            route.path("title").asText(),resource,action));
+        String routeId=preferredText(route,"key","id");
+        if(routeId==null)continue;
+        String path=route.path("path").asText().replaceFirst("^/+","");
+        routes.add(new UiRoute(routeId,path,
+            textOrDefault(route,"title",routeId),resource,action));
         routeIds.add(routeId);
       }
       if(routes.isEmpty()) return null;
       Map<String,AuthorizationQueryRepository.MenuOverride> overrides=
           queries.menuOverrides(panel.id()).stream().collect(Collectors.toMap(
               AuthorizationQueryRepository.MenuOverride::menuId,value->value));
-      List<UiMenu> menus=new ArrayList<>();
-      for(JsonNode item:manifest.path("menus")) {
-        if(!routeIds.contains(item.path("routeId").asText())) continue;
-        var override=overrides.get(item.path("id").asText());
-        if(override!=null&&override.hidden()) continue;
-        String title=override!=null&&override.title()!=null?override.title():item.path("title").asText();
-        String icon=override!=null&&override.icon()!=null?override.icon():textOrNull(item,"icon");
-        int order=override!=null&&override.sortOrder()!=null?override.sortOrder():item.path("order").asInt(0);
-        menus.add(new UiMenu(item.path("id").asText(),textOrNull(item,"parentId"),
-            item.path("routeId").asText(),title,icon,order));
+      Map<String,NavigationCandidate> candidates=new LinkedHashMap<>();
+      JsonNode declaredNavigation=manifest.path("navigation");
+      if(declaredNavigation.isArray())for(JsonNode item:declaredNavigation) {
+        String key=preferredText(item,"key","id");
+        if(key==null)continue;
+        String type=item.path("type").asText("PAGE").toUpperCase();
+        String page=preferredText(item,"pageKey","routeId");
+        var override=overrides.get(key);
+        candidates.put(key,new NavigationCandidate(key,type,
+            preferredText(item,"parentKey","parentId"),page,
+            override!=null&&override.title()!=null?override.title():textOrDefault(item,"title",key),
+            override!=null&&override.icon()!=null?override.icon():textOrNull(item,"icon"),
+            override!=null&&override.sortOrder()!=null?override.sortOrder():item.path("order").asInt(0),
+            textOrNull(item,"externalUrl"),"MANIFEST",override!=null&&override.hidden()));
       }
+      if(candidates.isEmpty())for(JsonNode item:manifest.path("menus")) {
+        String key=item.path("id").asText();
+        var override=overrides.get(key);
+        candidates.put(key,new NavigationCandidate(key,"PAGE",textOrNull(item,"parentId"),
+            item.path("routeId").asText(),
+            override!=null&&override.title()!=null?override.title():item.path("title").asText(),
+            override!=null&&override.icon()!=null?override.icon():textOrNull(item,"icon"),
+            override!=null&&override.sortOrder()!=null?override.sortOrder():item.path("order").asInt(0),
+            null,"MANIFEST",override!=null&&override.hidden()));
+      }
+      overrides.values().stream().filter(value->"ADMIN".equals(value.source())).forEach(value->
+          candidates.put(value.menuId(),new NavigationCandidate(value.menuId(),value.nodeType(),
+              value.parentKey(),value.pageKey(),value.title(),value.icon(),
+              value.sortOrder()==null?0:value.sortOrder(),value.externalUrl(),"ADMIN",value.hidden())));
+      Map<String,NavigationCandidate> visible=new LinkedHashMap<>();
+      candidates.values().stream().filter(item->!item.hidden())
+          .filter(item->!"PAGE".equals(item.type())||routeIds.contains(item.pageKey()))
+          .forEach(item->visible.put(item.key(),item));
+      boolean changed;
+      do {
+        changed=visible.values().removeIf(item->item.parentKey()!=null
+            &&!visible.containsKey(item.parentKey()));
+      } while(changed);
+      do {
+        Set<String> parents=visible.values().stream().map(NavigationCandidate::parentKey)
+            .filter(Objects::nonNull).collect(Collectors.toSet());
+        changed=visible.values().removeIf(item->"GROUP".equals(item.type())
+            &&!parents.contains(item.key()));
+      } while(changed);
+      List<UiNavigation> navigation=visible.values().stream()
+          .sorted(Comparator.comparingInt(NavigationCandidate::order))
+          .map(item->new UiNavigation(item.key(),item.type(),item.parentKey(),item.pageKey(),
+              item.title(),item.icon(),item.order(),item.externalUrl(),item.source())).toList();
+      List<UiMenu> menus=new ArrayList<>(navigation.stream().filter(item->"PAGE".equals(item.type()))
+          .map(item->new UiMenu(item.key(),item.parentKey(),item.pageKey(),item.title(),
+              item.icon(),item.order())).toList());
       menus.sort(Comparator.comparingInt(UiMenu::order));
       String declaredDefault=textOrNull(manifest,"defaultRouteId");
       String defaultRouteId=routeIds.contains(declaredDefault)?declaredDefault:
@@ -153,10 +205,12 @@ public class AuthorizationDecisionService {
       var remote=new RemoteDescriptor(panel.remoteEntryUrl(),panel.artifactRemoteName(),
           panel.artifactExposedModule(),panel.artifactContractVersion(),panel.artifactVersion(),
           panel.artifactIntegrity());
-      return new UiModuleDefinition(panel.id(),panel.slug(),panel.nameFa(),panel.nameEn(),
+      String declaredModuleKey=manifest.path("module").path("key").asText(panel.slug());
+      return new UiModuleDefinition(panel.id(),declaredModuleKey,panel.nameFa(),panel.nameEn(),
           panel.description(),panel.icon(),panel.sortOrder(),
           panel.routeBasePath().replaceFirst("^/",""),defaultRouteId,remote,
-          new RuntimeDescriptor(apiBasePath),List.copyOf(routes),List.copyOf(menus));
+          new RuntimeDescriptor(apiBasePath),List.copyOf(routes),List.copyOf(menus),navigation,
+          panel.classification(),panel.resourceDefinitionMode());
     } catch(Exception failure) {
       throw new IllegalStateException("stored UI manifest is invalid",failure);
     }
@@ -167,11 +221,23 @@ public class AuthorizationDecisionService {
     return value==null||value.isNull()||value.asText().isBlank()?null:value.asText();
   }
 
+  private static String preferredText(JsonNode parent,String preferred,String legacy) {
+    String value=textOrNull(parent,preferred);return value==null?textOrNull(parent,legacy):value;
+  }
+
+  private static String textOrDefault(JsonNode parent,String field,String fallback) {
+    String value=textOrNull(parent,field);return value==null?fallback:value;
+  }
+
   private static PanelSummary panelSummary(AuthorizationQueryRepository.PanelRecord panel) {
     return new PanelSummary(panel.id(),panel.code(),panel.slug(),panel.nameFa(),panel.nameEn(),
         panel.remoteEntryUrl(),panel.artifactExposedModule(),panel.routeBasePath(),
-        panel.artifactVersion(),panel.artifactContractVersion(),panel.artifactIntegrity());
+        panel.artifactVersion(),panel.artifactContractVersion(),panel.artifactIntegrity(),
+        panel.classification(),panel.resourceDefinitionMode());
   }
+
+  private record NavigationCandidate(String key,String type,String parentKey,String pageKey,
+      String title,String icon,int order,String externalUrl,String source,boolean hidden) {}
 
   private String manifestVersion(Object panels,Object permissions,Object resources,Object modules) {
     try {

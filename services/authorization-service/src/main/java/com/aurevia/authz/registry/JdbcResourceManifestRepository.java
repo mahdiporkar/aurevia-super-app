@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -55,12 +56,72 @@ class JdbcResourceManifestRepository implements ResourceManifestRepository {
         """).param("root",rootKey).query(String.class).single();
   }
 
-  @Override public boolean importExists(String applicationKey,String version,String checksum) {
+  @Override public Optional<PanelManifestSettings> panelSettings(UUID panelId) {
     return database.sql("""
-        select count(*) from resource_manifest_import
-        where application_key=:app and manifest_version=:version and checksum=:checksum
-        """).param("app",applicationKey).param("version",version)
-        .param("checksum",checksum).query(Long.class).single()>0;
+        select id,slug,name_fa as "nameFa",name_en as "nameEn",
+          resource_definition_mode as "resourceDefinitionMode",
+          resource_manifest_url as "resourceManifestUrl"
+        from panel where id=:id
+        """).param("id",panelId).query(PanelManifestSettings.class).optional();
+  }
+
+  @Override public Optional<PanelManifestSettings> panelSettingsBySlug(String slug) {
+    return database.sql("""
+        select id,slug,name_fa as "nameFa",name_en as "nameEn",
+          resource_definition_mode as "resourceDefinitionMode",
+          resource_manifest_url as "resourceManifestUrl"
+        from panel where slug=:slug
+        """).param("slug",slug).query(PanelManifestSettings.class).optional();
+  }
+
+  @Override public List<DraftRecord> drafts(UUID panelId) {
+    return database.sql("""
+        select id,panel_id,application_key,manifest_version,schema_version,checksum,
+          imported_by,source_url,payload::text,workflow_status,diff_summary::text,
+          created_at,published_at,published_by
+        from resource_manifest_import where panel_id=:panel order by created_at desc
+        """).param("panel",panelId).query(this::draft).list();
+  }
+
+  @Override public Optional<DraftRecord> draft(UUID panelId,UUID draftId) {
+    return database.sql("""
+        select id,panel_id,application_key,manifest_version,schema_version,checksum,
+          imported_by,source_url,payload::text,workflow_status,diff_summary::text,
+          created_at,published_at,published_by
+        from resource_manifest_import where panel_id=:panel and id=:id
+        """).param("panel",panelId).param("id",draftId).query(this::draft).optional();
+  }
+
+  @Override public Optional<DraftRecord> revisionByVersion(UUID panelId,String version) {
+    return database.sql("""
+        select id,panel_id,application_key,manifest_version,schema_version,checksum,
+          imported_by,source_url,payload::text,workflow_status,diff_summary::text,
+          created_at,published_at,published_by
+        from resource_manifest_import
+        where panel_id=:panel and manifest_version=:version
+        """).param("panel",panelId).param("version",version)
+        .query(this::draft).optional();
+  }
+
+  @Override public boolean insertDraft(DraftInsert value) {
+    return database.sql("""
+        insert into resource_manifest_import(id,panel_id,application_key,manifest_version,
+          schema_version,checksum,imported_by,source_url,payload,workflow_status,diff_summary)
+        values(:id,:panel,:app,:version,:schema,:checksum,:actor,:source,
+          cast(:payload as jsonb),'DRAFT',cast(:diff as jsonb))
+        on conflict(panel_id,manifest_version) where panel_id is not null do nothing
+        """).param("id",value.id()).param("panel",value.panelId())
+        .param("app",value.applicationKey()).param("version",value.manifestVersion())
+        .param("schema",value.schemaVersion()).param("checksum",value.checksum())
+        .param("actor",value.actor()).param("source",value.sourceUrl())
+        .param("payload",value.payload()).param("diff",value.diffSummary()).update()==1;
+  }
+
+  @Override public boolean markPublished(UUID draftId,String actor) {
+    return database.sql("""
+        update resource_manifest_import set workflow_status='PUBLISHED',published_at=now(),
+          published_by=:actor,imported_at=now() where id=:id and workflow_status='DRAFT'
+        """).param("id",draftId).param("actor",actor).update()==1;
   }
 
   @Override public boolean resourceExists(String resourceKey) {
@@ -68,9 +129,25 @@ class JdbcResourceManifestRepository implements ResourceManifestRepository {
         .param("key",resourceKey).query(Long.class).single()>0;
   }
 
-  @Override public Optional<String> resourceType(String resourceKey) {
-    return database.sql("select type::text from resource where resource_key=:key")
-        .param("key",resourceKey).query(String.class).optional();
+  @Override public Optional<ResourceOwnership> resourceOwnership(String resourceKey) {
+    return database.sql("""
+        select type::text,source,panel_id as "panelId",parent_id as "parentId",name_fa as "nameFa",
+          name_en as "nameEn",status::text from resource where resource_key=:key
+        """).param("key",resourceKey).query(ResourceOwnership.class).optional();
+  }
+
+  @Override public boolean actionExists(String actionKey) {
+    return database.sql("select count(*) from action where action_key=:action")
+        .param("action",actionKey).query(Long.class).single()>0;
+  }
+
+  @Override public boolean resourceActionExists(String resourceKey,String actionKey) {
+    return database.sql("""
+        select count(*) from resource r join resource_action ra on ra.resource_id=r.id
+        join action a on a.id=ra.action_id
+        where r.resource_key=:resource and a.action_key=:action and r.status='ACTIVE'
+        """).param("resource",resourceKey).param("action",actionKey)
+        .query(Long.class).single()>0;
   }
 
   @Override public Optional<UUID> resourceId(String resourceKey) {
@@ -78,20 +155,25 @@ class JdbcResourceManifestRepository implements ResourceManifestRepository {
         .param("key",resourceKey).query(UUID.class).optional();
   }
 
-  @Override public void upsertResource(ResourceDefinition value,UUID parentId,String metadata) {
+  @Override public void upsertResource(ResourceDefinition value,UUID parentId,String metadata,
+      UUID panelId,String manifestVersion) {
     database.sql("""
         insert into resource(resource_key,type,parent_id,name_fa,name_en,owner_domain,
-          classification,status,source,metadata,external_system,external_type,external_id)
+          classification,status,source,panel_id,manifest_version,visibility_enabled,
+          metadata,external_system,external_type,external_id)
         values(:key,cast(:type as resource_type),:parent,:fa,:en,:owner,:classification,
-          'ACTIVE','APPLICATION_MANIFEST',cast(:metadata as jsonb),:provider,:externalType,:externalId)
+          'ACTIVE','MANIFEST',:panel,:manifestVersion,true,cast(:metadata as jsonb),
+          :provider,:externalType,:externalId)
         on conflict(resource_key) do update set parent_id=excluded.parent_id,
           name_fa=excluded.name_fa,name_en=excluded.name_en,owner_domain=excluded.owner_domain,
           classification=excluded.classification,status='ACTIVE',metadata=excluded.metadata,
+          panel_id=excluded.panel_id,manifest_version=excluded.manifest_version,
           external_system=excluded.external_system,external_type=excluded.external_type,
           external_id=excluded.external_id,version=resource.version+1,updated_at=now()
         """).param("key",value.key()).param("type",value.type()).param("parent",parentId)
         .param("fa",value.nameFa()).param("en",value.nameEn())
         .param("owner",value.ownerDomain()).param("classification",value.classification())
+        .param("panel",panelId).param("manifestVersion",manifestVersion)
         .param("metadata",metadata).param("provider",value.provider())
         .param("externalType",value.externalType()).param("externalId",value.externalId()).update();
   }
@@ -121,26 +203,42 @@ class JdbcResourceManifestRepository implements ResourceManifestRepository {
         """).param("id",resourceId).param("action",actionKey).update()==1;
   }
 
-  @Override public int deprecateMissing(String rootKey,String[] retainedKeys) {
+  @Override public void enqueueParent(UUID childId,UUID parentId,String eventType) {
+    if(parentId==null)return;
+    database.sql("""
+        insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
+        select 'resource',c.id,:event,
+          jsonb_build_object(
+            'user',case when p.type='APPLICATION' then 'application:'||regexp_replace(p.resource_key,'^application:','') when p.type='EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(p.resource_key,'^external_resource:',''),':','/') else 'resource:'||replace(p.resource_key,':','/') end,
+            'relation','parent',
+            'object',case when c.type='APPLICATION' then 'application:'||regexp_replace(c.resource_key,'^application:','') when c.type='EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(c.resource_key,'^external_resource:',''),':','/') else 'resource:'||replace(c.resource_key,':','/') end),
+          :event||':'||c.id||':'||p.id||':'||c.version
+        from resource c join resource p on p.id=:parent where c.id=:child
+        on conflict(idempotency_key) do nothing
+        """).param("event",eventType).param("parent",parentId).param("child",childId).update();
+  }
+
+  @Override public int deprecateMissing(UUID panelId,String rootKey,String[] retainedKeys) {
     return database.sql("""
         with recursive tree as (
           select id,resource_key from resource where resource_key=:root
           union all select r.id,r.resource_key from resource r join tree p on r.parent_id=p.id
         )
         update resource set status='DEPRECATED',version=version+1,updated_at=now()
-        where id in(select id from tree) and source='APPLICATION_MANIFEST'
+        where id in(select id from tree) and source='MANIFEST' and panel_id=:panel
           and not(resource_key=any(:keys)) and status<>'DEPRECATED'
-        """).param("root",rootKey).param("keys",retainedKeys).update();
+        """).param("root",rootKey).param("panel",panelId).param("keys",retainedKeys).update();
   }
 
-  @Override public void insertImport(String applicationKey,String version,String checksum,
-      String actor,String payload) {
-    database.sql("""
-        insert into resource_manifest_import(application_key,manifest_version,checksum,
-          imported_by,payload)
-        values(:app,:version,:checksum,:actor,cast(:payload as jsonb))
-        """).param("app",applicationKey).param("version",version).param("checksum",checksum)
-        .param("actor",actor).param("payload",payload).update();
+  private DraftRecord draft(java.sql.ResultSet result,int row) throws java.sql.SQLException {
+    return new DraftRecord(result.getObject("id",UUID.class),
+        result.getObject("panel_id",UUID.class),result.getString("application_key"),
+        result.getString("manifest_version"),result.getString("schema_version"),
+        result.getString("checksum"),result.getString("imported_by"),
+        result.getString("source_url"),result.getString("payload"),
+        result.getString("workflow_status"),result.getString("diff_summary"),
+        instant(result,"created_at"),instant(result,"published_at"),
+        result.getString("published_by"));
   }
 
   private Map<String,Object> readMap(String value) {
@@ -152,5 +250,11 @@ class JdbcResourceManifestRepository implements ResourceManifestRepository {
     try { return array==null?List.of():Arrays.stream((Object[])array.getArray())
         .map(String::valueOf).toList(); }
     catch(Exception failure) { throw new IllegalStateException("Invalid action array",failure); }
+  }
+
+  private static Instant instant(java.sql.ResultSet result,String column)
+      throws java.sql.SQLException {
+    var value=result.getTimestamp(column);
+    return value==null?null:value.toInstant();
   }
 }

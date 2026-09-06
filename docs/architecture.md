@@ -119,6 +119,28 @@ sequenceDiagram
 
 PostgreSQL owns control-plane metadata, identity projections, audit, policy definitions, synchronization state, and the transactional outbox. OpenFGA is the runtime relationship projection. Redis owns transient sessions and encrypted token records in separate namespaces. Panel is deployment metadata only; resource permissions are never stored in it.
 
+## Micro Frontend governance flow
+
+```mermaid
+sequenceDiagram
+  participant M as MFE resource-manifest.json
+  participant A as Authorization Service
+  participant D as Draft Ledger
+  participant O as Administrator
+  participant C as Resource + Navigation Catalog
+  participant B as BFF /api/ui/catalog
+  participant S as Shell
+  A->>M: HTTPS fetch with origin policy, timeout and size limit
+  A->>A: schema, module, resource, action and navigation validation
+  A->>D: immutable versioned Draft + diff
+  O->>D: preview and approval
+  D->>C: transactional publish; missing MANIFEST resources become DEPRECATED
+  C->>B: effective modules, routes, navigation and permissions
+  B->>S: session-authenticated catalog without exposing Keycloak token
+```
+
+`panel` همان ثبت canonical یک MFE است. `resource` منبع حقیقت Resource Tree، JSON نسخه فعال به‌علاوه `ui_menu_override` منبع Navigation Tree و `authorization_grant`/OpenFGA منبع Permission Tree است؛ این سه مفهوم با هم ادغام نمی‌شوند. جزئیات قرارداد، modeها، ownership، APIها و runbook در [Resource Catalog و Manifest](resource-catalog-manifest-architecture-fa.md) و مدل فیزیکی در [ER کنترل‌پلین](er-diagram.md) آمده است.
+
 ## Deployment and scaling
 
 BFF and Authorization Service are stateless apart from Redis/PostgreSQL and may be horizontally replicated. Outbox consumers coordinate with `FOR UPDATE SKIP LOCKED`. Redis must be shared by all BFF replicas. Database migrations run once before rolling application instances. Nginx is the only browser ingress; Operation Gateway and data services have no public browser route. Production requires TLS at ingress, verified mTLS to operational workloads, secret-manager injection, database backup/PITR, Redis HA, OpenFGA persistence, and metrics/alerts described in the runbooks.

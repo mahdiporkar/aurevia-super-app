@@ -1,6 +1,7 @@
 package com.aurevia.authz.ui;
 
 import com.aurevia.authz.api.dto.UiPluginDtos.ArtifactView;
+import com.aurevia.authz.api.dto.UiPluginDtos.NavigationOverrideView;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,7 +17,11 @@ public interface UiPluginRepository {
   boolean activate(UUID panelId,UUID artifactId,long expectedVersion);
   String activeManifest(UUID panelId);
   void upsertMenu(UUID panelId,String menuId,String title,String icon,Integer order,
-      boolean hidden,String actor);
+      boolean hidden,String source,String nodeType,String parentKey,String pageKey,
+      String externalUrl,String actor);
+  List<NavigationOverrideView> navigationOverrides(UUID panelId);
+  boolean navigationHasChildren(UUID panelId,String key);
+  void deleteNavigationOverride(UUID panelId,String key);
   List<ArtifactTarget> activeArtifactTargets();
 
   record ArtifactInsert(UUID id,UUID panelId,String artifactVersion,String remoteEntryUrl,

@@ -80,7 +80,10 @@ final class ApiDocumentationExamples {
           "remoteName", "finance", "defaultRouteId", "finance-home",
           "remoteEntry", "http://localhost:3002/remoteEntry.js", "exposedModule", "./App",
           "routeBasePath", "/finance", "semanticVersion", "1.4.0", "contractVersion", "1.0",
-          "integrity", "sha384-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "active", true, "sortOrder", 20);
+          "integrity", "sha384-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "resourceDefinitionMode","HYBRID","classification","REAL",
+          "resourceManifestUrl","https://static.example.test/finance/resource-manifest.json",
+          "active", true, "sortOrder", 20);
       case "ProxyRouteDtos.TargetRequest" -> map(
           "code", "finance-operation", "name", "Finance operation service",
           "description", "مقصد ثابت در Operation Gateway", "gatewayBaseUrl", "http://operation-gateway:80",
@@ -105,15 +108,31 @@ final class ApiDocumentationExamples {
       case "ResourceManifestDtos.DefinitionManifest" -> map(
           "application", "finance", "manifestVersion", "2026.09.1",
           "resources", List.of(
-              map("key", "application:finance", "type", "APPLICATION", "nameFa", "سامانه مالی",
+              map("key", "application:aurevia/finance", "type", "APPLICATION", "nameFa", "سامانه مالی",
                   "nameEn", "Finance", "ownerDomain", "finance", "classification", "INTERNAL",
                   "actions", List.of("view", "manage"), "status", "ACTIVE",
-                  "source", "MICROFRONT_MANIFEST", "metadata", map()),
+                  "source", "MANIFEST", "metadata", map()),
+              map("key", "module:finance", "type", "MODULE",
+                  "parent", "application:aurevia/finance", "nameFa", "عملیات مالی",
+                  "nameEn", "Finance Operations", "ownerDomain", "finance",
+                  "classification", "INTERNAL", "actions", List.of("view"),
+                  "source", "MANIFEST", "metadata", map()),
               map("key", "page:finance.payments", "type", "PAGE",
-                  "parent", "application:finance", "nameFa", "پرداخت‌ها", "nameEn", "Payments",
+                  "parent", "module:finance", "nameFa", "پرداخت‌ها", "nameEn", "Payments",
                   "ownerDomain", "finance", "classification", "INTERNAL",
                   "actions", List.of("view", "create", "approve", "reject"), "status", "ACTIVE",
-                  "source", "MICROFRONT_MANIFEST", "metadata", map("route", "/finance/payments"))));
+                  "source", "MANIFEST", "metadata", map("route", "/finance/payments"))));
+      case "ResourceManifestDtos.MicroFrontendManifest" -> map(
+          "schemaVersion","1.0","module",map("key","finance","name","Finance",
+              "nameFa","مالی","nameEn","Finance","version","1.4.0"),
+          "routes",List.of(map("key","payments","path","/payments","component","./Payments",
+              "resourceKey","page:finance.payments","action","view","title","پرداخت‌ها")),
+          "resources",List.of(map("key","page:finance.payments","type","PAGE",
+              "name","Payments","nameFa","پرداخت‌ها","nameEn","Payments",
+              "classification","INTERNAL","actions",List.of("view"))),
+          "navigation",List.of(map("key","finance.nav.root","type","GROUP","title","مالی","order",10),
+              map("key","finance.nav.payments","type","PAGE","parentKey","finance.nav.root",
+                  "pageKey","payments","title","پرداخت‌ها","order",20)));
       case "SupersetAssetDtos.AssetRequest" -> map(
           "externalId", "dashboard:42", "assetType", "DASHBOARD", "title", "داشبورد فروش روزانه",
           "urlPath", "/superset/dashboard/42/", "ownerExternalId", "8e3a7fd6-designer",
@@ -136,6 +155,10 @@ final class ApiDocumentationExamples {
           "manifest", "{\"schemaVersion\":\"1.0\",\"moduleKey\":\"finance\",\"routes\":[{\"id\":\"payments\",\"path\":\"payments\",\"resource\":\"page:finance.payments\",\"action\":\"view\"}],\"menus\":[{\"id\":\"payments-menu\",\"routeId\":\"payments\",\"title\":\"پرداخت‌ها\"}]}");
       case "UiPluginDtos.MenuOverrideRequest" -> map(
           "title", "پرداخت‌های سازمان", "icon", "credit-card", "order", 30, "hidden", false);
+      case "UiPluginDtos.NavigationOverrideRequest" -> map(
+          "title","مدیریت پرداخت‌ها","icon","credit-card","order",30,"hidden",false,
+          "source","MANIFEST","nodeType","PAGE","parentKey","finance.nav.root",
+          "pageKey","payments");
       case "LogIngestionController.ApiIngest" -> map(
           "eventTime", Instant.parse("2026-09-05T08:30:00Z").toString(), "userId", "8e3a7fd6-demo-user",
           "actorType", "USER", "serviceName", "superapp-bff", "httpMethod", "GET",

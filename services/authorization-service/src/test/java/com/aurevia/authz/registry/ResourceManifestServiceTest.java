@@ -4,6 +4,8 @@ import static com.aurevia.authz.api.dto.ResourceManifestDtos.*;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
+import com.aurevia.authz.observability.AuditTrail;
+import com.aurevia.authz.ui.UiArtifactPolicy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +13,9 @@ import org.junit.jupiter.api.Test;
 
 class ResourceManifestServiceTest {
   private final ResourceManifestService service=
-      new ResourceManifestService(mock(ResourceManifestRepository.class),new ObjectMapper());
+      new ResourceManifestService(mock(ResourceManifestRepository.class),
+          mock(ResourceManifestFetcher.class),mock(UiArtifactPolicy.class),
+          mock(AuditTrail.class),new ObjectMapper());
 
   @Test void acceptsCanonicalResourceTree() {
     service.validate(manifest(List.of(

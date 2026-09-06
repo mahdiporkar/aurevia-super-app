@@ -28,6 +28,8 @@ logging:
     audit-days: ${AUDIT_LOG_RETENTION_DAYS:365}
     cron: ${LOG_RETENTION_CRON:0 17 2 * * *}
 aurevia:
+  demo-data:
+    enabled: ${DEMO_DATA_ENABLED:true}
   internal:
     username: ${AUTH_INTERNAL_USER:bff}
     password: ${AUTH_INTERNAL_PASSWORD:change-me}

@@ -50,6 +50,7 @@
 | دموی دو کاربر با دسترسی متفاوت به صفحات HR و Finance چگونه اجرا می‌شود؟ | [two-page-openfga-demo-fa.md](two-page-openfga-demo-fa.md) |
 | Shell چه کاری انجام می‌دهد و MFEها را چگونه بارگذاری می‌کند؟ | [shell-runtime-and-mfe-loading-fa.md](shell-runtime-and-mfe-loading-fa.md) |
 | uiCatalog مؤثر چگونه ساخته می‌شود و تب‌های Admin به چه routeهایی تبدیل شده‌اند؟ | [effective-ui-catalog-and-admin-routing-fa.md](effective-ui-catalog-and-admin-routing-fa.md) |
+| Resource Manifest چگونه Fetch، Diff، Approve و Publish می‌شود و Navigation Overlay چیست؟ | [resource-catalog-manifest-architecture-fa.md](resource-catalog-manifest-architecture-fa.md) |
 | موتور مجوزدهی دقیقاً چگونه تصمیم می‌گیرد؟ | [authorization-engine-fa.md](authorization-engine-fa.md) |
 | معماری کامل، همه سطوح OpenFGA و محدودیت‌های فعلی چیست؟ | [architecture-openfga-complete-fa.md](architecture-openfga-complete-fa.md) |
 | هنگام انتشار، آدرس/پورت OpenFGA، Store ID و Model ID را کجا تعریف کنیم؟ | [openfga-deployment-configuration-fa.md](openfga-deployment-configuration-fa.md) |

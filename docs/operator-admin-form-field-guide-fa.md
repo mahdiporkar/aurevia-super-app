@@ -142,6 +142,9 @@ Preview و سپس تعداد عضو را با مالک داده تطبیق ده�
 | نسخه | الزامی؛ SemVer | نسخه deploy مانند `1.4.2` یا prerelease معتبر | `1.4.2` |
 | نسخه قرارداد | الزامی | نسخه قرارداد Shell↔MFE؛ مستقل از نسخه محصول | `1.0` |
 | ترتیب | اختیاری؛ عدد | ترتیب menu؛ عدد کوچک‌تر زودتر نمایش داده می‌شود | `30` |
+| حالت تعریف Resource | الزامی؛ `MANIFEST`/`MANUAL`/`HYBRID` | `MANIFEST`: فقط فایل MFE، `MANUAL`: فقط ادمین، `HYBRID`: هر دو با مالکیت مستقل؛ پیش‌فرض توصیه‌شده | `HYBRID` |
+| Classification | الزامی؛ `REAL`/`DEMO` | MFE آزمایشی را صریح علامت می‌زند؛ در production و با `demo-data.enabled=false` از Catalog و تصمیم runtime حذف می‌شود | `REAL` |
+| Resource Manifest URL | در `MANIFEST` الزامی؛ URL مطلق JSON | آدرس `resource-manifest.json`؛ بدون credential/query/fragment و از origin مجاز. Backend فقط JSON را می‌خواند و Webpack اجرا نمی‌کند | `https://cdn.example/mfe/payroll/resource-manifest.json` |
 | فعال | boolean | فقط MFE فعال وارد catalog/manifest runtime می‌شود | — |
 
 ### ۵.۲ فرم «انتشار Artifact immutable»
@@ -157,6 +160,39 @@ Preview و سپس تعداد عضو را با مالک داده تطبیق ده�
 | Manifest Snapshot | الزامی؛ JSON معتبر | routes، menus، resource و action همان artifact؛ پس از انتشار immutable است | نمونه در بخش ۱۳ |
 | Validate و Publish | mutation | ابتدا schema/URL/SRI را validate و سپس artifact را ثبت می‌کند |
 | Activate / Rollback | تأیید نسخه | active artifact پنل را atomically تغییر می‌دهد؛ rollback یعنی فعال‌کردن artifact معتبر قبلی |
+
+Artifact قرارداد اجرایی Module Federation است؛ Resource Manifest کاتالوگ امنیتی/ناوبری نسخه‌دار
+است. انتشار یکی جای انتشار دیگری را نمی‌گیرد و این دو فرم نباید با هم ادغام شوند.
+
+### ۵.۳ فرم «Resource Manifest و Draft»
+
+| کنترل/فیلد | الزام/قالب | معنا و نکته |
+|---|---|---|
+| Fetch Manifest | URL از Panel | فایل را از URL ثبت‌شده با allowlist، timeout و سقف ۱ MiB دریافت و فقط Draft می‌سازد |
+| Import JSON | JSON مطابق schema | برای محیطی که CDN در دسترس نیست؛ باز هم مستقیماً production را تغییر نمی‌دهد |
+| Schema Version | الزامی | نسخه قرارداد JSON؛ اکنون `1.0` |
+| Module Key | الزامی و دقیقاً مطابق Panel slug | از اتصال اتفاقی manifest یک MFE به Panel دیگر جلوگیری می‌کند |
+| Module Version | SemVer و immutable در هر Panel | تکرار همان نسخه با checksum متفاوت تعارض است؛ محتوا را با نسخه جدید منتشر کنید |
+| Diff | فقط خواندنی | `CREATE`، `UPDATE`، `UNCHANGED`، `DEPRECATE` یا `CONFLICT` |
+| Publish | فقط Draft بدون conflict | تغییرات را تراکنشی منتشر می‌کند؛ Resource حذف‌شده از manifest را پاک نمی‌کند و `DEPRECATED` می‌سازد |
+
+در mode برابر `MANUAL` دکمه‌های Fetch/Import غیرفعال‌اند. Resource با source=`MANIFEST`
+از فرم دستی قابل تغییر نیست؛ Resource با source=`ADMIN` نیز توسط import تصاحب یا overwrite نمی‌شود.
+
+### ۵.۴ فرم «Navigation Overlay»
+
+| فیلد | الزام/قالب | معنا و نکته |
+|---|---|---|
+| Navigation Key | الزامی و پایدار | در `MANIFEST` باید key موجود فایل باشد؛ در `ADMIN` شناسه گره جدید است |
+| Source | `MANIFEST` یا `ADMIN` | overlay روی گره فایل یا navigation مستقل ادمین؛ هیچ Resource امنیتی ساخته نمی‌شود |
+| Node Type | `GROUP`/`PAGE`/`EXTERNAL_LINK` | Group مقصد ندارد؛ Page به Page Key؛ لینک خارجی فقط HTTPS |
+| Parent Key | اختیاری | والد navigation در همان MFE؛ self-reference و cycle رد می‌شود |
+| Page Key | برای `PAGE` الزامی | باید به route منتشرشده و موجود همان MFE اشاره کند |
+| External URL | فقط برای `EXTERNAL_LINK` | URL مطلق HTTPS؛ برای Page/Group باید خالی باشد |
+| عنوان/Icon/Order/Hidden | overlay | presentation را بدون تغییر Resource Key و Permission تغییر می‌دهد |
+
+حذف overlay فقط override ادمین را حذف می‌کند؛ گره اصلی manifest در انتشار بعدی دوباره با مقدار
+اصلی دیده می‌شود. Effective Navigation برابر Manifest Navigation به‌علاوه Overlay فعال است.
 
 ## ۶. راهبری Proxy
 
@@ -369,26 +405,42 @@ OU و status قابل مشاهده‌اند اما ایجاد دستی کارب�
 جزئیات log باید safe metadata باشد. Authorization header، cookie، token، password و payload
 حساس نباید در فیلتر یا safe details ظاهر شوند.
 
-## ۱۳. نمونه Manifest استاندارد
+## ۱۳. نمونه Resource Manifest استاندارد
 
 ```json
 {
   "schemaVersion": "1.0",
-  "moduleKey": "hr-payroll",
-  "defaultRouteId": "employee-list",
+  "module": {
+    "key": "hr-payroll",
+    "name": "Payroll",
+    "nameFa": "حقوق و دستمزد",
+    "version": "1.4.2"
+  },
   "routes": [
     {
-      "id": "employee-list",
+      "key": "employee-list",
       "path": "employees",
+      "component": "EmployeeListPage",
       "title": "کارکنان",
-      "resource": "page:hr.employees",
+      "resourceKey": "page:hr.employees",
       "action": "view"
     }
   ],
-  "menus": [
+  "resources": [
     {
-      "id": "employees-menu",
-      "routeId": "employee-list",
+      "key": "page:hr.employees",
+      "type": "PAGE",
+      "parentKey": "module:hr-payroll",
+      "nameFa": "کارکنان",
+      "nameEn": "Employees",
+      "actions": ["view"]
+    }
+  ],
+  "navigation": [
+    {
+      "key": "employees-menu",
+      "type": "PAGE",
+      "pageKey": "employee-list",
       "title": "کارکنان",
       "icon": "team",
       "order": 10
@@ -399,10 +451,14 @@ OU و status قابل مشاهده‌اند اما ایجاد دستی کارب�
 
 قواعد مهم:
 
-- `defaultRouteId` باید در `routes[].id` وجود داشته باشد.
-- هر menu باید به route موجود اشاره کند.
-- `resource` باید canonical و در catalog فعال باشد و `action` باید برای همان resource تعریف شده باشد.
+- backend یک Application root با کلید `application:aurevia/{panel-slug}` می‌سازد؛ root والد ندارد.
+- هر Resource غیرریشه والد معتبر در همان Panel دارد و ساخت cycle/self-parent مجاز نیست.
+- هر PAGE navigation باید با `pageKey` به `routes[].key` موجود اشاره کند.
+- `resourceKey` باید canonical باشد و action مسیر برای همان Resource تعریف شده باشد.
 - MFE فقط عناصر غیرمجاز را پنهان می‌کند؛ تصمیم امنیتی نهایی همیشه در BFF/Authorization Service است.
+
+قرارداد کامل، APIهای Draft/Publish و قواعد مالکیت در
+[معماری Resource Catalog و Navigation](resource-catalog-manifest-architecture-fa.md) آمده است.
 
 ## ۱۴. دو نمونه کامل Proxy
 
@@ -436,4 +492,3 @@ OU و status قابل مشاهده‌اند اما ایجاد دستی کارب�
 8. Outbox به `APPLIED` رسیده و explain مسیر دسترسی را تأیید می‌کند.
 9. rollback برای artifact، route، profile و grant مشخص است.
 10. Correlation ID تست در ticket است، اما token fingerprint فقط در log محلی نگه داشته می‌شود.
-

@@ -12,6 +12,8 @@ server:
 spring.lifecycle.timeout-per-shutdown-phase: 30s
 springdoc.api-docs.enabled: false
 aurevia:
+  demo-data:
+    enabled: false
   internal:
     authentication-mode: mtls
     bff-identity: ${AUTH_BFF_CERT_IDENTITY:aurevia-bff}

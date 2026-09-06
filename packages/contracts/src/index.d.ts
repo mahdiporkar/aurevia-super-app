@@ -15,6 +15,17 @@ export interface PluginMenu {
     icon?: string;
     order: number;
 }
+export interface UiNavigationNode {
+    key: string;
+    type: 'GROUP' | 'PAGE' | 'EXTERNAL_LINK';
+    parentKey?: string | null;
+    pageKey?: string | null;
+    title: string;
+    icon?: string;
+    order: number;
+    externalUrl?: string | null;
+    source: 'MANIFEST' | 'ADMIN';
+}
 export interface RemoteDescriptor {
     remoteEntryUrl: string;
     remoteName: string;
@@ -39,6 +50,9 @@ export interface UiModuleDefinition {
     };
     routes: PluginRoute[];
     menus: PluginMenu[];
+    navigation?: UiNavigationNode[];
+    classification?: 'DEMO' | 'REAL';
+    resourceDefinitionMode?: 'MANIFEST' | 'MANUAL' | 'HYBRID';
 }
 export interface UiCatalog {
     catalogVersion: string;

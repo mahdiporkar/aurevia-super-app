@@ -34,7 +34,8 @@ public class JdbcAccessRepository implements AccessRepository {
     List<ResourceView> resources = database.sql("""
         select r.id,r.resource_key,r.type::text type,r.parent_id,r.name_fa,r.name_en,
           r.owner_domain,r.classification,r.external_system,r.external_type,r.external_id,
-          r.source,r.metadata::text metadata,r.status::text status,r.version,
+          r.source,r.panel_id,r.manifest_version,r.visibility_enabled,
+          r.metadata::text metadata,r.status::text status,r.version,
           count(distinct g.id) grant_count
         from resource r
         left join authorization_grant g on g.resource_id=r.id and g.status='ACTIVE'
@@ -54,7 +55,8 @@ public class JdbcAccessRepository implements AccessRepository {
     return resources.stream().map(item -> new ResourceView(
         item.id(), item.resourceKey(), item.type(), item.parentId(), item.nameFa(), item.nameEn(),
         item.ownerDomain(), item.classification(), item.externalSystem(), item.externalType(),
-        item.externalId(), item.source(), item.metadata(), item.status(), item.version(),
+        item.externalId(), item.source(), item.panelId(),item.manifestVersion(),
+        item.visibilityEnabled(),item.metadata(), item.status(), item.version(),
         item.grantCount(), List.copyOf(actionsByResource.getOrDefault(item.id(), List.of())))).toList();
   }
 
@@ -105,9 +107,30 @@ public class JdbcAccessRepository implements AccessRepository {
 
   @Override
   public Optional<ResourceSnapshot> resource(UUID id) {
-    return database.sql("select resource_key,parent_id from resource where id=:id")
+    return database.sql("""
+        select resource_key,type::text,parent_id,name_fa,name_en,owner_domain,classification,
+          external_system,external_type,external_id,source,panel_id,visibility_enabled,
+          metadata::text metadata from resource where id=:id
+        """)
         .param("id", id).query((rs, row) -> new ResourceSnapshot(
-            rs.getString("resource_key"), uuid(rs, "parent_id"))).optional();
+            rs.getString("resource_key"),rs.getString("type"),uuid(rs, "parent_id"),
+            rs.getString("name_fa"),rs.getString("name_en"),rs.getString("owner_domain"),
+            rs.getString("classification"),rs.getString("external_system"),
+            rs.getString("external_type"),rs.getString("external_id"),rs.getString("source"),
+            uuid(rs,"panel_id"),rs.getBoolean("visibility_enabled"),
+            readMap(rs.getString("metadata")))).optional();
+  }
+
+  @Override public Optional<ParentResource> parentResource(UUID id) {
+    return database.sql("select type::text,panel_id from resource where id=:id")
+        .param("id",id).query((rs,row)->new ParentResource(
+            rs.getString("type"),uuid(rs,"panel_id"))).optional();
+  }
+
+  @Override public Optional<String> panelResourceMode(UUID panelId) {
+    if(panelId==null)return Optional.empty();
+    return database.sql("select resource_definition_mode from panel where id=:id")
+        .param("id",panelId).query(String.class).optional();
   }
 
   @Override
@@ -132,14 +155,16 @@ public class JdbcAccessRepository implements AccessRepository {
   public void createResource(UUID id, ResourceCommand c, String source) {
     database.sql("""
         insert into resource(id,resource_key,type,parent_id,name_fa,name_en,owner_domain,
-          classification,external_system,external_type,external_id,source,metadata,status)
+          classification,external_system,external_type,external_id,source,panel_id,
+          visibility_enabled,metadata,status)
         values(:id,:key,cast(:type as resource_type),:parent,:fa,:en,:owner,:classification,
-          :system,:externalType,:externalId,:source,cast(:metadata as jsonb),'ACTIVE')
+          :system,:externalType,:externalId,:source,:panel,:visible,cast(:metadata as jsonb),'ACTIVE')
         """).param("id", id).param("key", c.resourceKey()).param("type", c.type())
         .param("parent", c.parentId()).param("fa", c.nameFa()).param("en", c.nameEn())
         .param("owner", c.ownerDomain()).param("classification", c.classification())
         .param("system", c.externalSystem()).param("externalType", c.externalType())
         .param("externalId", c.externalId()).param("source", source)
+        .param("panel",c.panelId()).param("visible",c.visibilityEnabled()==null||c.visibilityEnabled())
         .param("metadata", write(c.metadata())).update();
   }
 
@@ -149,14 +174,23 @@ public class JdbcAccessRepository implements AccessRepository {
         update resource set type=cast(:type as resource_type),parent_id=:parent,name_fa=:fa,
           name_en=:en,owner_domain=:owner,classification=:classification,
           external_system=:system,external_type=:externalType,external_id=:externalId,
-          source=:source,metadata=cast(:metadata as jsonb),version=version+1,updated_at=now()
+          source=:source,panel_id=:panel,visibility_enabled=:visible,
+          metadata=cast(:metadata as jsonb),version=version+1,updated_at=now()
         where id=:id and version=:version
         """).param("id", id).param("version", version).param("type", c.type())
         .param("parent", c.parentId()).param("fa", c.nameFa()).param("en", c.nameEn())
         .param("owner", c.ownerDomain()).param("classification", c.classification())
         .param("system", c.externalSystem()).param("externalType", c.externalType())
         .param("externalId", c.externalId()).param("source", source)
+        .param("panel",c.panelId()).param("visible",c.visibilityEnabled()==null||c.visibilityEnabled())
         .param("metadata", write(c.metadata())).update();
+  }
+
+  @Override public int deprecateResource(UUID id,long version) {
+    return database.sql("""
+        update resource set status='DEPRECATED',version=version+1,updated_at=now()
+        where id=:id and version=:version and source='ADMIN'
+        """).param("id",id).param("version",version).update();
   }
 
   @Override public void createAction(UUID id, ActionCommand c) {
@@ -269,7 +303,9 @@ public class JdbcAccessRepository implements AccessRepository {
         uuid(rs, "parent_id"), rs.getString("name_fa"), rs.getString("name_en"),
         rs.getString("owner_domain"), rs.getString("classification"),
         rs.getString("external_system"), rs.getString("external_type"),
-        rs.getString("external_id"), rs.getString("source"), readMap(rs.getString("metadata")),
+        rs.getString("external_id"), rs.getString("source"),uuid(rs,"panel_id"),
+        rs.getString("manifest_version"),rs.getBoolean("visibility_enabled"),
+        readMap(rs.getString("metadata")),
         rs.getString("status"), rs.getLong("version"), rs.getLong("grant_count"), actions);
   }
 

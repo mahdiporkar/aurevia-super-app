@@ -22,8 +22,17 @@ public class AccessAdministrationService {
   public static final Set<String> RESOURCE_TYPES = Set.of(
       "APPLICATION", "MODULE", "PAGE", "UI_COMPONENT", "FIELD", "BUSINESS_RESOURCE",
       "EXTERNAL_RESOURCE", "API_RESOURCE", "DATA_RESOURCE", "DATA_GOVERNANCE_RESOURCE");
-  private static final Set<String> SOURCES = Set.of(
-      "APPLICATION_MANIFEST", "ADMIN", "EXTERNAL_SYNC", "SYSTEM");
+  private static final Set<String> SOURCES = Set.of("MANIFEST", "ADMIN");
+  private static final Map<String,Set<String>> ALLOWED_PARENT_TYPES=Map.ofEntries(
+      Map.entry("MODULE",Set.of("APPLICATION")),
+      Map.entry("PAGE",Set.of("MODULE")),
+      Map.entry("UI_COMPONENT",Set.of("PAGE","UI_COMPONENT")),
+      Map.entry("FIELD",Set.of("UI_COMPONENT")),
+      Map.entry("BUSINESS_RESOURCE",Set.of("APPLICATION","MODULE","BUSINESS_RESOURCE")),
+      Map.entry("EXTERNAL_RESOURCE",Set.of("APPLICATION","MODULE","PAGE","BUSINESS_RESOURCE")),
+      Map.entry("API_RESOURCE",Set.of("APPLICATION","MODULE","BUSINESS_RESOURCE")),
+      Map.entry("DATA_RESOURCE",Set.of("APPLICATION","MODULE","BUSINESS_RESOURCE","DATA_RESOURCE")),
+      Map.entry("DATA_GOVERNANCE_RESOURCE",Set.of("APPLICATION","MODULE","DATA_RESOURCE")));
   private static final Set<String> SUBJECT_TYPES = Set.of("USER", "GROUP", "ACCESS_GROUP", "ROLE");
   private static final Map<String, String> PREFIXES = Map.ofEntries(
       Map.entry("APPLICATION", "application:"), Map.entry("MODULE", "module:"),
@@ -56,33 +65,74 @@ public class AccessAdministrationService {
 
   @Transactional
   public MutationResult createResource(ResourceCommand command, String actor) {
-    validateResource(command, null);
+    ResourceCommand normalized=normalized(command,command.panelId(),command.visibilityEnabled(),
+        command.metadata());
+    if(!"ADMIN".equals(normalizeSource(command.source()))) {
+      throw new IllegalArgumentException("manifest-owned resources can only be created by the manifest publish workflow");
+    }
+    validateResource(normalized, null);
+    ensureManualCreationAllowed(normalized.panelId());
     UUID id = UUID.randomUUID();
-    repository.createResource(id, command, normalizeSource(command.source()));
-    repository.enqueueParent(id, command.parentId(), "RESOURCE_PARENT_WRITE");
-    audit(actor, "RESOURCE_CREATED", "resource", command.resourceKey());
+    repository.createResource(id, normalized, "ADMIN");
+    repository.enqueueParent(id, normalized.parentId(), "RESOURCE_PARENT_WRITE");
+    audit(actor, "RESOURCE_CREATED", "resource", normalized.resourceKey());
     return new MutationResult(id, 0);
   }
 
   @Transactional
   public MutationResult updateResource(UUID id, long version, ResourceCommand command, String actor) {
-    validateResource(command, id);
     ResourceSnapshot previous = repository.resource(id)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resource not found"));
-    if (!previous.resourceKey().equals(command.resourceKey())) {
+    ResourceCommand normalized=normalized(command,
+        command.panelId()==null?previous.panelId():command.panelId(),
+        command.visibilityEnabled()==null?previous.visibilityEnabled():command.visibilityEnabled(),
+        command.metadata()==null?previous.metadata():command.metadata());
+    validateResource(normalized, id);
+    if (!previous.resourceKey().equals(normalized.resourceKey())) {
       throw new IllegalArgumentException("resourceKey is immutable; use an explicit migration");
     }
-    if (!Objects.equals(previous.parentId(), command.parentId())) {
+    if(!previous.type().equals(normalized.type())) {
+      throw new IllegalArgumentException("resource type is immutable");
+    }
+    if(command.source()!=null&&!command.source().isBlank()
+        &&!previous.source().equals(command.source().toUpperCase(Locale.ROOT))) {
+      throw new IllegalArgumentException("resource source and manifest ownership are immutable");
+    }
+    if(!Objects.equals(previous.panelId(),normalized.panelId())) {
+      throw new IllegalArgumentException("resource micro frontend ownership is immutable");
+    }
+    if("MANIFEST".equals(previous.source())
+        &&!Objects.equals(previous.parentId(),normalized.parentId())) {
+      throw new IllegalArgumentException("parent of a manifest-owned resource is managed by manifest publish");
+    }
+    if("MANIFEST".equals(previous.source())&&!sameManifestDefinition(previous,normalized)) {
+      throw new IllegalArgumentException(
+          "manifest-owned metadata and supported actions are managed by manifest publish");
+    }
+    if (!Objects.equals(previous.parentId(), normalized.parentId())) {
       repository.enqueueParent(id, previous.parentId(), "RESOURCE_PARENT_DELETE");
     }
-    if (repository.updateResource(id, version, command, normalizeSource(command.source())) != 1) {
+    if (repository.updateResource(id, version, normalized, previous.source()) != 1) {
       throw new OptimisticLockingFailureException("resource changed or missing");
     }
-    if (!Objects.equals(previous.parentId(), command.parentId())) {
-      repository.enqueueParent(id, command.parentId(), "RESOURCE_PARENT_WRITE");
+    if (!Objects.equals(previous.parentId(), normalized.parentId())) {
+      repository.enqueueParent(id, normalized.parentId(), "RESOURCE_PARENT_WRITE");
     }
-    audit(actor, "RESOURCE_UPDATED", "resource", command.resourceKey());
+    audit(actor, "RESOURCE_UPDATED", "resource", normalized.resourceKey());
     return new MutationResult(id, version + 1);
+  }
+
+  @Transactional
+  public void deprecateResource(UUID id,long version,String actor) {
+    ResourceSnapshot resource=repository.resource(id).orElseThrow(()->
+        new ResponseStatusException(HttpStatus.NOT_FOUND,"Resource not found"));
+    if(!"ADMIN".equals(resource.source())) {
+      throw new IllegalArgumentException("manifest-owned resources are deprecated only by a manifest publish");
+    }
+    if(repository.deprecateResource(id,version)!=1) {
+      throw new OptimisticLockingFailureException("resource changed or missing");
+    }
+    audit(actor,"RESOURCE_DEPRECATED","resource",resource.resourceKey());
   }
 
   @Transactional
@@ -95,12 +145,14 @@ public class AccessAdministrationService {
 
   @Transactional
   public void attachAction(UUID resourceId, UUID actionId, String actor) {
+    ensureAdministratorOwnedResource(resourceId);
     repository.attachAction(resourceId, actionId);
     audit(actor, "RESOURCE_ACTION_ATTACHED", "resource", resourceId.toString());
   }
 
   @Transactional
   public void detachAction(UUID resourceId, UUID actionId, String actor) {
+    ensureAdministratorOwnedResource(resourceId);
     repository.detachAction(resourceId, actionId);
     audit(actor, "RESOURCE_ACTION_DETACHED", "resource", resourceId.toString());
   }
@@ -173,6 +225,22 @@ public class AccessAdministrationService {
     if (command.parentId() != null && !repository.resourceExists(command.parentId())) {
       throw new IllegalArgumentException("parent resource does not exist");
     }
+    if("APPLICATION".equals(type)&&command.parentId()!=null) {
+      throw new IllegalArgumentException("APPLICATION is a root resource and must not have a parent");
+    }
+    if(!"APPLICATION".equals(type)&&command.parentId()==null) {
+      throw new IllegalArgumentException(type+" requires a parent resource");
+    }
+    if(command.parentId()!=null) {
+      ParentResource parent=repository.parentResource(command.parentId()).orElseThrow();
+      if(!ALLOWED_PARENT_TYPES.getOrDefault(type,Set.of()).contains(parent.type())) {
+        throw new IllegalArgumentException("invalid parent type "+parent.type()+" for "+type);
+      }
+      if(command.panelId()!=null&&parent.panelId()!=null
+          &&!command.panelId().equals(parent.panelId())) {
+        throw new IllegalArgumentException("resource and parent must belong to the same micro frontend");
+      }
+    }
     if (currentId != null && command.parentId() != null
         && repository.resourceHierarchyContains(command.parentId(), currentId)) {
       throw new IllegalArgumentException("resource hierarchy cannot contain a cycle");
@@ -191,6 +259,43 @@ public class AccessAdministrationService {
     String normalized = blank(value) ? "ADMIN" : value.toUpperCase(Locale.ROOT);
     if (!SOURCES.contains(normalized)) throw new IllegalArgumentException("unsupported resource source");
     return normalized;
+  }
+
+  private void ensureManualCreationAllowed(UUID panelId) {
+    repository.panelResourceMode(panelId).ifPresent(mode->{
+      if("MANIFEST".equals(mode)) {
+        throw new IllegalArgumentException("manual resources are disabled for a MANIFEST mode micro frontend");
+      }
+    });
+  }
+
+  private static ResourceCommand normalized(ResourceCommand command,UUID panelId,Boolean visible,
+      Map<String,Object> metadata) {
+    return new ResourceCommand(command.resourceKey(),command.type().toUpperCase(Locale.ROOT),
+        command.parentId(),command.nameFa(),command.nameEn(),command.ownerDomain(),
+        command.classification(),command.externalSystem(),command.externalType(),
+        command.externalId(),command.source(),panelId,visible==null?Boolean.TRUE:visible,metadata);
+  }
+
+  private void ensureAdministratorOwnedResource(UUID resourceId) {
+    ResourceSnapshot resource=repository.resource(resourceId).orElseThrow(()->
+        new ResponseStatusException(HttpStatus.NOT_FOUND,"Resource not found"));
+    if(!"ADMIN".equals(resource.source())) {
+      throw new IllegalArgumentException(
+          "supported actions of a manifest-owned resource are managed by manifest publish");
+    }
+  }
+
+  private static boolean sameManifestDefinition(ResourceSnapshot before,ResourceCommand after) {
+    return Objects.equals(before.parentId(),after.parentId())
+        &&Objects.equals(before.nameFa(),after.nameFa())
+        &&Objects.equals(before.nameEn(),after.nameEn())
+        &&Objects.equals(before.ownerDomain(),after.ownerDomain())
+        &&Objects.equals(before.classification(),after.classification())
+        &&Objects.equals(before.externalSystem(),after.externalSystem())
+        &&Objects.equals(before.externalType(),after.externalType())
+        &&Objects.equals(before.externalId(),after.externalId())
+        &&Objects.equals(before.metadata(),after.metadata());
   }
 
   private void audit(String actor, String event, String type, String key) {

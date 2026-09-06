@@ -12,13 +12,17 @@ public final class PanelModels {
   public record PanelView(UUID id,String code,String nameFa,String nameEn,String description,
       String slug,String serviceSlug,String remoteName,String defaultRouteId,String remoteEntryPath,
       String exposedModule,String routeBasePath,String semanticVersion,String contractVersion,
-      String integrity,boolean active,int sortOrder,UUID activeArtifactId,long version) {}
+      String integrity,String resourceDefinitionMode,String classification,String resourceManifestUrl,
+      boolean active,int sortOrder,UUID activeArtifactId,long version) {}
   @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
   public record AuditView(UUID id,String actorKey,String eventType,String targetType,String targetKey,
       String correlationId,Map<String,Object> safeDetails,Instant occurredAt) {}
   public record PanelCommand(String code,String nameFa,String nameEn,String description,String slug,
       String serviceSlug,String remoteName,String defaultRouteId,String remoteEntry,
       String exposedModule,String routeBasePath,String semanticVersion,String contractVersion,
-      String integrity,boolean active,int sortOrder) {}
+      String integrity,String resourceDefinitionMode,String classification,String resourceManifestUrl,
+      boolean active,int sortOrder) {}
+  public record PanelSettings(String serviceSlug,String remoteName,String defaultRouteId,
+      String resourceDefinitionMode,String classification,String resourceManifestUrl) {}
   public record MutationResult(UUID id,long version) {}
 }

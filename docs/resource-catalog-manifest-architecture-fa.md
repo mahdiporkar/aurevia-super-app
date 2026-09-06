@@ -1,124 +1,312 @@
-# معماری Resource Catalog و Manifest
+# معماری حاکمیت Micro Frontend، Resource Catalog و Navigation Catalog
 
-## نتیجه بازبینی و شکاف‌های اصلاح‌شده
+نسخه سند: ۲.۱ — منطبق با migrationهای `V51__microfrontend_governance_catalog.sql` و
+`V52__immutable_resource_manifest_versions.sql`
 
-مدل قبلی Resource، Action، Grant، Data Policy و OpenFGA را جدا نگه می‌داشت و route operation را به Resource+Action متصل می‌کرد؛ اما `FIELD` نداشت، ۹ نوع را به UI عرضه می‌کرد، دکمه و گرید عادی را Resource کرده بود، `resource_key` قابل ویرایش بود و Definition Manifest/sync مستقل وجود نداشت. از V27 مدل منطقی فقط هفت نوع دارد، کلید immutable و canonical است، binding خارجی/API مستقل است، sync idempotent اضافه شده و button-resourceهای دموی HR Deprecated شده‌اند.
-
-## مدل نهایی
-
-```text
-Subject + Resource + Action + Policy/Conditions = Decision
-```
-
-- Resource Catalog منبع metadata است: نام، نوع، والد، مالک، classification، lifecycle، source و binding.
-- Action عملیات مستقل است و با `resource_action` به Resource متصل می‌شود.
-- Permission برابر Resource+Action است؛ Action فرزند Resource در persistence نیست.
-- Grant انتساب Permission به USER/GROUP/ROLE است و با Outbox در OpenFGA project می‌شود.
-- Data Policy شرط و obligation مستقل از هویت Resource است.
-- OpenFGA رابطه و grant را ارزیابی می‌کند و جای Catalog را نمی‌گیرد.
-
-هفت نوع قابل ثبت از API عبارت‌اند از `APPLICATION`، `MODULE`، `PAGE`، `UI_COMPONENT`، `FIELD`، `BUSINESS_RESOURCE` و `EXTERNAL_RESOURCE`. انواع قدیمی دیتابیسی فقط برای مهاجرت داده‌های نصب‌های موجود باقی مانده‌اند و API ثبت جدید آن‌ها را رد می‌کند.
-
-## الگوریتم تشخیص Resource
-
-1. اگر تصمیم authorization مستقل لازم نیست، Resource نسازید.
-2. اگر نیاز با Action روی Resource موجود بیان می‌شود، Action اضافه کنید.
-3. اگر هویت منطقی پایدار ندارد، Resource نسازید.
-4. فقط سپس نوع معنایی هفت‌گانه را انتخاب کنید.
-
-بنابراین Create/Delete/Edit/Export button، table، pagination، modal و URL API Resource نیستند. مثال صحیح:
+این سند مرجع طراحی و عملیات مدل نهایی است. سه مفهوم زیر عمداً از هم جدا هستند:
 
 ```text
-business:hr.employee + create  → نمایش دکمه Create و مجوز POST
-business:hr.employee + delete  → نمایش دکمه Delete و مجوز DELETE
+Resource Tree   = چه قابلیت‌ها و داده‌هایی در سامانه وجود دارد؟
+Navigation Tree = این قابلیت‌ها چگونه در Shell دیده می‌شوند؟
+Permission      = چه subjectای چه actionای را روی کدام Resource انجام می‌دهد؟
 ```
 
-یک UI section فقط اگر boundary مستقل داشته باشد Resource است؛ مانند `component:hr.employee.salary-information`. یک field نیز فقط با entitlement مستقل مانند `field:hr.employee.salary-amount` ثبت می‌شود. masking عمومی باید Data Policy باشد.
+منو Resource نیست، URL سرویس Resource نیست و OpenFGA کاتالوگ metadata نیست. این جداسازی
+باعث می‌شود تغییر عنوان یا ترتیب منو، شناسه‌های امنیتی و tupleهای OpenFGA را تغییر ندهد.
 
-## هویت، hierarchy و lifecycle
+## ۱. نگاشت به مدل موجود مخزن
 
-کلیدها lowercase و پایدارند: `application:hr`، `module:hr.employee-management`، `page:hr.employee.list`، `component:hr.employee.salary-information`، `field:hr.employee.salary-amount`، `business:hr.employee` و `external:hr.workforce-dashboard`.
+برای جلوگیری از ایجاد مفهوم موازی، مدل موجود تکامل یافته است:
 
-منابع flat و با `parent_id` ذخیره می‌شوند؛ API درخت را می‌سازد. والد صرفاً سازمان‌دهی/navigation است و دسترسی فرزند را ضمنی نمی‌کند. inheritance تنها در صورت rule صریح OpenFGA معتبر است. lifecycle هدف `DRAFT/ACTIVE/DEPRECATED/DISABLED` است؛ منبع دارای سابقه grant/audit hard-delete نمی‌شود. source یکی از `APPLICATION_MANIFEST/ADMIN/EXTERNAL_SYNC/SYSTEM` است.
+| مفهوم معماری | پیاده‌سازی موجود/تکامل‌یافته |
+|---|---|
+| `micro_frontend` | جدول `panel`؛ شناسه یکتای ثبت MFE |
+| `resource` | جدول `resource` و `resource_action` |
+| `resource_manifest` | revisionهای `resource_manifest_import` و snapshotهای runtime در `ui_module_artifact` |
+| navigation manifest | آرایه `navigation` داخل JSON نسخه‌دار؛ در DB کپی نمی‌شود |
+| `navigation_override` | جدول `ui_menu_override`؛ overlay یا گره ADMIN |
+| Permission Tree | `authorization_grant` + Outbox + OpenFGA؛ مستقل از دو درخت بالا |
 
-## Bindingها
+`ui_module_artifact` مقصد runtime شامل Remote Entry، نام container، exposed module و SRI است.
+`resource_manifest_import` جریان حاکمیتی metadata شامل Draft، Diff و Approval است. این دو نسخه
+ممکن است مستقل منتشر شوند، اما Effective UI Catalog همیشه آخرین Resource Manifest منتشرشده را
+روی Artifact فعال اعمال می‌کند.
 
-`resource_api_binding` متد و path فنی را به Resource+Action وصل می‌کند. `route_operation` نیز همین قرارداد را در مسیر Proxy اجرا می‌کند؛ routing پاسخ «کجا؟» و authorization پاسخ «آیا مجاز است؟» است. URL هرگز resource key نیست.
+ترکیب `(panel_id, manifest_version)` یکتا است؛ یک نسخه SemVer محتوای immutable دارد و برای
+checksum متفاوت باید نسخه جدید منتشر شود. `module.key` نیز باید دقیقاً با `panel.slug` برابر باشد.
 
-`resource_external_binding` provider/type/id فنی را از هویت منطقی جدا می‌کند. برای Superset:
+## ۲. مدل داده
 
-```text
-external:hr.workforce-dashboard
-provider=SUPERSET, external_type=DASHBOARD, external_id=127
-```
+### Panel / Micro Frontend
 
-## دو Manifest مستقل
+فیلدهای حاکمیتی افزوده‌شده به `panel`:
 
-### Resource Definition Manifest
+| فیلد | مقادیر | معنا |
+|---|---|---|
+| `resource_definition_mode` | `MANIFEST`, `MANUAL`, `HYBRID` | مالک ایجاد ساختار Resource |
+| `classification` | `DEMO`, `REAL` | خروجی‌دادن یا حذف MFE از Catalog محیط production |
+| `resource_manifest_url` | URL مطلق JSON | آدرس Fetch؛ فقط origin مجاز و بدون query/credential |
 
-قابلیت‌های یک application را تعریف می‌کند و grant کاربر ندارد:
+پیش‌فرض `HYBRID` است. `MANIFEST` بدون URL معتبر پذیرفته نمی‌شود. در `MANUAL` endpointهای
+Fetch/Import رد می‌شوند.
 
-```http
-GET /api/v1/admin/resource-definition-manifests/hr
-PUT /api/v1/admin/resource-definition-manifests/hr
-```
+### Resource
 
-نمونه:
+فیلدهای اصلی عبارت‌اند از:
+
+- `resource_key`: شناسه canonical و برای همیشه immutable؛
+- `type`: یکی از `APPLICATION`, `MODULE`, `PAGE`, `UI_COMPONENT`, `FIELD`,
+  `BUSINESS_RESOURCE`, `EXTERNAL_RESOURCE`؛ انواع legacy فقط برای migration قدیمی باقی‌اند؛
+- `parent_id`: رابطه در Resource Tree، نه رابطه منو؛
+- `source`: فقط `MANIFEST` یا `ADMIN`؛
+- `panel_id`: مالک Micro Frontend؛
+- `manifest_version`: آخرین revision مالک؛
+- `visibility_enabled`: فقط نمایش در Effective Catalog را کنترل می‌کند؛
+- `status`: lifecycle؛ حذف Manifest به `DEPRECATED` تبدیل می‌شود.
+
+ریشه `APPLICATION` الزاماً `parent_id=null` دارد. قواعد والد در Service enforce می‌شوند:
+
+| فرزند | والد معتبر |
+|---|---|
+| `MODULE` | `APPLICATION` |
+| `PAGE` | `MODULE` |
+| `UI_COMPONENT` | `PAGE` یا `UI_COMPONENT` |
+| `FIELD` | `UI_COMPONENT` |
+| `BUSINESS_RESOURCE` | `APPLICATION`، `MODULE` یا `BUSINESS_RESOURCE` |
+| `EXTERNAL_RESOURCE` | `APPLICATION`، `MODULE`، `PAGE` یا `BUSINESS_RESOURCE` |
+
+self-parent، cycle، والد متعلق به MFE دیگر و تغییر type رد می‌شوند.
+
+### Resource ownership
+
+برای `source=MANIFEST` راهبر می‌تواند permission، Navigation Overlay و visibility را مدیریت
+کند؛ ساختار، display metadata و فهرست actionهای پشتیبانی‌شده فقط از publish Manifest تغییر
+می‌کنند. Resource ادمین در publish بازنویسی نمی‌شود و برخورد کلید به صورت
+`CONFLICT` نمایش داده و publish متوقف می‌شود.
+
+برای `source=ADMIN` راهبر metadata و parent را ویرایش می‌کند و با عملیات Deprecate lifecycle را
+تغییر می‌دهد. hard delete وجود ندارد تا Grant، Audit و tupleهای تاریخی بی‌اعتبار نشوند.
+
+## ۳. قرارداد `resource-manifest.json`
+
+هر MFE فایل مستقل JSON کنار `remoteEntry.js` منتشر می‌کند. Backend هیچ کد Webpack یا
+`remoteEntry.js` را اجرا نمی‌کند. Webpack فقط فایل JSON reviewشده را عیناً در `dist` قرار می‌دهد.
 
 ```json
 {
-  "application":"hr",
-  "manifestVersion":"1.0.0",
-  "resources":[
-    {"key":"application:hr","type":"APPLICATION","nameFa":"منابع انسانی","nameEn":"HR","actions":["access"]},
-    {"key":"business:hr.employee","type":"BUSINESS_RESOURCE","parent":"application:hr","nameFa":"کارمند","nameEn":"Employee","actions":["view","create","update","delete","export"]}
+  "schemaVersion": "1.0",
+  "module": {
+    "key": "hr",
+    "name": "Human Resources",
+    "nameFa": "منابع انسانی",
+    "nameEn": "Human Resources",
+    "version": "1.2.0"
+  },
+  "routes": [
+    {
+      "key": "employees",
+      "path": "/employees",
+      "component": "./EmployeeList",
+      "resourceKey": "page:hr.employee.list",
+      "action": "view",
+      "title": "کارکنان"
+    }
+  ],
+  "resources": [
+    {
+      "key": "page:hr.employee.list",
+      "type": "PAGE",
+      "name": "Employee List",
+      "nameFa": "لیست کارکنان",
+      "nameEn": "Employee List",
+      "classification": "INTERNAL",
+      "actions": ["view"]
+    }
+  ],
+  "navigation": [
+    {"key":"hr.nav.root","type":"GROUP","title":"منابع انسانی","order":10},
+    {"key":"hr.nav.employees","type":"PAGE","parentKey":"hr.nav.root",
+     "pageKey":"employees","title":"کارکنان","order":20}
   ]
 }
 ```
 
-sync با application/version/checksum idempotent است. مورد جدید ایجاد، metadata مورد موجود update و مورد حذف‌شده از manifest به `DEPRECATED` تبدیل می‌شود؛ grantها silently حذف نمی‌شوند. manifest فرانت برای backendهای امنیتی blindly trusted نیست و validation سرور الزامی است.
+Server ریشه `application:aurevia/{panel.slug}` و گره `module:{module.key}` را در صورت نیاز
+می‌سازد. Resource بدون `parentKey` زیر MODULE قرار می‌گیرد. route باید به Resource+Action
+تعریف‌شده اشاره کند؛ فقط در `HYBRID` می‌تواند به Resource ادمین موجود و فعال ارجاع دهد.
 
-### Effective User Manifest
+قواعد Navigation:
+
+- `GROUP` فقط presentation parent است؛
+- `PAGE.pageKey` به `routes[].key` اشاره می‌کند، نه Resource؛
+- `EXTERNAL_LINK.externalUrl` باید HTTPS باشد؛
+- کلیدها unique، lowercase و بدون cycle هستند؛
+- Navigation به جدول Resource تبدیل نمی‌شود.
+
+Manifestهای واقعی مخزن در مسیرهای زیر هستند:
+
+- `apps/mfe-admin/resource-manifest.json`
+- `apps/mfe-hr/resource-manifest.json`
+- `apps/mfe-finance/resource-manifest.json`
+- `apps/mfe-reports/resource-manifest.json`
+
+## ۴. جریان Import و Approval
+
+```mermaid
+sequenceDiagram
+  participant A as Admin MFE
+  participant B as SuperApp BFF
+  participant Z as Authorization Service
+  participant M as MFE Manifest URL
+  participant D as PostgreSQL
+  participant F as OpenFGA
+  A->>B: Fetch یا Import JSON
+  B->>Z: درخواست راهبری + actor
+  opt Fetch
+    Z->>Z: allowlist / HTTPS / size / content-type
+    Z->>M: GET resource-manifest.json
+  end
+  Z->>Z: schema + hierarchy + route + navigation validation
+  Z->>D: workflow_status=DRAFT + checksum + payload + diff
+  Z-->>A: CREATE / UPDATE / DEPRECATE / CONFLICT
+  A->>B: Publish draftId
+  B->>Z: Approval
+  Z->>D: transaction: upsert + deprecate missing + mark PUBLISHED
+  Z->>D: Outbox/Audit retained
+  Note over Z,F: Grantها مستقل‌اند و حذف خودکار نمی‌شوند
+```
+
+تا قبل از Publish هیچ Resource عملیاتی تغییر نمی‌کند. Publish در صورت checksum mismatch،
+ownership conflict، type conflict، parent نامعتبر یا action ناشناخته کامل rollback می‌شود.
+
+اگر Resource متعلق به Manifest در نسخه جدید وجود نداشته باشد، `DEPRECATED` می‌شود؛ حذف فیزیکی
+نمی‌شود، چون ممکن است Grant، Audit، binding یا رابطه OpenFGA داشته باشد.
+
+## ۵. Navigation Overlay
+
+Effective Navigation به شکل زیر محاسبه می‌شود:
+
+```text
+Manifest Navigation + Admin Overlay + Admin-owned Navigation Nodes
+```
+
+Overlay یک node Manifest را کپی نمی‌کند. فقط title، icon، order و hidden را override می‌کند.
+ردیف `source=ADMIN` یک گره presentation جدید است و می‌تواند GROUP/PAGE/EXTERNAL_LINK باشد.
+حذف Overlay، definition اصلی Manifest را آشکار می‌کند. Resource و Permission با این عملیات
+تغییر نمی‌کنند.
+
+## ۶. APIهای راهبری
+
+همه مسیرهای زیر از مرورگر با prefix `/api/v1/admin` و Session+CSRF فراخوانی می‌شوند؛ BFF آن‌ها
+را به `/internal/v1/registry` می‌فرستد.
+
+| عملیات | Method و path |
+|---|---|
+| ثبت MFE | `POST /api/v1/admin/panels` |
+| ویرایش MFE | `PUT /api/v1/admin/panels/{panelId}?version={version}` |
+| فهرست revisionها | `GET /api/v1/admin/panels/{panelId}/resource-manifests` |
+| Fetch و ساخت Draft | `POST /api/v1/admin/panels/{panelId}/resource-manifests/fetch` |
+| Import JSON و ساخت Draft | `POST /api/v1/admin/panels/{panelId}/resource-manifests/drafts` |
+| Preview Diff | `GET /api/v1/admin/panels/{panelId}/resource-manifests/drafts/{draftId}` |
+| Publish Catalog | `POST /api/v1/admin/panels/{panelId}/resource-manifests/drafts/{draftId}/publish` |
+| فهرست Overlayها | `GET /api/v1/admin/panels/{panelId}/navigation-overrides` |
+| upsert Overlay/Node | `PUT /api/v1/admin/panels/{panelId}/navigation-overrides/{key}` |
+| حذف Overlay/Node | `DELETE /api/v1/admin/panels/{panelId}/navigation-overrides/{key}` |
+
+نمونه پاسخ Preview:
+
+```json
+{
+  "id": "6c8374d0-8268-4e4e-8c50-86a16d81dbda",
+  "panelId": "359e2ca9-b73a-45ae-a302-a1645d5f1935",
+  "moduleKey": "hr",
+  "manifestVersion": "1.2.0",
+  "workflowStatus": "DRAFT",
+  "checksum": "43aa...",
+  "changes": [
+    {"resourceKey":"page:hr.employee.list","changeType":"UPDATE"},
+    {"resourceKey":"page:hr.payroll","changeType":"DEPRECATE"}
+  ]
+}
+```
+
+نمونه Overlay:
+
+```json
+{
+  "source": "MANIFEST",
+  "nodeType": "PAGE",
+  "title": "مدیریت کارکنان",
+  "icon": "team",
+  "order": 5,
+  "hidden": false
+}
+```
+
+## ۷. Effective UI Catalog و Shell
+
+قرارداد پایدار مرورگر:
 
 ```http
-GET /api/v1/me/manifest
+GET /api/ui/catalog
 ```
 
-BFF subject را از session می‌گیرد. خروجی `manifestType=EFFECTIVE_USER_MANIFEST`، subject، panelهای مجاز، permissions و resourceTree مؤثر را دارد. Shell منو/remote را از panels می‌سازد و Manifest را به MFE می‌دهد. MFE از `SHRouteGuard`، `SHAction` یا `useSHPolicy(resource,action)` استفاده می‌کند.
-
-```tsx
-<SHAction resource="business:hr.employee" action="create">
-  <Button>ایجاد کارمند</Button>
-</SHAction>
+```json
+{
+  "catalogVersion": "manifest-sha256-...",
+  "generatedAt": "2026-09-06T10:30:00Z",
+  "contractVersion": "1.0",
+  "modules": [
+    {
+      "moduleKey": "hr",
+      "routePrefix": "hr",
+      "classification": "REAL",
+      "resourceDefinitionMode": "HYBRID",
+      "routes": [{"id":"employees","path":"employees","resource":"page:hr.employee.list","action":"view"}],
+      "navigation": [{"key":"hr.nav.employees","type":"PAGE","pageKey":"employees","title":"کارکنان","source":"MANIFEST"}],
+      "menus": [{"id":"hr.nav.employees","routeId":"employees","title":"کارکنان","order":20}]
+    }
+  ]
+}
 ```
 
-Manifest فقط UX است. هر API باید در BFF/Gateway با Resource+Action check شود و فراخوانی دستی بدون مجوز `403` بگیرد.
+`menus` برای backward compatibility نگه داشته شده است؛ Shell جدید `navigation` را ترجیح می‌دهد.
+Authorization Service ابتدا moduleهای بدون `application can_view`، سپس routeهای بدون
+Resource+Action permission و در پایان Navigation بدون route مجاز را حذف می‌کند. نسخه خروجی
+SHA-256 محتوای مؤثر است و پاسخ BFF `private, no-cache` و ETag دارد.
 
-## RBAC، ABAC و OpenFGA
+میکروفرانت همچنان `/api/v1/me/manifest` را برای `permissions` و `resourceTree` دریافت می‌کند.
+Guard فرانت فقط UX است؛ BFF/Gateway هر operation را دوباره با Authorization Service کنترل می‌کند.
 
-Role یک درخت serialized نگه نمی‌دارد؛ grantهای مستقل دارد. Direct user/group grant نیز پشتیبانی می‌شود. Data Policy با `resource_id/action_id`، condition و obligations مانند organization/branch/ownership، field deny/masking، max rows و time window مستقل است. تصمیم نهایی فقط وقتی ALLOW است که رابطه OpenFGA و policy هر دو اجازه دهند.
+## ۸. Demo و Production
 
-## Validation
+```yaml
+aurevia:
+  demo-data:
+    enabled: true   # local
+```
 
-- کلید globally unique، normalized، دارای prefix نوع و پس از ایجاد immutable است.
-- فقط هفت نوع پذیرفته می‌شود؛ self-parent و cycle رد می‌شوند.
-- buttonهای عملیاتی و URL/method API به‌عنوان Resource رد می‌شوند.
-- EXTERNAL_RESOURCE بدون provider/type/id رد می‌شود.
-- Action به شکل رکورد مستقل و unique متصل می‌شود.
-- sync idempotent و حذف آن deprecation است.
-- FIELD/UI_COMPONENT باید boundary مستقل داشته باشند؛ این قاعده در UI توضیح داده و در review مالک دامنه تأیید می‌شود.
+در `application-prod.yml` مقدار false و غیرقابل override تصادفی است. وقتی false باشد، panelهای
+`classification=DEMO` و Resource/Permissionهای متعلق به آن‌ها از Effective Catalog حذف می‌شوند.
+ADMIN با classification=REAL باقی می‌ماند. داده دمو شرط اجرای معماری یا migrationهای بعدی نیست.
 
-## نمونه HR
+## ۹. کنترل‌های امنیتی Fetch
 
-V27 هر هفت نوع را seed می‌کند. `business:hr.employee` دارای `view/create/update/delete/export` است و Superset با `external:hr.workforce-dashboard` binding دارد. منابع غلط `component:hr.employee.create-button` و grid عادی Deprecated و grant آن‌ها غیرفعال می‌شوند؛ intent دسترسی نمونه به Action صحیح منتقل می‌شود.
+- URL فقط از فیلد ثبت‌شده panel خوانده می‌شود؛ URL دلخواه در درخواست Fetch پذیرفته نمی‌شود؛
+- origin با `aurevia.ui-artifacts.allowed-origins` کنترل می‌شود؛
+- production فقط HTTPS و Artifact SRIدار را می‌پذیرد؛
+- credential، query و fragment در URL Manifest رد می‌شوند؛
+- redirect دنبال نمی‌شود تا allowlist دور زده نشود؛
+- timeout اتصال ۵ ثانیه، timeout درخواست ۱۰ ثانیه و سقف پاسخ ۱ MiB است؛
+- backend فقط JSON را parse می‌کند و هیچ JavaScript/Webpack runtime اجرا نمی‌شود.
 
-## چک نهایی معماری
+## ۱۰. چک‌لیست انتشار
 
-- Create/Delete Employee button Resource نیست؛ create/delete Action روی `business:hr.employee` است.
-- React component و FIELD فقط برای boundary مستقل Resource می‌شوند.
-- API URL binding است، نه identity.
-- Superset از EXTERNAL_RESOURCE پشتیبانی می‌شود.
-- Data Policy از Resource جداست.
-- Definition Manifest و Effective User Manifest API و DTO مستقل دارند.
-- مخفی‌سازی frontend امنیت محسوب نمی‌شود؛ backend Resource+Action را enforce می‌کند.
-- OpenFGA grantها را نگه می‌دارد و Catalog metadata را نگه می‌دارد.
+1. `resourceKey`ها canonical و پایدارند و button/URL به‌عنوان Resource ثبت نشده است.
+2. mode و classification پنل درست انتخاب شده‌اند.
+3. Remote Entry و Resource Manifest از origin مجاز هستند.
+4. Diff بدون `CONFLICT` بازبینی شده و DEPRECATEها آگاهانه تأیید شده‌اند.
+5. PAGE navigation به route موجود اشاره می‌کند و cycle ندارد.
+6. Permissionهای Resource جدید پیش از فعال‌کردن مسیر business اعطا شده‌اند.
+7. `/api/ui/catalog` با کاربر مجاز و غیرمجاز بررسی شده است.
+8. در production مقدار `aurevia.demo-data.enabled=false` تأیید شده است.

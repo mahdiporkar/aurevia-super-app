@@ -88,6 +88,69 @@ X-Correlation-ID: 5e4ddf32-1e7e-4e20-a9f3-64de1c938f97
 
 `subjectId` بدون `issuer` هویت یکتا نیست. `resource` و `action` باید دقیقاً با Resource Manifest ثبت‌شده منطبق باشند. برای هر درخواست یک `correlationId` جدید بسازید.
 
+### چرخه Resource Manifest و Navigation Overlay
+
+API حاکمیتی Manifest هیچ‌گاه با Import، کاتالوگ فعال را مستقیم تغییر نمی‌دهد:
+
+| عملیات | endpoint داخلی | نتیجه |
+|---|---|---|
+| Fetch | `POST /internal/v1/registry/panels/{panelId}/resource-manifests/fetch` | دریافت URL ثبت‌شده Panel و ساخت Draft |
+| Import | `POST /internal/v1/registry/panels/{panelId}/resource-manifests/drafts` | اعتبارسنجی JSON، checksum و ساخت Diff |
+| Preview | `GET /internal/v1/registry/panels/{panelId}/resource-manifests/drafts/{draftId}` | نمایش CREATE/UPDATE/DEPRECATE/CONFLICT |
+| Publish | `POST /internal/v1/registry/panels/{panelId}/resource-manifests/drafts/{draftId}/publish` | انتشار اتمیک پس از تأیید راهبر |
+| Overlay | `PUT /internal/v1/registry/panels/{panelId}/navigation-overrides/{navigationKey}` | تغییر presentation یا افزودن گره ADMIN بدون ساخت Resource |
+| Effective Catalog | `GET /api/ui/catalog` در BFF | فقط module، route و navigation مجاز همان کاربر |
+
+نمونه Import که در Swagger به‌صورت فارسی توضیح داده شده است:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "module": {
+    "key": "hr-payroll",
+    "name": "Payroll",
+    "nameFa": "حقوق و دستمزد",
+    "nameEn": "Payroll",
+    "version": "1.4.2"
+  },
+  "routes": [
+    {
+      "key": "employee-list",
+      "path": "employees",
+      "component": "EmployeeListPage",
+      "resourceKey": "page:hr.employees",
+      "action": "view",
+      "title": "کارکنان"
+    }
+  ],
+  "resources": [
+    {
+      "key": "page:hr.employees",
+      "type": "PAGE",
+      "parentKey": "module:hr-payroll",
+      "nameFa": "کارکنان",
+      "nameEn": "Employees",
+      "classification": "INTERNAL",
+      "actions": ["view"]
+    }
+  ],
+  "navigation": [
+    {
+      "key": "hr.nav.employees",
+      "type": "PAGE",
+      "pageKey": "employee-list",
+      "title": "کارکنان",
+      "icon": "team",
+      "order": 10
+    }
+  ]
+}
+```
+
+هدر `X-Actor` برای Fetch/Import/Publish الزامی است. نبود Resource در نسخه جدید به حذف فیزیکی
+منجر نمی‌شود و در Diff با `DEPRECATE` نمایش داده می‌شود. جزئیات قرارداد در
+[سند Resource Catalog](resource-catalog-manifest-architecture-fa.md) قرار دارد.
+
 ### تعریف مقصد و Route مدرن
 
 ابتدا service target ساخته می‌شود:

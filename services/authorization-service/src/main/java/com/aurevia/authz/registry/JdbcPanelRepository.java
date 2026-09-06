@@ -21,12 +21,15 @@ public class JdbcPanelRepository implements PanelRepository {
   @Override public List<PanelView> panels(){return database.sql("""
     select id,code,name_fa,name_en,description,slug,service_slug,remote_name,default_route_id,
       remote_entry_path,exposed_module,route_base_path,semantic_version,contract_version,
-      integrity,active,sort_order,active_artifact_id,version from panel order by sort_order,code
+      integrity,resource_definition_mode,classification,resource_manifest_url,
+      active,sort_order,active_artifact_id,version from panel order by sort_order,code
     """).query((rs,row)->new PanelView(uuid(rs,"id"),rs.getString("code"),rs.getString("name_fa"),
       rs.getString("name_en"),rs.getString("description"),rs.getString("slug"),rs.getString("service_slug"),
       rs.getString("remote_name"),rs.getString("default_route_id"),rs.getString("remote_entry_path"),
       rs.getString("exposed_module"),rs.getString("route_base_path"),rs.getString("semantic_version"),
-      rs.getString("contract_version"),rs.getString("integrity"),rs.getBoolean("active"),
+      rs.getString("contract_version"),rs.getString("integrity"),
+      rs.getString("resource_definition_mode"),rs.getString("classification"),
+      rs.getString("resource_manifest_url"),rs.getBoolean("active"),
       rs.getInt("sort_order"),uuid(rs,"active_artifact_id"),rs.getLong("version"))).list();}
   @Override public List<AuditView> audit(int limit){return database.sql("""
     select id,actor_key,event_type,target_type,target_key,correlation_id,safe_details::text details,
@@ -36,28 +39,37 @@ public class JdbcPanelRepository implements PanelRepository {
       rs.getString("correlation_id"),read(rs.getString("details")),instant(rs,"occurred_at"))).list();}
   @Override public Optional<String> routePath(UUID id){if(id==null)return Optional.empty();return database.sql("select route_base_path from panel where id=:id").param("id",id).query(String.class).optional();}
   @Override public boolean routePathExists(String path,UUID excludingId){var statement=database.sql("select count(*) from panel where route_base_path=:path"+(excludingId==null?"":" and id<>:id")).param("path",path);if(excludingId!=null)statement=statement.param("id",excludingId);return statement.query(Long.class).single()>0;}
-  @Override public void create(UUID id,PanelCommand p,String service,String remoteName,String defaultRoute){database.sql("""
+  @Override public void create(UUID id,PanelCommand p,PanelSettings settings){database.sql("""
     insert into panel(id,code,name_fa,name_en,description,slug,service_slug,remote_name,default_route_id,
-      remote_entry_path,exposed_module,route_base_path,semantic_version,contract_version,integrity,active,sort_order)
+      remote_entry_path,exposed_module,route_base_path,semantic_version,contract_version,integrity,
+      resource_definition_mode,classification,resource_manifest_url,active,sort_order)
     values(:id,:code,:fa,:en,:description,:slug,:service,:remoteName,:defaultRoute,:remote,:module,
-      :route,:semver,:contract,:integrity,:active,:sort)
+      :route,:semver,:contract,:integrity,:resourceMode,:classification,:manifestUrl,:active,:sort)
     """).param("id",id).param("code",p.code()).param("fa",p.nameFa()).param("en",p.nameEn())
-      .param("description",p.description()).param("slug",p.slug()).param("service",service)
-      .param("remoteName",remoteName).param("defaultRoute",defaultRoute).param("remote",p.remoteEntry())
+      .param("description",p.description()).param("slug",p.slug()).param("service",settings.serviceSlug())
+      .param("remoteName",settings.remoteName()).param("defaultRoute",settings.defaultRouteId())
+      .param("remote",p.remoteEntry())
       .param("module",p.exposedModule()).param("route",p.routeBasePath()).param("semver",p.semanticVersion())
-      .param("contract",p.contractVersion()).param("integrity",p.integrity()).param("active",p.active())
+      .param("contract",p.contractVersion()).param("integrity",p.integrity())
+      .param("resourceMode",settings.resourceDefinitionMode()).param("classification",settings.classification())
+      .param("manifestUrl",settings.resourceManifestUrl()).param("active",p.active())
       .param("sort",p.sortOrder()).update();}
-  @Override public int update(UUID id,long version,PanelCommand p,String service,String remoteName,String defaultRoute){return database.sql("""
+  @Override public int update(UUID id,long version,PanelCommand p,PanelSettings settings){return database.sql("""
     update panel set code=:code,name_fa=:fa,name_en=:en,description=:description,slug=:slug,
       service_slug=:service,remote_name=:remoteName,default_route_id=:defaultRoute,
       remote_entry_path=:remote,exposed_module=:module,route_base_path=:route,
       semantic_version=:semver,contract_version=:contract,integrity=:integrity,active=:active,
-      sort_order=:sort,version=version+1,updated_at=now() where id=:id and version=:version
+      resource_definition_mode=:resourceMode,classification=:classification,
+      resource_manifest_url=:manifestUrl,sort_order=:sort,version=version+1,updated_at=now()
+    where id=:id and version=:version
     """).param("id",id).param("version",version).param("code",p.code()).param("fa",p.nameFa())
       .param("en",p.nameEn()).param("description",p.description()).param("slug",p.slug())
-      .param("service",service).param("remoteName",remoteName).param("defaultRoute",defaultRoute)
+      .param("service",settings.serviceSlug()).param("remoteName",settings.remoteName())
+      .param("defaultRoute",settings.defaultRouteId())
       .param("remote",p.remoteEntry()).param("module",p.exposedModule()).param("route",p.routeBasePath())
       .param("semver",p.semanticVersion()).param("contract",p.contractVersion()).param("integrity",p.integrity())
+      .param("resourceMode",settings.resourceDefinitionMode()).param("classification",settings.classification())
+      .param("manifestUrl",settings.resourceManifestUrl())
       .param("active",p.active()).param("sort",p.sortOrder()).update();}
   @Override public int archive(UUID id,long version){return database.sql("update panel set active=false,version=version+1,updated_at=now() where id=:id and version=:version").param("id",id).param("version",version).update();}
   @Override public void enqueue(UUID id,String event,String key,long version){database.sql("""

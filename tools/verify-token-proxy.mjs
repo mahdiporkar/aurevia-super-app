@@ -215,6 +215,18 @@ if (process.env.AUREVIA_SKIP_DEMO_CATALOG_REFRESH !== 'true') {
 const manifest=await json('/api/v1/me/manifest',`e2e-manifest-${Date.now()}`);
 assert.equal(manifest.status,200,
   `Effective manifest failed with HTTP ${manifest.status}: ${JSON.stringify(manifest.body)}`);
+const uiCatalog=await json('/api/ui/catalog',`e2e-ui-catalog-${Date.now()}`);
+assert.equal(uiCatalog.status,200,
+  `UI Catalog failed with HTTP ${uiCatalog.status}: ${JSON.stringify(uiCatalog.body)}`);
+assert.equal(uiCatalog.body?.catalogVersion,manifest.body?.uiCatalog?.catalogVersion,
+  'The dedicated UI Catalog and effective manifest versions differ');
+assert.equal(uiCatalog.body?.contractVersion,'1.0',
+  'The dedicated UI Catalog contract version is not supported by the Shell');
+assert(Array.isArray(uiCatalog.body?.modules),'The dedicated UI Catalog has no modules array');
+assert.equal(uiCatalog.body?.permissions,undefined,
+  'The dedicated UI Catalog must not expose the permission map');
+assert.equal(uiCatalog.body?.resourceTree,undefined,
+  'The dedicated UI Catalog must not expose the authorization resource tree');
 assert(Array.isArray(manifest.body?.panels)
   && manifest.body.panels.some(panel=>panel.code==='ADMIN'),
   'The runtime administrator cannot load the administration Micro Frontend');
@@ -244,6 +256,43 @@ assert(adminModule.routes.some(route=>route.id===adminModule.defaultRouteId),
   'The ADMIN default route is not present in the effective routes');
 assert(adminModule.menus?.every(menu=>adminModule.routes.some(route=>route.id===menu.routeId)),
   'The effective ADMIN menu references an unauthorized or missing route');
+
+// Exercise the real server-side manifest fetch path. Fetch is intentionally a
+// draft-only operation and must not mutate the effective resource catalog.
+const panels=await json('/api/v1/admin/panels',`e2e-panels-${Date.now()}`);
+assert.equal(panels.status,200,`Panel registry failed with HTTP ${panels.status}`);
+const hrPanel=panels.body?.find(panel=>panel.code==='HR');
+assert(hrPanel?.id,'HR panel is missing from the governance registry');
+assert.equal(hrPanel.resource_definition_mode,'HYBRID','HR must exercise HYBRID governance');
+const resourcesBefore=await json('/api/v1/admin/resource-tree',`e2e-resource-before-${Date.now()}`);
+assert.equal(resourcesBefore.status,200,'Resource tree could not be read before manifest fetch');
+const csrf=await json('/api/v1/csrf',`e2e-csrf-${Date.now()}`);
+assert.equal(csrf.status,200,'CSRF token could not be issued for manifest fetch');
+const fetchedDraftResponse=await request(
+  `/api/v1/admin/panels/${hrPanel.id}/resource-manifests/fetch`,{
+    method:'POST',headers:{accept:'application/json',[csrf.body.headerName]:csrf.body.token,
+      'x-correlation-id':`e2e-manifest-fetch-${Date.now()}`},
+  });
+const fetchedDraftText=await fetchedDraftResponse.text();
+let fetchedDraft;
+try { fetchedDraft=JSON.parse(fetchedDraftText); }
+catch { fetchedDraft=fetchedDraftText; }
+assert.equal(fetchedDraftResponse.status,201,
+  `Server-side manifest fetch failed: ${fetchedDraftText}`);
+assert.equal(fetchedDraft?.workflowStatus,'DRAFT',
+  'Fetched resource manifest was not staged as a Draft');
+assert(Array.isArray(fetchedDraft?.changes),'Fetched resource manifest has no diff preview');
+const draftPreview=await json(
+  `/api/v1/admin/panels/${hrPanel.id}/resource-manifests/drafts/${fetchedDraft.id}`,
+  `e2e-manifest-preview-${Date.now()}`);
+assert.equal(draftPreview.status,200,'Staged resource manifest preview is unavailable');
+assert.equal(draftPreview.body?.checksum,fetchedDraft.checksum,
+  'Draft preview differs from the fetched immutable revision');
+const resourcesAfter=await json('/api/v1/admin/resource-tree',`e2e-resource-after-${Date.now()}`);
+assert.equal(resourcesAfter.status,200,'Resource tree could not be read after manifest fetch');
+const resourceRevisions=items=>items.map(item=>`${item.id}:${item.version}`).sort();
+assert.deepEqual(resourceRevisions(resourcesAfter.body),resourceRevisions(resourcesBefore.body),
+  'Fetch/preview mutated the production Resource Catalog before approval');
 
 const shellDeepLink=await request('/admin/proxy-routes/routes',{headers:{accept:'text/html'}});
 const shellHtml=await shellDeepLink.text();
@@ -338,7 +387,11 @@ console.log(JSON.stringify({
     authorizationOperations: Object.values(authorizationOpenApi.body.paths).flatMap(Object.values)
       .filter(operation=>operation?.operationId).length, persianSamples: true },
   frontend: { shellDeepLink: '/admin/proxy-routes/routes', standaloneAdminDeepLink: true,
+    dedicatedUiCatalog: true,
     remoteEntries: manifest.body.uiCatalog.modules.length },
+  manifestGovernance: { mode: hrPanel.resource_definition_mode,
+    serverSideFetch: true, workflowStatus: fetchedDraft.workflowStatus,
+    preview: true, productionTreeUnchanged: true },
   superset: { catalogStatus: reports.status, operationRuntime: supersetRuntime },
   probes: results,
 }, null, 2));

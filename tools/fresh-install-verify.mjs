@@ -55,7 +55,7 @@ try {
     coalesce((select (a.manifest_snapshot ? 'routePrefix')::text from panel p join ui_module_artifact a on a.id=p.active_artifact_id where p.code='ADMIN'),'') || '|' ||
     coalesce((select external_id from app_user where issuer='http://localhost:8180/realms/aurevia' and username='administrator' and status='ACTIVE' order by case when external_id=username then 1 else 0 end,updated_at desc limit 1),'');`;
   const state = command(['exec', '-T', 'auth-db', 'psql', '-U', 'aurevia', '-d', 'aurevia_auth', '-Atc', sql]).split(/\r?\n/).at(-1).split('|');
-  if (Number(state[0]) < 49) failures.push(`Flyway is only at V${state[0]}; V49 or newer is required`);
+  if (Number(state[0]) < 52) failures.push(`Flyway is only at V${state[0]}; V52 or newer is required`);
   if (state[1] !== '0') failures.push(`${state[1]} OpenFGA outbox events are dead-lettered`);
   if (state[2] !== '0') failures.push(`${state[2]} OpenFGA outbox events are still pending; retry after a few seconds`);
   if (!state[3]) failures.push('runtime development administrator canonical subject is missing');
@@ -93,4 +93,4 @@ if(administratorUser) {
 if (failures.length) {
   console.error('\nFresh-install verification FAILED:'); failures.forEach(item => console.error(` - ${item}`)); process.exit(1);
 }
-console.log('Fresh-install verification passed: V49+, zero OpenFGA drift, outbox, ADMIN 0.2.0 manifest contract and runtime administrator access are effective.');
+console.log('Fresh-install verification passed: V52+, zero OpenFGA drift, outbox, ADMIN 0.2.0 manifest contract and runtime administrator access are effective.');

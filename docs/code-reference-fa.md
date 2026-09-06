@@ -150,6 +150,15 @@ Admin APIها از prefix `/api/v1/admin` استفاده می‌کنند. mutati
 - ثبت outbox برای تغییرات panel.
 - مشاهده audit با limit کنترل‌شده.
 
+### کاتالوگ Resource Manifest و Navigation
+
+- `ResourceManifestController`: endpointهای fetch، ایجاد Draft، preview/diff و publish تأییدشده را ارائه می‌کند؛ endpoint سازگار قدیمی نیز فقط Draft می‌سازد.
+- `ResourceManifestService`: قرارداد نسخه‌دار را normalize و validate می‌کند، ownership/type/parent/action را کنترل می‌کند و منابع غایب نسخه جدید را به `DEPRECATED` می‌برد.
+- `HttpResourceManifestFetcher`: دریافت JSON با timeout، سقف اندازه، content-type، عدم follow redirect و policy نشانی مجاز؛ backend هیچ `remoteEntry.js`ای اجرا نمی‌کند.
+- `ResourceManifestRepository` و `JdbcResourceManifestRepository`: مرز persistence برای ledger مانیفست، diff، ownership و publish اتمیک.
+- `UiPluginRegistryService`: artifact runtime، Navigation manifest و overlay راهبر را مستقل از Resource Tree مدیریت و Navigation مؤثر را تولید می‌کند.
+- `DemoDataPolicy`: یک policy مرکزی برای حذف پنل و resource نوع `DEMO` از catalog و تصمیم runtime در محیط production.
+
 ### `AccessAdminController`
 
 - CRUD منبع و action.
@@ -190,6 +199,10 @@ grant برای USER/GROUP/ROLE ساخته می‌شود، action به relation �
 - `V11__api_resource_type.sql`: افزودن نوع هفتم `API_RESOURCE` به enum پایگاه داده.
 - `V12__complete_demo_resource_tree.sql`: درخت نمونه شامل هر هفت نوع resource و actionهای متصل.
 - `V13__resource_parent_outbox.sql`: bootstrap رویدادهای parent برای projection در OpenFGA.
+- `V28__canonical_resource_catalog.sql`: کاتالوگ canonical، bindingها و ledger نسخه مانیفست.
+- `V33__dynamic_ui_plugin_registry.sql`: artifactهای runtime تغییرناپذیر و menu overlay.
+- `V51__microfrontend_governance_catalog.sql`: modeهای `MANIFEST/MANUAL/HYBRID`، classification، ownership، workflow Draft/Publish و Navigation overlay.
+- `V52__immutable_resource_manifest_versions.sql`: یکتایی نسخه مانیفست به ازای هر MFE و جلوگیری از بازنویسی محتوای همان نسخه.
 
 ترتیب migrationها قرارداد است؛ migration اجراشده را ویرایش نکنید، migration جدید بسازید.
 

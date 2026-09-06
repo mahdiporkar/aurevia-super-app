@@ -19,7 +19,7 @@ public final class AuthorizationDtos {
   public record SubjectView(String type,String issuer,String id) {}
   public record PanelSummary(UUID id,String code,String slug,String nameFa,String nameEn,
       String remoteEntry,String exposedModule,String routeBasePath,String semanticVersion,
-      String contractVersion,String integrity) {}
+      String contractVersion,String integrity,String classification,String resourceDefinitionMode) {}
   public record ResourceNode(UUID id,@JsonProperty("parent_id") UUID parentId,
       @JsonProperty("resource_key") String resourceKey,String type,
       @JsonProperty("name_fa") String nameFa,@JsonProperty("name_en") String nameEn,
@@ -30,6 +30,9 @@ public final class AuthorizationDtos {
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record UiMenu(String id,String parentId,String routeId,String title,String icon,int order) {}
   @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record UiNavigation(String key,String type,String parentKey,String pageKey,String title,
+      String icon,int order,String externalUrl,String source) {}
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public record RemoteDescriptor(String remoteEntryUrl,String remoteName,String exposedModule,
       String contractVersion,String artifactVersion,String integrity) {}
   public record RuntimeDescriptor(String apiBasePath) {}
@@ -37,7 +40,8 @@ public final class AuthorizationDtos {
   public record UiModuleDefinition(UUID registrationId,String moduleKey,String displayName,
       String displayNameEn,String description,String icon,int order,String routePrefix,
       String defaultRouteId,RemoteDescriptor remote,RuntimeDescriptor runtime,
-      List<UiRoute> routes,List<UiMenu> menus) {}
+      List<UiRoute> routes,List<UiMenu> menus,List<UiNavigation> navigation,
+      String classification,String resourceDefinitionMode) {}
   public record UiCatalog(String catalogVersion,Instant generatedAt,String contractVersion,
       List<UiModuleDefinition> modules) {}
   public record Manifest(String manifestType,SubjectView subject,String version,Instant expiresAt,

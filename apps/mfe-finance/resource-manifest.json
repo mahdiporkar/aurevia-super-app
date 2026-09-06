@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "module": { "key": "finance", "name": "Finance", "nameFa": "مالی", "nameEn": "Finance", "version": "0.1.0" },
+  "routes": [
+    { "key": "index", "path": "", "component": "./bootstrap", "resourceKey": "page:finance.payments", "action": "view", "title": "عملیات مالی" }
+  ],
+  "resources": [
+    { "key": "page:finance.payments", "type": "PAGE", "name": "Payments", "nameFa": "مدیریت پرداخت‌ها", "nameEn": "Payment Management", "classification": "CONFIDENTIAL", "actions": ["view"] },
+    { "key": "page:finance.invoices", "type": "PAGE", "name": "Invoices", "nameFa": "صورتحساب‌ها", "nameEn": "Invoices", "classification": "CONFIDENTIAL", "actions": ["view"] },
+    { "key": "page:finance.budgets", "type": "PAGE", "name": "Budgets", "nameFa": "بودجه‌ها", "nameEn": "Budgets", "classification": "CONFIDENTIAL", "actions": ["view"] },
+    { "key": "business:finance.payment", "type": "BUSINESS_RESOURCE", "name": "Payment", "nameFa": "پرداخت", "nameEn": "Payment", "classification": "RESTRICTED", "actions": ["view", "create", "approve", "reject"] }
+  ],
+  "navigation": [
+    { "key": "finance.nav.root", "type": "GROUP", "title": "مالی", "icon": "bank", "order": 20 },
+    { "key": "finance.nav.workspace", "type": "PAGE", "parentKey": "finance.nav.root", "pageKey": "index", "title": "عملیات مالی", "icon": "credit-card", "order": 10 }
+  ]
+}

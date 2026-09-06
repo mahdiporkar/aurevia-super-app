@@ -149,14 +149,19 @@ Shell نباید subject، role یا user ID را از query string یا local s
 | `Remote Entry must be a complete http(s) URL` | مقدار `remoteEntry` باید URL کامل باشد |
 | `Remote URL is not allowlisted` | URL فراخوانی‌شده با مقدار Manifest جاری یکسان نیست |
 | `Remote failed` | status، MIME type، CSP، DNS و دسترسی مرورگر به `remoteEntry.js` |
-| `Incompatible remote contract` | `contractVersion` پنل و export واقعی Remote باید `1` باشند |
+| `Incompatible remote contract` | `contractVersion` پنل و export واقعی Remote باید `1.0` باشند؛ `1` فقط برای remote قدیمی پشتیبانی می‌شود |
 | پنل دیده می‌شود ولی API برابر 403 است | UI مجاز است اما مجوز resource/action مربوط به API داده نشده یا منقضی شده است |
 | یک Remote خالی یا crash شده است | Console، Error Boundary، export `mount` و cleanup را بررسی کنید |
 
-## شکاف‌های فعلی و الزامات Production
+## کنترل‌های Production موجود
 
-- در loader فعلی مقدار `script.integrity` خالی است، با آن‌که `PanelManifest` فیلد اختیاری `integrity` دارد. برای زنجیره تأمین production باید integrity واقعی به loader متصل، همراه با `crossorigin` مناسب enforce و نسخه artifact immutable شود.
-- allowlist فعلی بر اساس URLهای برگشتی Manifest است. Authorization Service باید originهای مجاز production را هنگام ثبت/ویرایش Panel validate کند و CSP نیز همان originها را محدود کند.
-- رفتار refresh پس از پایان `expiresAt` باید به‌صورت policy واحد و تست‌شده اجرا شود؛ Manifest منقضی نباید مبنای ادامه نمایش دسترسی حساس باشد.
-- برای Remoteها باید timeout، telemetry بارگذاری، نسخه‌پذیری و rollback مستقل تعریف شود.
-- نمایش Tag با متن `Online` در UI فعلی health check واقعی backend نیست و نباید برای مانیتورینگ عملیاتی استفاده شود.
+- loader مقدار SRI را روی `script.integrity` و `crossOrigin=anonymous` اعمال می‌کند و تغییر URL/SRI
+  برای scope بارگذاری‌شده را رد می‌کند؛ profile تولید نیز SRI معتبر را هنگام انتشار الزامی می‌کند.
+- Authorization Service آدرس Remote Entry و Resource Manifest را با origin allowlist و HTTPS
+  validate می‌کند؛ CSP لبه همان originهای استقرار را محدود می‌کند.
+- بارگذاری Remote timeout پانزده‌ثانیه‌ای، cache وابسته به نسخه و Error Boundary دارد؛ rollback با
+  فعال‌کردن Artifact immutable قبلی انجام می‌شود.
+- `expiresAt` در Manifest عمر کوتاه دارد، اما کنترل امنیتی نهایی مستقل از cache رابط و در هر درخواست
+  توسط BFF/Authorization Service انجام می‌شود.
+- متن وضعیت رابط جای health check عملیاتی نیست؛ مانیتورینگ باید actuator، metrics و probe استقرار
+  را مصرف کند.

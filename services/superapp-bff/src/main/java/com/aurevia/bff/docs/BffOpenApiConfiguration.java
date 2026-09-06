@@ -141,6 +141,9 @@ public class BffOpenApiConfiguration {
       case "MeController#manifest" -> map("manifestType", "USER_ACCESS_MANIFEST",
           "version", "W/\"manifest-42\"", "panels", List.of(map("code", "finance", "slug", "finance")),
           "permissions", map("page:finance.payments", List.of("view", "approve")));
+      case "MeController#uiCatalog" -> map("catalogVersion","manifest-sha256-demo",
+          "contractVersion","1.0","modules",List.of(map("moduleKey","hr",
+              "routePrefix","hr","routes",List.of(),"navigation",List.of())));
       case "ReportsController#reports" -> List.of(map("externalId", "dashboard:42",
           "assetType", "DASHBOARD", "title", "داشبورد فروش روزانه", "level", "VIEWER"));
       case "AdminProxyController#tokenTest" -> map("success", true, "latencyMs", 126,
@@ -210,6 +213,7 @@ public class BffOpenApiConfiguration {
     m.put("CsrfController#csrf", "دریافت CSRF token نشست جاری");
     m.put("MeController#me", "دریافت هویت کاربر جاری");
     m.put("MeController#manifest", "دریافت Manifest دسترسی کاربر جاری");
+    m.put("MeController#uiCatalog", "دریافت کاتالوگ مؤثر Micro Frontend و Navigation");
     m.put("ReportsController#reports", "فهرست گزارش‌ها و داشبوردهای مجاز");
     m.put("AdminProxyController#tokenTest", "آزمون دریافت token پروفایل Legacy بدون افشای token");
     m.put("AdminProxyController#connectionTest", "آزمون policy و اتصال پروفایل Legacy");

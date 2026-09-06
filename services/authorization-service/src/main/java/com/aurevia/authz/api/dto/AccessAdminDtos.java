@@ -14,10 +14,12 @@ public final class AccessAdminDtos {
   public record ResourceRequest(@NotBlank String resourceKey, @NotBlank String type, UUID parentId,
       @NotBlank String nameFa, @NotBlank String nameEn, String ownerDomain, String classification,
       String externalSystem, String externalType, String externalId, String source,
+      UUID panelId, Boolean visibilityEnabled,
       Map<String, Object> metadata) {
     public ResourceCommand toCommand() {
       return new ResourceCommand(resourceKey, type, parentId, nameFa, nameEn, ownerDomain,
-          classification, externalSystem, externalType, externalId, source, metadata);
+          classification, externalSystem, externalType, externalId, source, panelId,
+          visibilityEnabled, metadata);
     }
   }
   public record ActionRequest(@NotBlank String actionKey, @NotBlank String nameFa,

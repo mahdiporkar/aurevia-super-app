@@ -1,28 +1,25 @@
 package com.aurevia.authz.sync;
 
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
-import com.fasterxml.jackson.databind.JsonNode;
+import dev.openfga.sdk.api.client.OpenFgaClient;
+import dev.openfga.sdk.api.client.model.ClientReadRequest;
+import dev.openfga.sdk.api.configuration.ClientReadOptions;
+import dev.openfga.sdk.api.model.ConsistencyPreference;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.Map;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 @Service
 public class OpenFgaReconciliationService {
   private final OpenFgaReconciliationRepository reconciliation;
   private final RelationshipAuthorizationPort relationships;
-  private final RestClient openfga;
-  private final String storeId;
+  private final OpenFgaClient openfga;
 
   public OpenFgaReconciliationService(OpenFgaReconciliationRepository reconciliation,
-      RelationshipAuthorizationPort relationships, RestClient.Builder rest,
-      @Value("${aurevia.openfga.base-url}") String baseUrl,
-      @Value("${aurevia.openfga.store-id}") String storeId) {
+      RelationshipAuthorizationPort relationships,OpenFgaClient openfga) {
     this.reconciliation=reconciliation;this.relationships=relationships;
-    this.openfga=rest.baseUrl(baseUrl).build();this.storeId=storeId;
+    this.openfga=openfga;
   }
 
   public Report reconcile(boolean repair) {
@@ -36,18 +33,30 @@ public class OpenFgaReconciliationService {
   }
 
   private Set<ReconciliationTuple> actual(){
-    Set<ReconciliationTuple> result=new LinkedHashSet<>();String token="";
-    do {
-      final String continuation=token;
-      Map<String,Object> request=continuation.isBlank()?Map.of("page_size",100):Map.of("page_size",100,"continuation_token",continuation);
-      JsonNode response=openfga.post().uri("/stores/{store}/read",storeId)
-          .body(request).retrieve().body(JsonNode.class);
-      if(response==null)throw new IllegalStateException("Empty OpenFGA tuple response");
-      response.path("tuples").forEach(node->{JsonNode key=node.path("key");result.add(new ReconciliationTuple(
-          key.path("user").asText(),key.path("relation").asText(),key.path("object").asText()));});
-      token=response.path("continuation_token").asText("");
-    } while(!token.isBlank());
-    return result;
+    Set<ReconciliationTuple> result=new LinkedHashSet<>();String token=null;
+    try {
+      do {
+        var options=new ClientReadOptions().pageSize(100)
+            .consistency(ConsistencyPreference.HIGHER_CONSISTENCY);
+        if(token!=null&&!token.isBlank())options.continuationToken(token);
+        var response=openfga.read(new ClientReadRequest(),options).get();
+        if(response==null)throw new IllegalStateException("Empty OpenFGA tuple response");
+        if(response.getTuples()!=null)response.getTuples().forEach(tuple->{
+          var key=tuple.getKey();
+          if(key==null)throw new IllegalStateException("OpenFGA tuple key is missing");
+          result.add(new ReconciliationTuple(key.getUser(),key.getRelation(),key.getObject()));
+        });
+        token=response.getContinuationToken();
+      } while(token!=null&&!token.isBlank());
+      return result;
+    } catch(InterruptedException interrupted) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("OpenFGA reconciliation read was interrupted",interrupted);
+    } catch(IllegalStateException failure) {
+      throw failure;
+    } catch(Exception failure) {
+      throw new IllegalStateException("OpenFGA reconciliation read failed",failure);
+    }
   }
 
   public record Report(boolean dryRun,int expectedCount,int actualCount,

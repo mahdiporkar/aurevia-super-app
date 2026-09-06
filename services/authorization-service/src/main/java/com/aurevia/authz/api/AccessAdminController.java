@@ -38,6 +38,13 @@ public class AccessAdminController {
     return service.updateResource(id, version, request.toCommand(), actor);
   }
 
+  @DeleteMapping("/resources/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void deprecateResource(@PathVariable UUID id,@RequestParam long version,
+      @RequestHeader("X-Actor") String actor) {
+    service.deprecateResource(id,version,actor);
+  }
+
   @GetMapping("/actions")
   public List<ActionView> actions() { return service.actions(); }
 

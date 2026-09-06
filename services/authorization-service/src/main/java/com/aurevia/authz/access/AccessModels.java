@@ -25,6 +25,9 @@ public final class AccessModels {
       String externalType,
       String externalId,
       String source,
+      UUID panelId,
+      String manifestVersion,
+      boolean visibilityEnabled,
       Map<String, Object> metadata,
       String status,
       long version,
@@ -79,6 +82,8 @@ public final class AccessModels {
       String externalType,
       String externalId,
       String source,
+      UUID panelId,
+      Boolean visibilityEnabled,
       Map<String, Object> metadata) {}
 
   public record ActionCommand(String actionKey, String nameFa, String nameEn) {}
@@ -96,7 +101,11 @@ public final class AccessModels {
       UUID actionId,
       Instant expiresAt) {}
 
-  public record ResourceSnapshot(String resourceKey, UUID parentId) {}
+  public record ResourceSnapshot(String resourceKey, String type, UUID parentId, String nameFa,
+      String nameEn, String ownerDomain, String classification, String externalSystem,
+      String externalType, String externalId, String source, UUID panelId,
+      boolean visibilityEnabled, Map<String, Object> metadata) {}
+  public record ParentResource(String type, UUID panelId) {}
   public record GrantTarget(String resourceType, String actionKey) {}
   public record ExistingGrant(UUID id, long version) {}
 }

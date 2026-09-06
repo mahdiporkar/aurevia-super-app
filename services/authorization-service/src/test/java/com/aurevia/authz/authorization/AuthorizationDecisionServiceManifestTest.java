@@ -5,9 +5,12 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.aurevia.authz.audit.AuthorizationDecisionAuditor;
+import com.aurevia.authz.api.dto.AuthorizationDtos.CheckRequest;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort.RelationshipCheck;
 import com.aurevia.authz.policy.RuntimePolicyService;
@@ -16,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -92,6 +96,18 @@ class AuthorizationDecisionServiceManifestTest {
     assertThat(manifest.uiCatalog().modules()).isEmpty();
   }
 
+  @Test void disabledOrDemoResourceIsDeniedBeforeOpenFgaIsCalled() {
+    when(queries.runtimeResourceActionEnabled("resource:page/hr.employees","view"))
+        .thenReturn(Optional.of(false));
+
+    var result=service.check(new CheckRequest("user-1","https://issuer.example",
+        "resource:page/hr.employees","view",Map.of(),"correlation-1"));
+
+    assertThat(result.decision().result()).isEqualTo("DENY");
+    assertThat(result.decision().reasonCode()).isEqualTo("RESOURCE_DISABLED");
+    verify(relationships,never()).check(anyString(),anyString(),anyString());
+  }
+
   private void allowBatchObjects(Set<String> allowed) {
     when(relationships.checkBatch(anyList())).thenAnswer(invocation->{
       List<RelationshipCheck> checks=invocation.getArgument(0);
@@ -107,7 +123,7 @@ class AuthorizationDecisionServiceManifestTest {
         "مدیریت","Administration","/management","مدیریت سامانه","control",
         "admin","denied",10,"0.2.0",
         "https://static.example.test/admin/remoteEntry.js","aurevia_admin","./bootstrap",
-        "1.0",null,"""
+        "1.0",null,"REAL","HYBRID","""
         {
           "schemaVersion":"1.0",
           "moduleKey":"admin",

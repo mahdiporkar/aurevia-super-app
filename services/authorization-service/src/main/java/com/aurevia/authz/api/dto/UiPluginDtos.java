@@ -3,6 +3,7 @@ package com.aurevia.authz.api.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public final class UiPluginDtos {
@@ -14,6 +15,11 @@ public final class UiPluginDtos {
       String integrity,@NotBlank String manifest) {}
 
   public record MenuOverrideRequest(String title,String icon,Integer order,boolean hidden) {}
+  public record NavigationOverrideRequest(String title,String icon,Integer order,boolean hidden,
+      String source,String nodeType,String parentKey,String pageKey,String externalUrl) {}
+  public record NavigationOverrideView(String key,String title,String icon,Integer order,
+      boolean hidden,String source,String nodeType,String parentKey,String pageKey,
+      String externalUrl,String status,long version,Instant updatedAt,String updatedBy) {}
 
   public record ArtifactView(UUID id,
       @JsonProperty("panel_id") UUID panelId,

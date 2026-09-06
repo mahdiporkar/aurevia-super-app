@@ -3,6 +3,16 @@ BEGIN;
 
 -- Development-only catalog. This file is applied by docker-compose after
 -- Flyway finishes; it is never part of the production migration chain.
+-- Browser-facing Remote Entry URLs remain on localhost. Resource Manifest URLs
+-- are control-plane addresses resolved by Authorization Service inside Docker.
+UPDATE panel SET resource_manifest_url=CASE code
+  WHEN 'ADMIN' THEN 'http://mfe-admin:8080/resource-manifest.json'
+  WHEN 'HR' THEN 'http://mfe-hr:8080/resource-manifest.json'
+  WHEN 'FINANCE' THEN 'http://mfe-finance:8080/resource-manifest.json'
+  WHEN 'REPORTS' THEN 'http://mfe-reports:8080/resource-manifest.json'
+  ELSE resource_manifest_url END
+WHERE code IN ('ADMIN','HR','FINANCE','REPORTS');
+
 INSERT INTO outbound_connection(id,connection_ref,name,kind,base_url,tls_required,active,created_by,updated_by)
 VALUES('45000000-0000-0000-0000-000000000001','connection://demo/legacy',
   'Legacy demo token endpoint','LEGACY_TOKEN','http://mock-legacy:8080',false,true,'demo-bootstrap','demo-bootstrap')
@@ -54,15 +64,17 @@ WHERE (outbound_auth_profile.name,outbound_auth_profile.description,outbound_aut
        excluded.credential_transport,excluded.expiry_skew_seconds,excluded.connect_timeout_ms,
        excluded.response_timeout_ms,excluded.max_token_response_size,excluded.active);
 
-INSERT INTO resource(id,resource_key,type,parent_id,name_fa,name_en,owner_domain,classification,source)
-SELECT v.id,v.resource_key,'API_RESOURCE',parent.id,v.name_fa,v.name_en,'platform','INTERNAL','SYSTEM'
+INSERT INTO resource(id,resource_key,type,parent_id,name_fa,name_en,owner_domain,classification,
+  source,panel_id)
+SELECT v.id,v.resource_key,'API_RESOURCE',parent.id,v.name_fa,v.name_en,'platform','INTERNAL',
+  'ADMIN',parent.panel_id
 FROM (VALUES
   ('45000000-0000-0000-0000-000000000007'::uuid,'api:integration.legacy-demo','تست اتصال Legacy','Legacy integration test'),
   ('45000000-0000-0000-0000-000000000008'::uuid,'api:integration.oauth2-demo','تست اتصال OAuth2','OAuth2 integration test')
 )v(id,resource_key,name_fa,name_en)
 JOIN resource parent ON parent.resource_key='application:aurevia/admin'
 ON CONFLICT(resource_key) DO UPDATE SET parent_id=excluded.parent_id,name_fa=excluded.name_fa,
-  name_en=excluded.name_en,status='ACTIVE',updated_at=now();
+  name_en=excluded.name_en,panel_id=excluded.panel_id,status='ACTIVE',updated_at=now();
 
 INSERT INTO resource_action(resource_id,action_id)
 SELECT resource.id,action.id FROM resource CROSS JOIN action

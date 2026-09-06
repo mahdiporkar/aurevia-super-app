@@ -1,6 +1,7 @@
 package com.aurevia.authz.ui;
 
 import com.aurevia.authz.api.dto.UiPluginDtos.ArtifactView;
+import com.aurevia.authz.api.dto.UiPluginDtos.NavigationOverrideView;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -92,22 +93,57 @@ class JdbcUiPluginRepository implements UiPluginRepository {
 
   @Override public String activeManifest(UUID panelId) {
     return database.sql("""
-        select manifest_snapshot::text from ui_module_artifact
-        where id=(select active_artifact_id from panel where id=:panel)
+        select coalesce(revision.payload,artifact.manifest_snapshot)::text
+        from panel p join ui_module_artifact artifact on artifact.id=p.active_artifact_id
+        left join lateral (
+          select payload from resource_manifest_import item
+          where item.panel_id=p.id and item.workflow_status='PUBLISHED'
+          order by item.published_at desc nulls last,item.created_at desc limit 1
+        ) revision on true where p.id=:panel
         """).param("panel",panelId).query(String.class).single();
   }
 
   @Override public void upsertMenu(UUID panelId,String menuId,String title,String icon,
-      Integer order,boolean hidden,String actor) {
+      Integer order,boolean hidden,String source,String nodeType,String parentKey,String pageKey,
+      String externalUrl,String actor) {
     database.sql("""
-        insert into ui_menu_override(panel_id,menu_id,title,icon,sort_order,hidden,updated_by)
-        values(:panel,:menu,:title,:icon,:sort,:hidden,:actor)
+        insert into ui_menu_override(panel_id,menu_id,title,icon,sort_order,hidden,source,
+          node_type,parent_key,page_key,external_url,updated_by)
+        values(:panel,:menu,:title,:icon,:sort,:hidden,:source,:nodeType,:parentKey,
+          :pageKey,:externalUrl,:actor)
         on conflict(panel_id,menu_id) do update set title=excluded.title,icon=excluded.icon,
           sort_order=excluded.sort_order,hidden=excluded.hidden,
+          source=excluded.source,node_type=excluded.node_type,parent_key=excluded.parent_key,
+          page_key=excluded.page_key,external_url=excluded.external_url,status='ACTIVE',
           version=ui_menu_override.version+1,updated_at=now(),updated_by=excluded.updated_by
         """).param("panel",panelId).param("menu",menuId).param("title",title)
         .param("icon",icon).param("sort",order).param("hidden",hidden)
+        .param("source",source).param("nodeType",nodeType).param("parentKey",parentKey)
+        .param("pageKey",pageKey).param("externalUrl",externalUrl)
         .param("actor",actor).update();
+  }
+
+  @Override public List<NavigationOverrideView> navigationOverrides(UUID panelId) {
+    return database.sql("""
+        select menu_id as key,title,icon,sort_order as "order",hidden,source,
+          node_type as "nodeType",parent_key as "parentKey",page_key as "pageKey",
+          external_url as "externalUrl",status,version,updated_at as "updatedAt",
+          updated_by as "updatedBy"
+        from ui_menu_override where panel_id=:panel and status='ACTIVE'
+        order by coalesce(sort_order,0),menu_id
+        """).param("panel",panelId).query(NavigationOverrideView.class).list();
+  }
+
+  @Override public boolean navigationHasChildren(UUID panelId,String key) {
+    return database.sql("""
+        select count(*) from ui_menu_override
+        where panel_id=:panel and parent_key=:key and status='ACTIVE'
+        """).param("panel",panelId).param("key",key).query(Long.class).single()>0;
+  }
+
+  @Override public void deleteNavigationOverride(UUID panelId,String key) {
+    database.sql("delete from ui_menu_override where panel_id=:panel and menu_id=:key")
+        .param("panel",panelId).param("key",key).update();
   }
 
   @Override public List<ArtifactTarget> activeArtifactTargets() {

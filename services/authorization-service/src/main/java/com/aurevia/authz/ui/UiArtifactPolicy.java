@@ -26,18 +26,9 @@ public final class UiArtifactPolicy {
   }
 
   public String validate(String url,String integrity) {
-    URI uri;
-    try { uri=URI.create(url).normalize(); }
-    catch(RuntimeException invalid) { throw new IllegalArgumentException("Invalid Remote Entry URL",invalid); }
-    if(uri.getHost()==null||uri.getUserInfo()!=null||uri.getQuery()!=null||uri.getFragment()!=null
-        || !uri.getPath().endsWith(".js")) {
+    URI uri=approvedUri(url,"Remote Entry");
+    if(!uri.getPath().endsWith(".js")) {
       throw new IllegalArgumentException("Remote Entry must be an absolute JavaScript URL");
-    }
-    if(!"https".equals(uri.getScheme()) && !(allowHttp&&"http".equals(uri.getScheme()))) {
-      throw new IllegalArgumentException("Remote Entry must use HTTPS");
-    }
-    if(!allowedOrigins.contains(origin(uri.toString()))) {
-      throw new IllegalArgumentException("Remote Entry origin is not approved");
     }
     if(requireIntegrity&&(integrity==null||integrity.isBlank())) {
       throw new IllegalArgumentException("SRI is required for UI artifacts");
@@ -49,7 +40,32 @@ public final class UiArtifactPolicy {
     return uri.toString();
   }
 
+  /** Metadata is fetched only from the same approved origins as executable UI artifacts. */
+  public String validateManifestUrl(String url) {
+    URI uri=approvedUri(url,"Resource manifest");
+    if(!uri.getPath().endsWith(".json")) {
+      throw new IllegalArgumentException("Resource manifest must be an absolute JSON URL");
+    }
+    return uri.toString();
+  }
+
   public boolean requireIntegrity() { return requireIntegrity; }
+
+  private URI approvedUri(String url,String label) {
+    URI uri;
+    try { uri=URI.create(url).normalize(); }
+    catch(RuntimeException invalid) { throw new IllegalArgumentException("Invalid "+label+" URL",invalid); }
+    if(uri.getHost()==null||uri.getUserInfo()!=null||uri.getQuery()!=null||uri.getFragment()!=null) {
+      throw new IllegalArgumentException(label+" must be an absolute URL without credentials, query, or fragment");
+    }
+    if(!"https".equals(uri.getScheme()) && !(allowHttp&&"http".equals(uri.getScheme()))) {
+      throw new IllegalArgumentException(label+" must use HTTPS");
+    }
+    if(!allowedOrigins.contains(origin(uri.toString()))) {
+      throw new IllegalArgumentException(label+" origin is not approved");
+    }
+    return uri;
+  }
 
   private static String origin(String value) {
     URI uri=URI.create(value.trim());

@@ -32,4 +32,22 @@ class MeControllerTest {
           .isEqualTo(CacheControl.noCache().cachePrivate().getHeaderValue());
     }).verifyComplete();
   }
+
+  @Test void uiCatalogReturnsOnlyEffectiveCatalogAtStableContractPath() {
+    AuthorizationServiceClient authorization=mock(AuthorizationServiceClient.class);
+    Map<String,Object> catalog=Map.of("catalogVersion","catalog-7","contractVersion","1.0",
+        "modules",List.of(Map.of("moduleKey","hr","navigation",List.of())));
+    when(authorization.manifest("https://issuer.example","subject-1"))
+        .thenReturn(Mono.just(Map.of("version","manifest-7","uiCatalog",catalog)));
+
+    var result=new MeController(authorization).uiCatalog(
+        new SessionIdentity("https://issuer.example","subject-1","operator"));
+
+    StepVerifier.create(result).assertNext(response->{
+      assertThat(response.getBody()).isSameAs(catalog);
+      assertThat(response.getHeaders().getETag()).isEqualTo("\"catalog-7\"");
+      assertThat(response.getHeaders().getCacheControl())
+          .isEqualTo(CacheControl.noCache().cachePrivate().getHeaderValue());
+    }).verifyComplete();
+  }
 }

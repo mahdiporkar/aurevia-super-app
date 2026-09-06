@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0",
+  "module": { "key": "reports", "name": "Reports", "nameFa": "گزارش‌ها", "nameEn": "Reports", "version": "0.1.0" },
+  "routes": [
+    { "key": "index", "path": "", "component": "./bootstrap", "resourceKey": "application:aurevia/reports", "action": "view", "title": "مرکز گزارش‌ها" }
+  ],
+  "resources": [],
+  "navigation": [
+    { "key": "reports.nav.root", "type": "GROUP", "title": "گزارش‌ها", "icon": "dashboard", "order": 30 },
+    { "key": "reports.nav.catalog", "type": "PAGE", "parentKey": "reports.nav.root", "pageKey": "index", "title": "مرکز گزارش‌ها", "icon": "bar-chart", "order": 10 }
+  ]
+}
