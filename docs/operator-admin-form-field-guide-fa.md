@@ -1,9 +1,74 @@
 # راهنمای جامع فرم‌ها و کنترل‌های میکرو راهبری Aurevia
 
-نسخه سند: ۱.۰ — مخاطب: راهبر سامانه، مدیر امنیت، مدیر گزارش و تیم استقرار
+نسخه سند: ۲.۰ — به‌روزرسانی: ۱۴۰۵/۰۶/۱۷ (۲۰۲۶-۰۹-۰۸) — مخاطب: راهبر سامانه، مدیر امنیت، مدیر گزارش و تیم استقرار
 
 این سند مرجع field-by-field تمام فرم‌ها و کنترل‌های عملیاتی `mfe-admin` است. هر تغییر در
 فرم، DTO یا validation سمت سرور باید در همان Pull Request در این سند نیز اعمال شود.
+
+## ۰. شروع از نقطه صفر
+
+### ۰.۱ این سند چه مسئله‌ای را حل می‌کند؟
+
+«میکرو راهبری» پنل مدیریتی خود سوپر اپ است. راهبر در آن تعیین می‌کند چه Microfrontendهایی
+قابل بارگذاری‌اند، هر درخواست API به کدام سرویس برسد، چه منبع و عملیاتی مجوز می‌خواهد، چه
+کاربر/گروه/نقشی آن مجوز را دارد، و رخدادها چگونه قابل ردیابی‌اند. این سند هم آموزش انجام کار
+است و هم مرجع تک‌تک فیلدها؛ بنابراین برای هر تغییر ابتدا سناریوی مربوط را بخوانید و هنگام پرکردن
+فرم به جدول همان بخش رجوع کنید.
+
+### ۰.۲ مدل ذهنی معماری
+
+```text
+کاربر → Keycloak (ورود و هویت) → Shell/BFF → کاتالوگ و تصمیم مجوز
+                                      │              ├─ PostgreSQL: وضعیت مدیریتی و Audit
+                                      │              ├─ Outbox → OpenFGA: رابطه‌های دسترسی
+                                      │              └─ Effective Catalog: منو/route مجاز
+                                      └─ /api/proxy/{serviceSlug}/... → Gateway → سرویس مقصد
+```
+
+- **Keycloak** هویت و گروه‌های سازمانی را می‌دهد؛ فرم‌های این پنل جای مدیریت رمز یا کاربر نیستند.
+- **Resource** چیزی است که باید محافظت شود؛ **Action** کاری است که روی آن انجام می‌شود؛
+  **Subject** دارنده دسترسی و **Grant** رابطه میان این سه است.
+- **Panel/MFE** ثبت مدیریتی یک رابط مستقل است؛ **Artifact** نسخه اجرایی immutable آن؛
+  **Resource Manifest** قرارداد منابع، routeها و navigation همان نسخه است.
+- **Target → Route → Operation** زنجیره عبور API است: مقصد، نگاشت مسیر، سپس قرارداد مجوز هر عملیات.
+
+### ۰.۳ پیش‌نیاز ورود و ترتیب یادگیری
+
+1. محیط باید بالا باشد و `https://localhost:8443` به Keycloak هدایت کند. پس از ورود، دسترسی
+   routeهای مدیریتی از Effective Context کاربر تعیین می‌شود؛ دیده‌نشدن منو لزوماً خطای UI نیست.
+2. برای راهبری عمومی، کاربر باید `admin` روی `application:aurevia` داشته باشد. صفحات لاگ و
+   آزمایش اتصال مجوزهای مستقل مندرج در بخش ۰.۴ دارند.
+3. ابتدا بخش‌های ۱ تا ۴ را بیاموزید، سپس یک MFE را طبق سناریوی ۱۶.۱ ثبت کنید. Proxy و اتصال
+   خروجی را فقط وقتی بسازید که قرارداد upstream و مالک امنیتی مشخص است.
+4. قبل از هر mutation، ticket، مالک، محیط و برنامه rollback را ثبت کنید. بعد از آن هم وضعیت
+   effective و Audit Log را بررسی کنید؛ پیام «ذخیره شد» به‌تنهایی اثبات اعمال مجوز نیست.
+
+### ۰.۴ نقشه مسیرها و مجوز ورود
+
+| مسیر زیر `/admin` | صفحه | Resource / Action لازم |
+|---|---|---|
+| `operator-guide` | راهنمای فرم‌ها | `application:aurevia / admin` |
+| `ou-access/ous`, `groups`, `applications`, `explain` | دسترسی OU | `application:aurevia / admin` |
+| `access-studio` | استودیوی دسترسی | `application:aurevia / admin` |
+| `panels` | میکروفرانت‌ها | `application:aurevia / admin` |
+| `proxy-routes/targets`, `routes`, `operations` | راهبری Proxy | به‌ترتیب `proxy.target`، `proxy.route`، `proxy.operation / admin` |
+| `outbound-connections`, `outbound-auth` | اتصال و احراز هویت خروجی | `integration.auth-profile / admin` |
+| `integration-test` | آزمایشگاه اتصال | `integration.auth-profile / test` |
+| `superset-instances`, `identity` | Superset و هویت | `application:aurevia / admin` |
+| `logs/api`, `logs/audit` | لاگ‌ها | `business_resource:public-zone-logs / view_api` یا `view_audit` |
+| `superset` | دارایی‌های گزارش | `module:admin.superset-catalog / view` |
+
+### ۰.۵ واژه‌نامه کوتاه
+
+| اصطلاح | تعریف عملی |
+|---|---|
+| Canonical Key | کلید فنی پایدار؛ نام نمایشی نیست و تغییر آن معمولاً migration می‌خواهد |
+| Effective | نتیجه نهایی پس از ترکیب Manifest، override، وضعیت فعال و مجوز کاربر |
+| Immutable | پس از انتشار ویرایش نمی‌شود؛ اصلاح با نسخه جدید انجام می‌شود |
+| Outbox | صف تراکنشی انتقال تغییر دسترسی از دیتابیس به OpenFGA |
+| Allowlist | فهرست مقصدهای مجاز شبکه؛ دفاع اصلی در برابر SSRF |
+| Optimistic Lock | جلوگیری از بازنویسی تغییر هم‌زمان با فیلد داخلی `version` |
+| Soft delete / Deprecated | خروج از استفاده فعال با حفظ سابقه و قابلیت بررسی Audit |
 
 ## ۱. قراردادهای مشترک
 
@@ -104,6 +169,9 @@ Preview و سپس تعداد عضو را با مالک داده تطبیق ده�
 | نام انگلیسی | الزامی | عنوان فنی/بین‌المللی | `Employee list` |
 | دامنه مالک | اختیاری | تیم پاسخ‌گو و مرز bounded context | `hr` |
 | طبقه‌بندی | اختیاری؛ `PUBLIC/INTERNAL/CONFIDENTIAL/RESTRICTED` | برای review امنیت و data policy؛ به‌تنهایی مجوز ایجاد نمی‌کند | `CONFIDENTIAL` |
+| Micro Frontend مالک | اختیاری؛ انتخاب از Panelها | مرز مالکیت resource را مشخص می‌کند. در mode=`MANIFEST` ساخت دستی در production مجاز نیست | `HR` |
+| منبع مالکیت | فقط‌خواندنی؛ `ADMIN` یا `MANIFEST` | تعیین می‌کند چه کسی حق تغییر ساختار و metadata را دارد؛ UI هنگام ساخت دستی `ADMIN` می‌گذارد | `ADMIN` |
+| نمایش در Effective UI Catalog | boolean | فقط visibility در کاتالوگ UI را کنترل می‌کند؛ grant یا کنترل Backend را حذف نمی‌کند | فعال |
 | سامانه خارجی | شرطی برای External | provider دارایی خارجی | `superset` |
 | نوع خارجی | شرطی برای External | نوع object در provider | `dashboard` |
 | شناسه خارجی | شرطی برای External | شناسه immutable در provider | `42` |
@@ -122,6 +190,10 @@ Preview و سپس تعداد عضو را با مالک داده تطبیق ده�
 
 اصل راهبری: grant به Role یا Group بر grant فردی مقدم است. دسترسی فردی فقط برای استثنای
 مستند و زمان‌دار استفاده شود.
+
+منبع `MANIFEST` در حالت عادی از این فرم فقط اجازه تغییر visibility دارد. تغییر نوع، کلید، والد،
+metadata یا action باید با نسخه جدید Manifest منتشر شود. گزینه توسعه‌ای، اگر در تنظیمات محیط
+فعال شده باشد، صرفاً برای توسعه است و انتشار بعدی می‌تواند تغییر را بازنویسی کند.
 
 ## ۵. مدیریت Microfrontend
 
@@ -492,3 +564,168 @@ OU و status قابل مشاهده‌اند اما ایجاد دستی کارب�
 8. Outbox به `APPLIED` رسیده و explain مسیر دسترسی را تأیید می‌کند.
 9. rollback برای artifact، route، profile و grant مشخص است.
 10. Correlation ID تست در ticket است، اما token fingerprint فقط در log محلی نگه داشته می‌شود.
+
+## ۱۶. آموزش گام‌به‌گام سناریوهای اصلی
+
+### ۱۶.۱ از صفر تا نمایش یک Microfrontend
+
+**قبل از شروع:** تیم MFE باید `remoteEntry.js`، نام container، exposed module، نسخه قرارداد
+و manifest معتبر را تحویل داده باشد. URL را در مرورگر باز کنید؛ پاسخ باید JavaScript با status
+200 باشد، نه JSON خطا یا صفحه HTML.
+
+1. در «میکروفرانت‌ها» رکورد جدید بسازید. `slug`، `service_slug` و `route_base_path` به‌ترتیب
+   هویت ماژول، namespace API و مسیر صفحه‌اند و نباید با هم اشتباه شوند.
+2. برای پروژه دارای قرارداد منابع `HYBRID` یا `MANIFEST` را انتخاب کنید؛ برای مهاجرت تدریجی
+   بدون manifest از `MANUAL` استفاده کنید.
+3. رکورد را ابتدا غیرفعال ذخیره و URLها را از شبکه خود سرویس Registry/BFF آزمایش کنید.
+4. Artifact را با نسخه، URL، Remote Name، Exposed Module، Contract، SRI و snapshot منتشر کنید.
+5. artifact را Activate کنید. سپس Fetch/Import، Preview Diff و Publishِ Resource Manifest را
+   انجام دهید. `CONFLICT` را دور نزنید؛ مالکیت یا نسخه را اصلاح کنید.
+6. navigation را بررسی کنید؛ overlay برای نمایش است و جای Resource/Permission را نمی‌گیرد.
+7. در Access Studio، resource/actionها را بررسی و grant لازم را به Role یا Group بدهید.
+8. Panel را فعال و با یک کاربر مجاز و یک کاربر غیرمجاز تست کنید.
+
+**معیار قبولی:** catalog کاربر مجاز Remote Entry کامل، route پیش‌فرض معتبر و navigation مجاز را
+می‌دهد؛ کاربر غیرمجاز نه منو را می‌بیند و نه API محافظت‌شده را اجرا می‌کند.
+
+### ۱۶.۲ ساخت دسترسی سازمانی بر پایه OU
+
+1. از تازه‌بودن Sync و درست‌بودن path در «OUهای سازمانی» مطمئن شوید.
+2. Access Group را با کد پایدار و `ANY_OF` یا `ALL_OF` بسازید.
+3. Ruleها را با `EXACT` یا `SUBTREE` اضافه و برای OU سطح بالا Preview بگیرید.
+4. `wouldAdd` و `wouldRemove` و نمونه اعضای مؤثر را با مالک سازمانی تأیید کنید.
+5. در «دسترسی Microfrontend» برنامه و گروه را انتخاب و VIEWER را Grant کنید.
+6. پس از همگام‌سازی، در «بررسی دسترسی User» مسیر کامل تصمیم را کنترل کنید.
+
+Rollback با revoke کردن grant برنامه یا غیرفعال‌کردن Rule مسئله‌دار انجام می‌شود. چون Rule ممکن
+است روی چند برنامه اثر بگذارد، پیش از آن دامنه اثر را Preview کنید.
+
+### ۱۶.۳ تعریف مجوز دقیق Resource/Action
+
+1. کوچک‌ترین resourceای را انتخاب کنید که Backend واقعاً می‌تواند از آن دفاع کند.
+2. والد را بر اساس دامنه و inheritance تعیین و canonical key را با تیم Backend قطعی کنید.
+3. actionهای لازم را روشن کنید؛ روشن‌کردن action به کسی grant نمی‌دهد.
+4. Subject را ترجیحاً Role یا Group انتخاب و grant کنید. endpoint باید دقیقاً همان
+   `resourceKey/actionKey` را کنترل کند.
+5. تست مثبت و منفی انجام دهید؛ مخفی‌شدن دکمه در UI کنترل امنیت Backend نیست.
+
+### ۱۶.۴ از قرارداد upstream تا Proxy عملیاتی
+
+ترتیب ساخت: **Outbound Connection → Auth Profile → Service Target → Proxy Route → Operation**.
+
+1. origin توکن Legacy را در اتصال خروجی ثبت کنید؛ credential در فرم ننویسید.
+2. برای OAuth2 کاربرمحور `FORWARD_USER_TOKEN` و برای Legacy، حالت
+   `LEGACY_SERVICE_TOKEN` را بسازید و فیلدهای شرطی بخش ۷.۲ را کامل کنید.
+3. Target را با Gateway کنترل‌شده، base path، timeout و سقف پاسخ بسازید و Health را بزنید.
+4. Route را به Panel و Target وصل کنید. `serviceSlug` باید با درخواست MFE زیر
+   `/api/proxy/{serviceSlug}` هماهنگ باشد. Validate و Resolve Test را اجرا کنید.
+5. برای هر method/path یک Operation با resource/action واقعی، سقف body و نیاز مجوز بسازید.
+6. Match Test بگیرید، سپس route و target را فعال و آزمایشگاه اتصال را اجرا کنید.
+
+برای عملیات غیر idempotent retry را فعال نکنید مگر upstream کلید idempotency داشته باشد.
+`Data Policy` فقط ارجاع به policy ازپیش‌تعریف‌شده است؛ این صفحه فرم ساخت policy ندارد.
+
+### ۱۶.۵ راه‌اندازی دسترسی گزارش Superset
+
+1. instanceهای `PUBLIC` و `OPERATION` را با origin، connection reference و auth mode بسازید.
+2. mapping را با public path یکتا ایجاد و در صورت نیاز فقط یکی را پیش‌فرض کنید.
+3. external ID دارایی‌ها را با Superset مقصد تطبیق دهید.
+4. Subject و کمترین سطح دسترسی لازم را در «گزارش‌ها و داشبوردها» انتخاب کنید.
+5. با کاربر آزمایشی، هم catalog و هم دریافت embed/داده را تست کنید.
+
+## ۱۷. راهنمای تصمیم‌گیری
+
+| وضعیت | انتخاب | دلیل |
+|---|---|---|
+| منابع همراه کد MFE نسخه‌بندی می‌شوند | `MANIFEST` | منبع حقیقت واحد و انتشار تکرارپذیر |
+| مهاجرت تدریجی یا منابع تکمیلی دارید | `HYBRID` | مالکیت ADMIN و MANIFEST مستقل می‌ماند |
+| MFE قدیمی و بدون قرارداد است | `MANUAL` | راهبری دستی صریح تا زمان مهاجرت |
+| چند OU مستقل گروه را می‌سازند | `ANY_OF` | عضویت در هر شاخه کافی است |
+| همه معیارهای OU باید برقرار باشند | `ALL_OF` | تقاطع صریح Ruleها |
+| API با توکن همان کاربر کار می‌کند | `FORWARD_USER_TOKEN` | حفظ هویت و scope کاربر |
+| Legacy فقط credential سرویس می‌پذیرد | `LEGACY_SERVICE_TOKEN` | تبادل server-side با secret reference |
+| استثنای کوتاه برای یک نفر | `USER` grant مستند | دامنه محدود ولی نیازمند بازبینی |
+| دسترسی شغلی تکرارشونده | `ROLE` یا Group | حسابرسی و نگهداری ساده‌تر |
+
+## ۱۸. چرخه عمر و وضعیت‌ها
+
+| وضعیت/عمل | برداشت صحیح |
+|---|---|
+| `ACTIVE` | قابل استفاده، مشروط به فعال‌بودن وابستگی‌ها و مجوزها |
+| `DEPRECATED` | خارج از درخت فعال، با سابقه قابل Audit |
+| `PENDING` | Outbox هنوز تغییر را اعمال نکرده؛ نتیجه نهایی فرض نشود |
+| `APPLIED` | OpenFGA همگام شده؛ تست نهایی کاربر همچنان لازم است |
+| `FAILED` | لاگ، Correlation ID و reconciliation باید بررسی شود |
+| Publish | نسخه immutable ثبت می‌شود، الزاماً فعال نمی‌شود |
+| Activate | نسخه منتشرشده مؤثر می‌شود |
+| Revoke | رابطه دسترسی حذف می‌شود، نه هویت یا resource |
+
+## ۱۹. عیب‌یابی بر اساس نشانه
+
+| نشانه | علت محتمل | اقدام |
+|---|---|---|
+| منوی ادمین دیده نمی‌شود | grant route نیست یا context قدیمی است | مجوز بخش ۰.۴، ورود مجدد و پاسخ context را بررسی کنید |
+| `Remote Entry must be a complete http(s) URL` | URL artifact خالی/نسبی یا catalog قدیمی است | URL و نسخه فعال را کنترل و catalog را تازه کنید |
+| MIME برابر JSON و status 500 برای Remote Entry | proxy پاسخ خطا داده، نه JavaScript | `/api/mfe/{slug}/remoteEntry.js` و لاگ BFF/شبکه MFE را بررسی کنید |
+| Manifest Fetch رد می‌شود | allowlist، size/schema یا moduleKey ناسازگار است | origin، content، slug و نسخه را تطبیق دهید |
+| `VERSION_CONFLICT` | تغییر هم‌زمان رخ داده | reload، مقایسه و اعمال دوباره؛ overwrite کور نکنید |
+| target اشتباه resolve می‌شود | prefix/priority یا rewrite هم‌پوشان است | Validate، Resolve Test و Match Test را با path واقعی اجرا کنید |
+| upstream پاسخ 401 می‌دهد | profile یا token transport غلط است | mode، connection/secret ref و expiry را بررسی؛ token را لاگ نکنید |
+| با وجود منو پاسخ 403 است | operation/grant ناقص یا Outbox معطل است | کلیدهای Backend، sync و explain کاربر را بررسی کنید |
+| عضویت OU ناخواسته است | `SUBTREE` گسترده یا combiner غلط است | Preview و source عضویت را بررسی و Rule را غیرفعال کنید |
+| Superset باز نمی‌شود | mapping، external ID یا grant ناسازگار است | instance، mapping و grant را با Correlation ID کنترل کنید |
+
+در ticket زمان، محیط، کاربر، URL بدون secret، نسخه و Correlation ID را ثبت کنید. access token،
+client secret، password و header حساس نباید در تصویر، ticket یا فرم قرار گیرند.
+
+## ۲۰. Runbook کنترل تغییر
+
+**پیش از تغییر:** هدف، مالک، ticket، محیط، کاربران متاثر، مقدار فعلی، نسخه فعال، تست منفی و
+راه rollback را ثبت کنید. **هنگام تغییر:** هر بار یک لایه را عوض کنید، رکورد را در صورت امکان
+غیرفعال بسازید و preview/probe را اجرا کنید. **پس از تغییر:** نتیجه effective را با هویت کم‌اختیار،
+Audit/API Log و وضعیت sync بررسی و نسخه قبلی را تا پایان پایش نگه دارید.
+
+## ۲۱. منابع فنی و مرز اعتبار سند
+
+این راهنما از فرم‌ها و قراردادهای همین مخزن استخراج شده و قابلیت اختراع‌شده ندارد:
+
+- [کاتالوگ routeها و مجوز صفحات](../apps/mfe-admin/src/admin-route-catalog.ts)
+- [استودیوی دسترسی](../apps/mfe-admin/src/AccessStudio.tsx) و [دسترسی OU](../apps/mfe-admin/src/OuAccessManagement.tsx)
+- [مدیریت Microfrontend، Artifact و Manifest](../apps/mfe-admin/src/Panels.tsx)
+- [Target، Route و Operation](../apps/mfe-admin/src/ProxyRoutes.tsx)
+- [اتصال‌های خروجی](../apps/mfe-admin/src/OutboundConnections.tsx) و [پروفایل‌های احراز هویت](../apps/mfe-admin/src/OutboundAuthProfiles.tsx)
+- [آزمایشگاه اتصال](../apps/mfe-admin/src/IntegrationTestLab.tsx)
+- [محیط‌های Superset](../apps/mfe-admin/src/SupersetInstances.tsx) و [دارایی‌ها](../apps/mfe-admin/src/SupersetAssets.tsx)
+- [هویت و نقش](../apps/mfe-admin/src/IdentityAndRoles.tsx) و [لاگ‌ها](../apps/mfe-admin/src/Logs.tsx)
+- [معماری Resource Catalog و Manifest](resource-catalog-manifest-architecture-fa.md)
+
+مرجع نهایی allowlist، TLS، SRI، secret provider و timeout تنظیمات همان محیط است؛ موفقیت فرم
+تضمین نمی‌کند زیرساخت production نیز مقصد را مجاز بداند.
+
+## ۲۲. نمایه نام فنی همه فیلدهای فرم
+
+این نمایه برای تطبیق UI با payload و عیب‌یابی DevTools است. شرح، الزام و مثال هر مورد در جدول
+بخش مربوط آمده است. `version` فیلد مخفی قفل خوش‌بینانه است و نباید دستی تغییر کند.
+
+| فرم | نام فنی فیلدها |
+|---|---|
+| Access Group و Rule | `code`, `name`, `description`, `ruleCombiner`, `ouId`, `matchMode` |
+| دسترسی MFE | `applicationId`, `accessGroupId` |
+| Resource | `type`, `parentId`, `resourceKey`, `nameFa`, `nameEn`, `ownerDomain`, `classification`, `panelId`, `source`, `visibilityEnabled`, `externalSystem`, `externalType`, `externalId` |
+| Grant | `subjectType`, `subjectId`, `actionId`, `relation`, `expiresAt` |
+| Panel | `code`, `slug`, `name_fa`, `name_en`, `description`, `service_slug`, `remote_name`, `remote_entry_path`, `exposed_module`, `route_base_path`, `default_route_id`, `semantic_version`, `contract_version`, `resource_definition_mode`, `classification`, `resource_manifest_url`, `sort_order`, `active` |
+| Artifact | `artifactVersion`, `remoteEntryUrl`, `remoteName`, `exposedModule`, `contractVersion`, `integrity`, `manifest` |
+| Navigation | `key`, `source`, `nodeType`, `title`, `parentKey`, `pageKey`, `externalUrl`, `order`, `hidden` |
+| Service Target | `code`, `name`, `environment`, `outboundAuthProfileId`, `gatewayBaseUrl`, `upstreamBasePath`, `healthCheckPath`, `tlsProfileRef`, `secretRef`, `connectTimeoutMs`, `responseTimeoutMs`, `maxResponseSize`, `active`, `description` |
+| Proxy Route | `code`, `panelId`, `serviceTargetId`, `serviceSlug`, `pathPrefix`, `stripPrefix`, `priority`, `allowedMethods`, `rewritePattern`, `rewriteReplacement`, `retryEnabled`, `maxRetries`, `preserveHost`, `active` |
+| Route Operation | `httpMethod`, `pathPattern`, `resourceKey`, `actionKey`, `dataPolicyKey`, `maxBodyBytes`, `authorizationRequired`, `active` |
+| Resolve/Match probe | `path`, `method` |
+| Outbound Connection | `name`, `connectionRef`, `baseUrl`, `tlsRequired`, `active`, `version` |
+| Outbound Auth Profile | `code`, `name`, `authMode`, `tokenConnectionRef`, `tokenEndpointPath`, `requestFormat`, `credentialTransport`, `credentialSecretRef`, `authorizationScheme`, `tokenResponsePointer`, `tokenTypeResponsePointer`, `expiresInResponsePointer`, `expirySkewSeconds`, `connectTimeoutMs`, `responseTimeoutMs`, `maxTokenResponseSize`, `active`, `description`, `version` |
+| Superset Instance | `code`, `name`, `zone`, `baseUrl`, `connectionRef`, `authMode`, `tlsRequired`, `active`, `version` |
+| Superset Mapping | `publicInstanceId`, `operationInstanceId`, `publicPath`, `isDefault`, `active` |
+| Superset Grant | `subjectType`, `subjectId`, `level` |
+| Role | `roleKey`, `nameFa`, `nameEn` |
+| Role Assignment | `subjectType`, `subjectId`, `roleId` |
+| API Log filters | `serviceName`, `route`, `userId`, `statusCode`, `correlationId` |
+| Audit Log filters | `actorId`, `eventType`, `targetType`, `targetId`, `result`, `correlationId` |
