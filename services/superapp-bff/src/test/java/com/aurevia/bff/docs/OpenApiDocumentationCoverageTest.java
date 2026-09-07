@@ -14,7 +14,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 class OpenApiDocumentationCoverageTest {
   private static final List<String> CONTROLLERS = List.of(
       "AdminProxyController", "CsrfController", "MeController", "ReportsController",
-      "OperationalProxyController", "OperationSupersetProxyController");
+      "OperationalProxyController", "OperationSupersetProxyController",
+      "MicroFrontendArtifactController", "PolicyEvaluationController");
 
   @Test
   void everyBrowserFacingEndpointHasPersianSummary() throws Exception {
@@ -34,6 +35,6 @@ class OpenApiDocumentationCoverageTest {
         }
       }
     }
-    assertTrue(endpoints.get() >= 13, "Controller inventory unexpectedly shrank: " + endpoints);
+    assertTrue(endpoints.get() >= 17, "Controller inventory unexpectedly shrank: " + endpoints);
   }
 }

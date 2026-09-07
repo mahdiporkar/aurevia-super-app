@@ -50,4 +50,31 @@ class MeControllerTest {
           .isEqualTo(CacheControl.noCache().cachePrivate().getHeaderValue());
     }).verifyComplete();
   }
+
+  @Test void contextIsSingleEffectiveContractAndRewritesArtifactsThroughProxy() {
+    AuthorizationServiceClient authorization=mock(AuthorizationServiceClient.class);
+    Map<String,Object> module=Map.of("moduleKey","finance",
+        "remote",Map.of("remoteEntryUrl","https://private.example/remoteEntry.js"),
+        "routes",List.of(Map.of("id","invoices","resource","finance.invoice")),
+        "navigation",List.of(Map.of("key","invoices")));
+    Map<String,Object> body=Map.of("version","manifest-9","expiresAt","2099-01-01T00:00:00Z",
+        "uiCatalog",Map.of("catalogVersion","manifest-9","modules",List.of(module)),
+        "permissions",Map.of("finance.invoice",List.of("view")),"resourceTree",List.of());
+    when(authorization.manifest("https://issuer.example","subject-1")).thenReturn(Mono.just(body));
+
+    var result=new MeController(authorization).context(
+        new SessionIdentity("https://issuer.example","subject-1","operator"));
+
+    StepVerifier.create(result).assertNext(response->{
+      Map<String,Object> context=response.getBody();
+      assertThat(context).isNotNull();
+      assertThat(context.get("allowedApplications")).isEqualTo(List.of("finance"));
+      assertThat(context.get("actions")).isEqualTo(body.get("permissions"));
+      @SuppressWarnings("unchecked") Map<String,Object> catalog=(Map<String,Object>)context.get("uiCatalog");
+      @SuppressWarnings("unchecked") Map<String,Object> effective=(Map<String,Object>)((List<?>)catalog.get("modules")).getFirst();
+      @SuppressWarnings("unchecked") Map<String,Object> remote=(Map<String,Object>)effective.get("remote");
+      assertThat(remote.get("remoteEntryUrl")).isEqualTo("/api/mfe/finance/remoteEntry.js");
+      assertThat(effective.get("manifestUrl")).isEqualTo("/api/mfe/finance/manifest.json");
+    }).verifyComplete();
+  }
 }

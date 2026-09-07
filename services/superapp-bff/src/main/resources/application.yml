@@ -51,6 +51,8 @@ springdoc:
       - name: 2 - سرویس مجوزدهی
         url: /api/v1/docs/authorization/openapi
 aurevia:
+  mfe-proxy:
+    loopback-targets: ${MFE_PROXY_LOOPBACK_TARGETS:}
   documentation:
     max-openapi-bytes: ${OPENAPI_MAX_BYTES:2097152}
   token-vault:

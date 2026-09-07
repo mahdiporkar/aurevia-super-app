@@ -9,6 +9,8 @@ import org.springframework.security.web.server.util.matcher.NegatedServerWebExch
 import org.springframework.security.web.server.util.matcher.OrServerWebExchangeMatcher;
 import org.springframework.security.web.server.util.matcher.PathPatternParserServerWebExchangeMatcher;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.web.server.authentication.RedirectServerAuthenticationEntryPoint;
 
 @Configuration
 class SecurityConfig {
@@ -18,9 +20,19 @@ class SecurityConfig {
     var supersetProxy = new PathPatternParserServerWebExchangeMatcher("/api/v1/superset/**");
     var namedSupersetProxy = new PathPatternParserServerWebExchangeMatcher(
         "/api/v1/superset-instances/**");
+    var loginEntryPoint=new RedirectServerAuthenticationEntryPoint(
+        "/oauth2/authorization/public-iam");
     return http.authorizeExchange(a -> a
           .pathMatchers("/actuator/health/**", "/", "/auth/login", "/auth/callback").permitAll()
           .anyExchange().authenticated())
+        // Fetch/XHR must receive 401; following an OAuth redirect inside fetch becomes a CORS error.
+        .exceptionHandling(errors->errors.authenticationEntryPoint((exchange,failure)->{
+          if(exchange.getRequest().getPath().value().startsWith("/api/")) {
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            return exchange.getResponse().setComplete();
+          }
+          return loginEntryPoint.commence(exchange,failure);
+        }))
         // Superset validates its own CSRF token. All other BFF mutations retain Spring CSRF protection.
         .csrf(csrf -> csrf.requireCsrfProtectionMatcher(new AndServerWebExchangeMatcher(
             CsrfWebFilter.DEFAULT_CSRF_MATCHER,

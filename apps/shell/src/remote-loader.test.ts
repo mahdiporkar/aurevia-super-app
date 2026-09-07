@@ -18,4 +18,14 @@ describe('validateRemoteDescriptor', () => {
     expect(() => validateRemoteDescriptor('aurevia_hr', url, [url], 'md5-YWJjZA==')).toThrow('integrity');
     expect(() => validateRemoteDescriptor('aurevia_hr', url, [url], 'sha384-not a digest')).toThrow('integrity');
   });
+
+  it('accepts only allowlisted same-origin proxy paths', () => {
+    const proxy = '/api/mfe/hr/remoteEntry.js';
+    expect(validateRemoteDescriptor('aurevia_hr', proxy, [proxy], undefined,
+      'http://localhost:8443').href).toBe('http://localhost:8443/api/mfe/hr/remoteEntry.js');
+    expect(() => validateRemoteDescriptor('aurevia_hr', '//evil.test/remoteEntry.js',
+      ['//evil.test/remoteEntry.js'], undefined, 'http://localhost:8443')).toThrow('same-origin');
+    expect(() => validateRemoteDescriptor('aurevia_hr', 'api/mfe/hr/remoteEntry.js',
+      ['api/mfe/hr/remoteEntry.js'], undefined, 'http://localhost:8443')).toThrow('same-origin');
+  });
 });

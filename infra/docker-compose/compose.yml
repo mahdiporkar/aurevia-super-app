@@ -85,6 +85,7 @@ services:
       AUTH_INTERNAL_USER: "${AUTH_INTERNAL_USER:-bff}"
       AUTH_INTERNAL_PASSWORD: "${AUTH_INTERNAL_PASSWORD:-change-me}"
       OPERATION_GATEWAY_URL: "http://operation-gateway:80"
+      MFE_PROXY_LOOPBACK_TARGETS: "3001=http://mfe-admin:8080,3002=http://mfe-hr:8080,3003=http://mfe-finance:8080,3004=http://mfe-reports:8080"
       OIDC_AUTHORIZATION_URI: "http://localhost:8180/realms/aurevia/protocol/openid-connect/auth"
       OIDC_TOKEN_URI: "http://keycloak:8080/realms/aurevia/protocol/openid-connect/token"
       OIDC_JWK_SET_URI: "http://keycloak:8080/realms/aurevia/protocol/openid-connect/certs"

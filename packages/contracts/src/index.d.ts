@@ -105,6 +105,31 @@ export interface EffectiveManifest {
     presentation?: Record<string, PresentationMode>;
     uiCatalog?: UiCatalog;
 }
+export interface EffectiveUserContext extends EffectiveManifest {
+    contractVersion: '1.0';
+    identity: {
+        issuer: string;
+        subject: string;
+        username: string;
+    };
+    tenant: {
+        id: string;
+        name?: string;
+    };
+    organizations: readonly {
+        id: string;
+        name?: string;
+    }[];
+    allowedApplications: readonly string[];
+    allowedMicros: readonly UiModuleDefinition[];
+    dynamicRoutes: readonly (PluginRoute & {
+        moduleKey: string;
+    })[];
+    navigation: readonly UiNavigationNode[];
+    resources: readonly ManifestResource[];
+    actions: Record<string, readonly string[]>;
+    policies: Record<string, unknown>;
+}
 export interface ResourceDefinition {
     key: string;
     type: ResourceType;

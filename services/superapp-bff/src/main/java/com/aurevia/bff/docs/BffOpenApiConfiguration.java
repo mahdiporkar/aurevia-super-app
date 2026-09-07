@@ -27,7 +27,9 @@ public class BffOpenApiConfiguration {
       "ReportsController", "03 - گزارش‌های قابل مشاهده",
       "AdminProxyController", "04 - راهبری و آزمون اتصال",
       "OperationalProxyController", "05 - پراکسی سرویس‌های عملیاتی",
-      "OperationSupersetProxyController", "06 - پراکسی امن Superset");
+      "OperationSupersetProxyController", "06 - پراکسی امن Superset",
+      "MicroFrontendArtifactController", "07 - پراکسی امن Micro Frontend",
+      "PolicyEvaluationController", "08 - ارزیابی پویای سیاست");
 
   private static final Map<String, String> SUMMARIES = summaries();
 
@@ -144,6 +146,10 @@ public class BffOpenApiConfiguration {
       case "MeController#uiCatalog" -> map("catalogVersion","manifest-sha256-demo",
           "contractVersion","1.0","modules",List.of(map("moduleKey","hr",
               "routePrefix","hr","routes",List.of(),"navigation",List.of())));
+      case "MeController#context" -> map("contractVersion","1.0",
+          "identity",map("subject","8e3a7fd6-demo-user","username","ali.rezaei"),
+          "allowedApplications",List.of("hr"),"dynamicRoutes",List.of(),
+          "actions",map("hr.employee",List.of("view")));
       case "ReportsController#reports" -> List.of(map("externalId", "dashboard:42",
           "assetType", "DASHBOARD", "title", "داشبورد فروش روزانه", "level", "VIEWER"));
       case "AdminProxyController#tokenTest" -> map("success", true, "latencyMs", 126,
@@ -180,6 +186,8 @@ public class BffOpenApiConfiguration {
           "gatewayBaseUrl","http://operation-gateway",
           "upstreamBasePath","/hr-service",
           "active",true);
+      case "PolicyEvaluationController#evaluate" -> map("resource","finance.invoice",
+          "action","approve","context",map("branch","tehran","amount",250000));
       default -> null;
     };
   }
@@ -214,6 +222,10 @@ public class BffOpenApiConfiguration {
     m.put("MeController#me", "دریافت هویت کاربر جاری");
     m.put("MeController#manifest", "دریافت Manifest دسترسی کاربر جاری");
     m.put("MeController#uiCatalog", "دریافت کاتالوگ مؤثر Micro Frontend و Navigation");
+    m.put("MeController#context", "دریافت زمینه مؤثر و یکپارچه کاربر");
+    m.put("MicroFrontendArtifactController#manifest", "دریافت Manifest امن میکروفرانت مجاز");
+    m.put("MicroFrontendArtifactController#artifact", "دریافت Artifact امن میکروفرانت مجاز");
+    m.put("PolicyEvaluationController#evaluate", "ارزیابی پویای سیاست برای کاربر جاری");
     m.put("ReportsController#reports", "فهرست گزارش‌ها و داشبوردهای مجاز");
     m.put("AdminProxyController#tokenTest", "آزمون دریافت token پروفایل Legacy بدون افشای token");
     m.put("AdminProxyController#connectionTest", "آزمون policy و اتصال پروفایل Legacy");
