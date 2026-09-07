@@ -34,6 +34,7 @@
 26. [Swagger و OpenAPI فارسی همه سرویس‌های Backend](swagger-openapi-fa.md)
 27. [سیاست تولید و خروجی قرارداد OpenAPI](openapi/)
 28. [قرارداد مؤثر UI Catalog و مسیریابی واقعی Admin MFE](effective-ui-catalog-and-admin-routing-fa.md)
+29. [راهنما و گزارش آزمون End-to-End تمام صفحات راهبری](admin-governance-e2e-test-guide-fa.md)
 
 ## نقشه مستندات
 
@@ -46,6 +47,7 @@
 | آیا Session مرورگر همان توکن Keycloak است و کجا نگهداری می‌شود؟ | [operational-token-forwarding-fa.md#تفاوت-session-مرورگر-با-توکن-keycloak](operational-token-forwarding-fa.md#تفاوت-session-مرورگر-با-توکن-keycloak) |
 | کاربر، گروه، نقش، منبع و action چه تفاوتی دارند؟ | [access-control-fa.md](access-control-fa.md) |
 | هر فیلد و کنترل در فرم‌های میکرو راهبری چه معنا، محدودیت و اثر امنیتی دارد؟ | [operator-admin-form-field-guide-fa.md](operator-admin-form-field-guide-fa.md) |
+| تمام ۱۸ صفحه و ۱۱۸ فیلد راهبری چگونه End-to-End تست و گزارش می‌شوند؟ | [admin-governance-e2e-test-guide-fa.md](admin-governance-e2e-test-guide-fa.md) |
 | دسترسی یک Micro Frontend چگونه مستقیم یا از طریق نقش/گروه داده می‌شود؟ | [access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش](access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش) |
 | دموی دو کاربر با دسترسی متفاوت به صفحات HR و Finance چگونه اجرا می‌شود؟ | [two-page-openfga-demo-fa.md](two-page-openfga-demo-fa.md) |
 | Shell چه کاری انجام می‌دهد و MFEها را چگونه بارگذاری می‌کند؟ | [shell-runtime-and-mfe-loading-fa.md](shell-runtime-and-mfe-loading-fa.md) |
