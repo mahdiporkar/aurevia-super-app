@@ -116,7 +116,7 @@ npm run infra:verify
 - Flyway حداقل تا آخرین migration شناخته‌شده رسیده باشد؛
 - outbox pending یا dead-letter نداشته باشد؛
 - dry-run reconciliation هیچ tuple گمشده یا غیرمنتظره‌ای نداشته باشد؛
-- artifact فعال ADMIN نسخه `0.2.0`، قرارداد `1.0` و هر ۱۸ route نسبی را داشته باشد؛
+- artifact فعال ADMIN نسخه `0.3.0`، قرارداد `1.0` و هر ۱۸ route نسبی را داشته باشد؛
 - `administrator` روی `application:aurevia/admin` دارای `can_view` باشد؛
 - روی `application:aurevia` دارای `can_manage` باشد (شرط اعطا/ویرایش)؛
 - از زنجیره V49 روی `proxy.target`، `proxy.route`، `proxy.operation` و

@@ -19,8 +19,11 @@ async function json(url, init) {
   return response.json();
 }
 async function waitForOpenFga() {
-  for (let attempt = 0; attempt < 40; attempt++) {
-    try { const response = await fetch(`${apiUrl}/healthz`); if (response.ok) return; } catch {}
+  for (let attempt = 0; attempt < 60; attempt++) {
+    try {
+      const response = await fetch(`${apiUrl}/healthz`, { signal: AbortSignal.timeout(2000) });
+      if (response.ok) return;
+    } catch {}
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
   fail(`health endpoint ${apiUrl}/healthz did not become ready`);

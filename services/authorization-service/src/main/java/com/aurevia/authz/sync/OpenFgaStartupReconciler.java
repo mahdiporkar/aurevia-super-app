@@ -17,13 +17,25 @@ import org.springframework.stereotype.Component;
 public final class OpenFgaStartupReconciler {
   private static final Logger log=LoggerFactory.getLogger(OpenFgaStartupReconciler.class);
   private final OpenFgaReconciliationService reconciliation;
+  private final OutboxReconciler outbox;
+  private final OutboxMetricsRepository metrics;
 
-  public OpenFgaStartupReconciler(OpenFgaReconciliationService reconciliation) {
-    this.reconciliation=reconciliation;
+  public OpenFgaStartupReconciler(OpenFgaReconciliationService reconciliation,
+      OutboxReconciler outbox,OutboxMetricsRepository metrics) {
+    this.reconciliation=reconciliation;this.outbox=outbox;this.metrics=metrics;
   }
 
   @EventListener(ApplicationReadyEvent.class)
   public void repairAndVerify() {
+    // A fresh database contains historical bootstrap events. Drain them before treating the
+    // relational tables as the final source of truth; otherwise the scheduler can replay an old
+    // tuple between repair and verification and make a clean install fail nondeterministically.
+    int batches=0;
+    while(metrics.pending()>0&&batches++<100) outbox.reconcile();
+    if(metrics.pending()>0||metrics.deadLettered()>0) {
+      throw new IllegalStateException("OpenFGA startup outbox did not drain: pending="
+          +(long)metrics.pending()+", deadLettered="+(long)metrics.deadLettered());
+    }
     var repair=reconciliation.reconcile(true);
     var verification=reconciliation.reconcile(false);
     if(!verification.missing().isEmpty()||!verification.unexpected().isEmpty()) {

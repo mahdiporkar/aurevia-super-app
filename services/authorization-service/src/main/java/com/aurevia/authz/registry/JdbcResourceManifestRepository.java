@@ -32,13 +32,15 @@ class JdbcResourceManifestRepository implements ResourceManifestRepository {
         )
         select t.resource_key,t.type::text,p.resource_key parent_key,t.name_fa,t.name_en,
           t.owner_domain,t.classification,t.status::text,t.source,t.metadata::text,
-          coalesce(array_agg(a.action_key order by a.action_key)
-            filter(where a.id is not null),array[]::varchar[]) actions,
+          coalesce(actions.action_keys,array[]::varchar[]) actions,
           t.external_system,t.external_type,t.external_id
         from tree t left join resource p on p.id=t.parent_id
-        left join resource_action ra on ra.resource_id=t.id
-        left join action a on a.id=ra.action_id
-        group by t.id,p.resource_key order by t.resource_key
+        left join lateral (
+          select array_agg(a.action_key order by a.action_key) action_keys
+          from resource_action ra join action a on a.id=ra.action_id
+          where ra.resource_id=t.id
+        ) actions on true
+        order by t.resource_key
         """).param("root",rootKey).query((result,row)->new ResourceDefinition(
             result.getString("resource_key"),result.getString("type"),
             result.getString("parent_key"),result.getString("name_fa"),
