@@ -1,0 +1,42 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22.15.0, cache: npm}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: 21, cache: maven}
+      - run: npm ci
+      - run: npm run typecheck && npm test && npm run build
+      - run: npm audit --audit-level=high
+      - run: ./mvnw -B clean verify
+      - name: Package immutable artifacts
+        run: |
+          mkdir release
+          tar -czf release/aurevia-frontends-${GITHUB_REF_NAME}.tar.gz \
+            apps/shell/dist apps/mfe-admin/dist apps/mfe-hr/dist apps/mfe-finance/dist apps/mfe-reports/dist showcase
+          cp services/superapp-bff/target/superapp-bff-0.1.0.jar release/
+          cp services/authorization-service/target/authorization-service-0.1.0.jar release/
+          npm sbom --sbom-format cyclonedx > release/npm-sbom.cdx.json
+          sha256sum release/* > release/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aurevia-${{ github.ref_name }}
+          path: release/
+          if-no-files-found: error
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/*
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/* --verify-tag --generate-notes

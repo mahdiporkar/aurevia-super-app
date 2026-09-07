@@ -113,3 +113,26 @@ Fetch سمت سرور با خطای `resource_key must appear in GROUP BY` پا�
 secretها خارج از repository مدیریت شوند، TLS/CSP/rate-limit فعال باشد، seed نمونه خاموش باشد،
 browser matrix برای ۱۱۸ فیلد سبز شود و سپس هر دو فرمان `infra:verify` و
 `infra:verify:token-proxy` روی محیط ephemeral صفر اجرا و artifact شواهد در CI نگهداری شود.
+
+## تکمیل gateهای Release نسخه 0.1.0
+
+در ادامه همان ممیزی، موارد زیر نیز در ۲۰۲۶-۰۹-۰۸ اجرا و ثبت شدند:
+
+- GitHub Pages که در repository غیرفعال بود با `build_type=workflow` فعال شد؛ workflow شماره
+  `34168464015` موفق و root عمومی، `styles.css` و `app.js` همگی ۲۰۰ شدند.
+- `npm run release:verify:runtime` اضافه شد: شش header/رفتار امنیتی، fail-closed بدون session،
+  تمام ۱۸ deep-link و assetهای Live را کنترل می‌کند.
+- دو اجرای probe هم‌زمان ۲۰۰ درخواستی، هر دو صفر failure داشتند؛ P95 به‌ترتیب حدود ۱۷۱۰ و
+  ۱۳۲۴ میلی‌ثانیه بود. این یک release smoke محدود است و جای load/soak ظرفیت‌سنجی را نمی‌گیرد.
+- Authorization Service عمداً restart شد، پس از ۳۵ ثانیه healthy شد و سپس migration، outbox،
+  OpenFGA drift و دسترسی administrator دوباره موفق بودند.
+- جریان کامل token proxy دوباره Login، session بدون token، Manifest، Legacy miss/hit، OAuth2،
+  Superset و Draft/Preview را با موفقیت تأیید کرد.
+- نسخه Maven از `0.1.0-SNAPSHOT` به `0.1.0` تبدیل شد و workflow tag-based برای تولید archive،
+  JAR، npm CycloneDX SBOM، SHA-256، build provenance و GitHub Release اضافه شد.
+
+### وضعیت انتشار
+
+کد و artifactهای نسخه `0.1.0` یک **release source قابل تکرار** هستند. tag نهایی Production نباید
+پیش از ارائه certificate/secret manager و شواهد HA/PITR/restore محیط مقصد ایجاد شود. هشدارهای
+bundle بزرگ Webpack نیز همچنان debt کارایی‌اند؛ build موفق است اما performance budget نهایی نیست.

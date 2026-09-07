@@ -5,6 +5,8 @@
 
 **[Live product showcase](https://mahdiporkar.github.io/aurevia-super-app/)** — a standalone, data-free demonstration of the Aurevia experience and architecture.
 
+Release history and deployment constraints are recorded in [CHANGELOG.md](CHANGELOG.md).
+
 > راهنمای مرزهای اعتماد، جریان توکن، کنترل دسترسی و الزامات انتشار Production: [Enterprise Production Readiness (FA)](docs/enterprise-production-readiness-fa.md)
 
 Production-shaped, Persian-first enterprise super-app monorepo. The browser talks only to the same-origin BFF; tokens remain encrypted on the server. Authorization is evaluated by the Authorization Service and OpenFGA. Token Exchange is deliberately absent.
