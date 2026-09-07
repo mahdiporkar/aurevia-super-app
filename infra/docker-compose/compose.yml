@@ -35,6 +35,8 @@ services:
     image: aurevia/authorization-service:local
     build: {context: ../.., dockerfile: services/authorization-service/Dockerfile}
     environment:
+      SPRING_PROFILES_ACTIVE: dev
+      RESOURCE_TREE_DEVELOPMENT_MUTATIONS_ENABLED: "${RESOURCE_TREE_DEVELOPMENT_MUTATIONS_ENABLED:-false}"
       AUTH_DB_URL: "jdbc:postgresql://auth-db:5432/aurevia_auth"
       POSTGRES_AUTH_USER: aurevia
       POSTGRES_AUTH_PASSWORD: "${POSTGRES_AUTH_PASSWORD:-change-me}"

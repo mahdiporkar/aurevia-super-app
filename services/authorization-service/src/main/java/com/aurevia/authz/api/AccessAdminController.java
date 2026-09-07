@@ -22,6 +22,13 @@ public class AccessAdminController {
   @GetMapping("/resource-types")
   public Set<String> resourceTypes() { return AccessAdministrationService.RESOURCE_TYPES; }
 
+  @GetMapping("/resource-tree/capabilities")
+  public ResourceTreeCapabilities resourceTreeCapabilities() {
+    return new ResourceTreeCapabilities(service.developmentMutationsEnabled());
+  }
+
+  public record ResourceTreeCapabilities(boolean developmentMutationsEnabled) {}
+
   @GetMapping({"/resources", "/resource-tree"})
   public List<ResourceView> resources() { return service.resources(); }
 

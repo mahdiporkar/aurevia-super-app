@@ -47,13 +47,18 @@ public class AccessAdministrationService {
   private final AccessRepository repository;
   private final AuthorizationSemanticsRegistry semantics;
   private final AuditTrail auditTrail;
+  private final ResourceTreeDevelopmentPolicy developmentPolicy;
 
   public AccessAdministrationService(AccessRepository repository,
-      AuthorizationSemanticsRegistry semantics, AuditTrail auditTrail) {
+      AuthorizationSemanticsRegistry semantics, AuditTrail auditTrail,
+      ResourceTreeDevelopmentPolicy developmentPolicy) {
     this.repository = repository;
     this.semantics = semantics;
     this.auditTrail = auditTrail;
+    this.developmentPolicy = developmentPolicy;
   }
+
+  public boolean developmentMutationsEnabled() { return developmentPolicy.enabled(); }
 
   public List<ResourceView> resources() { return repository.resources(); }
   public List<ActionView> actions() { return repository.actions(); }
@@ -71,7 +76,7 @@ public class AccessAdministrationService {
       throw new IllegalArgumentException("manifest-owned resources can only be created by the manifest publish workflow");
     }
     validateResource(normalized, null);
-    ensureManualCreationAllowed(normalized.panelId());
+    if(!developmentPolicy.enabled()) ensureManualCreationAllowed(normalized.panelId());
     UUID id = UUID.randomUUID();
     repository.createResource(id, normalized, "ADMIN");
     repository.enqueueParent(id, normalized.parentId(), "RESOURCE_PARENT_WRITE");
@@ -101,11 +106,11 @@ public class AccessAdministrationService {
     if(!Objects.equals(previous.panelId(),normalized.panelId())) {
       throw new IllegalArgumentException("resource micro frontend ownership is immutable");
     }
-    if("MANIFEST".equals(previous.source())
+    if(!developmentPolicy.enabled()&&"MANIFEST".equals(previous.source())
         &&!Objects.equals(previous.parentId(),normalized.parentId())) {
       throw new IllegalArgumentException("parent of a manifest-owned resource is managed by manifest publish");
     }
-    if("MANIFEST".equals(previous.source())&&!sameManifestDefinition(previous,normalized)) {
+    if(!developmentPolicy.enabled()&&"MANIFEST".equals(previous.source())&&!sameManifestDefinition(previous,normalized)) {
       throw new IllegalArgumentException(
           "manifest-owned metadata and supported actions are managed by manifest publish");
     }
@@ -126,12 +131,16 @@ public class AccessAdministrationService {
   public void deprecateResource(UUID id,long version,String actor) {
     ResourceSnapshot resource=repository.resource(id).orElseThrow(()->
         new ResponseStatusException(HttpStatus.NOT_FOUND,"Resource not found"));
-    if(!"ADMIN".equals(resource.source())) {
+    if(!developmentPolicy.enabled()&&!"ADMIN".equals(resource.source())) {
       throw new IllegalArgumentException("manifest-owned resources are deprecated only by a manifest publish");
     }
-    if(repository.deprecateResource(id,version)!=1) {
+    if(repository.hasActiveChildren(id)) {
+      throw new IllegalArgumentException("resource with active children cannot be deprecated; remove its children first");
+    }
+    if(repository.deprecateResource(id,version,developmentPolicy.enabled())!=1) {
       throw new OptimisticLockingFailureException("resource changed or missing");
     }
+    repository.enqueueParent(id,resource.parentId(),"RESOURCE_PARENT_DELETE");
     audit(actor,"RESOURCE_DEPRECATED","resource",resource.resourceKey());
   }
 
@@ -280,7 +289,7 @@ public class AccessAdministrationService {
   private void ensureAdministratorOwnedResource(UUID resourceId) {
     ResourceSnapshot resource=repository.resource(resourceId).orElseThrow(()->
         new ResponseStatusException(HttpStatus.NOT_FOUND,"Resource not found"));
-    if(!"ADMIN".equals(resource.source())) {
+    if(!developmentPolicy.enabled()&&!"ADMIN".equals(resource.source())) {
       throw new IllegalArgumentException(
           "supported actions of a manifest-owned resource are managed by manifest publish");
     }

@@ -12,6 +12,8 @@ server:
 spring.lifecycle.timeout-per-shutdown-phase: 30s
 springdoc.api-docs.enabled: false
 aurevia:
+  resource-tree:
+    development-mutations-enabled: false
   demo-data:
     enabled: false
   internal:

@@ -18,9 +18,10 @@ public interface AccessRepository {
   Optional<String> panelResourceMode(UUID panelId);
   boolean resourceExists(UUID id);
   boolean resourceHierarchyContains(UUID ancestorId, UUID candidateId);
+  boolean hasActiveChildren(UUID resourceId);
   void createResource(UUID id, ResourceCommand command, String normalizedSource);
   int updateResource(UUID id, long version, ResourceCommand command, String normalizedSource);
-  int deprecateResource(UUID id,long version);
+  int deprecateResource(UUID id,long version,boolean includeManifestOwned);
   void createAction(UUID id, ActionCommand command);
   void attachAction(UUID resourceId, UUID actionId);
   void detachAction(UUID resourceId, UUID actionId);

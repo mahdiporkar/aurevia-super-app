@@ -151,6 +151,11 @@ public class JdbcAccessRepository implements AccessRepository {
         .query(Long.class).single() > 0;
   }
 
+  @Override public boolean hasActiveChildren(UUID resourceId) {
+    return database.sql("select count(*) from resource where parent_id=:id and status='ACTIVE'")
+        .param("id",resourceId).query(Long.class).single()>0;
+  }
+
   @Override
   public void createResource(UUID id, ResourceCommand c, String source) {
     database.sql("""
@@ -186,11 +191,12 @@ public class JdbcAccessRepository implements AccessRepository {
         .param("metadata", write(c.metadata())).update();
   }
 
-  @Override public int deprecateResource(UUID id,long version) {
+  @Override public int deprecateResource(UUID id,long version,boolean includeManifestOwned) {
     return database.sql("""
         update resource set status='DEPRECATED',version=version+1,updated_at=now()
-        where id=:id and version=:version and source='ADMIN'
-        """).param("id",id).param("version",version).update();
+        where id=:id and version=:version and (source='ADMIN' or :includeManifest)
+        """).param("id",id).param("version",version)
+        .param("includeManifest",includeManifestOwned).update();
   }
 
   @Override public void createAction(UUID id, ActionCommand c) {
