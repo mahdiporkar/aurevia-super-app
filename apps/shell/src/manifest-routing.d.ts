@@ -5,6 +5,7 @@ export interface CatalogMenuItem {
     parentNavigationKey?: string;
     type: 'GROUP' | 'PAGE' | 'EXTERNAL_LINK';
     title: string;
+    description?: string;
     icon?: string;
     order: number;
     module: UiModuleDefinition;

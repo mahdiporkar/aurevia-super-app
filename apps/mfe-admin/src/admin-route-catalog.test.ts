@@ -19,6 +19,16 @@ describe('Admin route catalog',()=>{
     expect(ADMIN_PAGE_ROUTES).toHaveLength(18);
   });
 
+  it('publishes one right-side menu link for every standalone page',()=>{
+    expect(ADMIN_PUBLISHED_MANIFEST.menus).toHaveLength(ADMIN_PAGE_ROUTES.length);
+    expect(ADMIN_PUBLISHED_MANIFEST.menus.map(menu=>menu.routeId))
+      .toEqual(ADMIN_PAGE_ROUTES.map(route=>route.id));
+    expect(new Set(ADMIN_PUBLISHED_MANIFEST.menus.map(menu=>menu.routeId)).size)
+      .toBe(ADMIN_PAGE_ROUTES.length);
+    expect(ADMIN_PUBLISHED_MANIFEST.menus.every(menu=>menu.title.length>=8)).toBe(true);
+    expect(ADMIN_PUBLISHED_MANIFEST.menus.every(menu=>(menu.description?.length??0)>=20)).toBe(true);
+  });
+
   it.each([
     ['ou-access/groups','ou-access-groups'],
     ['proxy-routes/operations','proxy-operations'],

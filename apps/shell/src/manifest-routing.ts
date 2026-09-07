@@ -6,6 +6,7 @@ export interface CatalogMenuItem {
   parentNavigationKey?:string;
   type:'GROUP'|'PAGE'|'EXTERNAL_LINK';
   title:string;
+  description?:string;
   icon?:string;
   order:number;
   module:UiModuleDefinition;
@@ -25,21 +26,21 @@ export function catalogMenuItems(modules:readonly UiModuleDefinition[]):CatalogM
   for(const module of modules) {
     const navigation=module.navigation?.length?module.navigation:module.menus.map(item=>({
       key:item.id,type:'PAGE' as const,parentKey:item.parentId,pageKey:item.routeId,
-      title:item.title,icon:item.icon,order:item.order,source:'MANIFEST' as const,
+      title:item.title,description:item.description,icon:item.icon,order:item.order,source:'MANIFEST' as const,
     }));
     for(const item of navigation) {
       const navigationKey=`${module.registrationId}:${item.key}`;
       const parentNavigationKey=item.parentKey?`${module.registrationId}:${item.parentKey}`:undefined;
       if(item.type==='GROUP')result.push({key:`group:${navigationKey}`,navigationKey,
-        parentNavigationKey,type:item.type,title:item.title,icon:item.icon??module.icon,
+        parentNavigationKey,type:item.type,title:item.title,description:item.description,icon:item.icon??module.icon,
         order:item.order,module});
       else if(item.type==='EXTERNAL_LINK'&&item.externalUrl)result.push({key:item.externalUrl,
-        navigationKey,parentNavigationKey,type:item.type,title:item.title,
+        navigationKey,parentNavigationKey,type:item.type,title:item.title,description:item.description,
         icon:item.icon??module.icon,order:item.order,module});
       else if(item.type==='PAGE') {
         const route=module.routes.find(candidate=>candidate.id===item.pageKey);
         if(route)result.push({key:composeModulePath(module,route.path),navigationKey,
-          parentNavigationKey,type:'PAGE',title:item.title,
+          parentNavigationKey,type:'PAGE',title:item.title,description:item.description,
           icon:item.icon??module.icon,order:item.order,module});
       }
     }

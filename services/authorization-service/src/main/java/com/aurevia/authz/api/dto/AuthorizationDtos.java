@@ -28,10 +28,11 @@ public final class AuthorizationDtos {
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record UiRoute(String id,String path,String title,String resource,String action) {}
   @JsonInclude(JsonInclude.Include.NON_NULL)
-  public record UiMenu(String id,String parentId,String routeId,String title,String icon,int order) {}
+  public record UiMenu(String id,String parentId,String routeId,String title,String description,
+      String icon,int order) {}
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record UiNavigation(String key,String type,String parentKey,String pageKey,String title,
-      String icon,int order,String externalUrl,String source) {}
+      String description,String icon,int order,String externalUrl,String source) {}
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record RemoteDescriptor(String remoteEntryUrl,String remoteName,String exposedModule,
       String contractVersion,String artifactVersion,String integrity) {}

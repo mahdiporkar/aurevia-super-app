@@ -156,6 +156,7 @@ public class AuthorizationDecisionService {
         candidates.put(key,new NavigationCandidate(key,type,
             preferredText(item,"parentKey","parentId"),page,
             override!=null&&override.title()!=null?override.title():textOrDefault(item,"title",key),
+            textOrNull(item,"description"),
             override!=null&&override.icon()!=null?override.icon():textOrNull(item,"icon"),
             override!=null&&override.sortOrder()!=null?override.sortOrder():item.path("order").asInt(0),
             textOrNull(item,"externalUrl"),"MANIFEST",override!=null&&override.hidden()));
@@ -166,13 +167,14 @@ public class AuthorizationDecisionService {
         candidates.put(key,new NavigationCandidate(key,"PAGE",textOrNull(item,"parentId"),
             item.path("routeId").asText(),
             override!=null&&override.title()!=null?override.title():item.path("title").asText(),
+            textOrNull(item,"description"),
             override!=null&&override.icon()!=null?override.icon():textOrNull(item,"icon"),
             override!=null&&override.sortOrder()!=null?override.sortOrder():item.path("order").asInt(0),
             null,"MANIFEST",override!=null&&override.hidden()));
       }
       overrides.values().stream().filter(value->"ADMIN".equals(value.source())).forEach(value->
           candidates.put(value.menuId(),new NavigationCandidate(value.menuId(),value.nodeType(),
-              value.parentKey(),value.pageKey(),value.title(),value.icon(),
+              value.parentKey(),value.pageKey(),value.title(),null,value.icon(),
               value.sortOrder()==null?0:value.sortOrder(),value.externalUrl(),"ADMIN",value.hidden())));
       Map<String,NavigationCandidate> visible=new LinkedHashMap<>();
       candidates.values().stream().filter(item->!item.hidden())
@@ -192,10 +194,10 @@ public class AuthorizationDecisionService {
       List<UiNavigation> navigation=visible.values().stream()
           .sorted(Comparator.comparingInt(NavigationCandidate::order))
           .map(item->new UiNavigation(item.key(),item.type(),item.parentKey(),item.pageKey(),
-              item.title(),item.icon(),item.order(),item.externalUrl(),item.source())).toList();
+              item.title(),item.description(),item.icon(),item.order(),item.externalUrl(),item.source())).toList();
       List<UiMenu> menus=new ArrayList<>(navigation.stream().filter(item->"PAGE".equals(item.type()))
           .map(item->new UiMenu(item.key(),item.parentKey(),item.pageKey(),item.title(),
-              item.icon(),item.order())).toList());
+              item.description(),item.icon(),item.order())).toList());
       menus.sort(Comparator.comparingInt(UiMenu::order));
       String declaredDefault=textOrNull(manifest,"defaultRouteId");
       String defaultRouteId=routeIds.contains(declaredDefault)?declaredDefault:
@@ -237,7 +239,8 @@ public class AuthorizationDecisionService {
   }
 
   private record NavigationCandidate(String key,String type,String parentKey,String pageKey,
-      String title,String icon,int order,String externalUrl,String source,boolean hidden) {}
+      String title,String description,String icon,int order,String externalUrl,String source,
+      boolean hidden) {}
 
   private String manifestVersion(Object panels,Object permissions,Object resources,Object modules) {
     try {

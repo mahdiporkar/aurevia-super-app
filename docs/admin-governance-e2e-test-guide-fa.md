@@ -187,7 +187,7 @@ Rollback result:
 |---|---|
 | `npm test` پیش از افزودن regression جدید | ۳۱ تست موفق، صفر شکست |
 | `.\mvnw.cmd test` | ۱۳۵ تست موفق (۳۰ BFF + ۱۰۵ Authorization)، صفر شکست |
-| `npm run infra:verify` | موفق؛ V52+، Outbox بدون pending/dead-letter، drift صفر، ADMIN artifact `0.2.0` و دسترسی مؤثر administrator |
+| `npm run infra:verify` | موفق؛ V53+، Outbox بدون pending/dead-letter، drift صفر، ADMIN artifact `0.3.0` و دسترسی مؤثر administrator |
 | Edge smoke برای ۱۸ صفحه | همه `200 text/html` |
 | Remote Entry بدون نشست برای admin/hr/finance/reports | همه 401؛ مرز authentication برقرار |
 | Browser interactive automation | اجرا نشد؛ محدودیت runner، نه نتیجه Pass |

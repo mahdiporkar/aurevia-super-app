@@ -1,7 +1,7 @@
 import React from'react';
 import{createRoot}from'react-dom/client';
-import{Alert,Card,Tabs,Typography}from'antd';
-import{Navigate,Route,Routes,useLocation,useNavigate}from'react-router-dom';
+import{Alert}from'antd';
+import{Navigate,Route,Routes}from'react-router-dom';
 import type{HostRuntime,MicroFrontendProps,RemoteContext}from'@aurevia/contracts';
 import{AccessStudio}from'./AccessStudio';
 import{IntegrationTestLab}from'./IntegrationTestLab';
@@ -17,8 +17,8 @@ import{SupersetInstances}from'./SupersetInstances';
 import{IdentityAndRoles}from'./IdentityAndRoles';
 import{adminApi}from'./api';
 import{
-  ADMIN_PUBLISHED_MANIFEST,authorizedAdminPages,defaultAdminPage,internalPathname,
-  type AdminPageDefinition,type AdminSectionKey,
+  ADMIN_PUBLISHED_MANIFEST,authorizedAdminPages,defaultAdminPage,
+  type AdminPageDefinition,
 }from'./admin-route-catalog';
 
 export const contractVersion='1.0' as const;
@@ -48,50 +48,27 @@ function Page({page}:{page:AdminPageDefinition}) {
   }
 }
 
-function sectionPages(pages:readonly AdminPageDefinition[],section:AdminSectionKey) {
-  return pages.filter(page=>page.section===section);
-}
-
 export function App({runtime,manifest}:MicroFrontendProps) {
-  const location=useLocation(),navigate=useNavigate();
   const module=manifest.uiCatalog?.modules.find(item=>item.moduleKey===runtime.moduleKey);
   const pages=runtime.mode==='standalone'
     ?authorizedAdminPages(undefined)
     :authorizedAdminPages(module?module.routes.map(route=>route.id):manifest.uiCatalog?[]:undefined,
         manifest.uiCatalog?undefined:manifest.permissions);
   const defaultPage=defaultAdminPage(pages,module?.defaultRouteId);
-  const base=runtime.mode==='embedded'?runtime.navigation.getModuleBasePath():'';
-  const internalPath=internalPathname(location.pathname,base);
-  const activePage=pages.find(page=>page.path===internalPath);
-  const activeSection=activePage?.section??pages.find(page=>internalPath===page.section||
-    internalPath.startsWith(`${page.section}/`))?.section;
-  const sections=pages.reduce<Array<{key:AdminSectionKey;label:string;page:AdminPageDefinition}>>(
+  const sections=pages.reduce<Array<{key:string;page:AdminPageDefinition}>>(
     (result,page)=>{
       if(!result.some(item=>item.key===page.section)) {
-        result.push({key:page.section,label:page.sectionTitle,page});
+        result.push({key:page.section,page});
       }
       return result;
     },[]);
-  const go=(path:string)=>runtime.mode==='embedded'
-    ?runtime.navigation.navigate(path):navigate(`/${path}`);
-  const childPages=activeSection?sectionPages(pages,activeSection):[];
   const groupRedirects=sections.filter(item=>item.page.path!==item.key);
 
   if(!pages.length) return <Alert type="warning" showIcon
     message="هیچ صفحه مجازی برای این ماژول وجود ندارد"
     description="دسترسی صفحه‌ای از OpenFGA دریافت نشده است."/>;
 
-  return <Card>
-    <Typography.Title level={3}>مرکز مدیریت Aurevia</Typography.Title>
-    <Alert showIcon type="info" message={pages.some(page=>page.id!=='superset')
-      ?'تعریف میکروفرانت، مدل‌سازی منابع و مدیریت دسترسی مبتنی بر OU'
-      :'راهبری گزارش‌ها و داشبوردهای مجاز'}/>
-    <Tabs style={{marginTop:16}} activeKey={activeSection}
-      onChange={key=>go(sections.find(item=>item.key===key)!.page.path)}
-      items={sections.map(item=>({key:item.key,label:item.label}))}/>
-    {childPages.length>1&&<Tabs size="small" activeKey={activePage?.id}
-      onChange={id=>go(pages.find(page=>page.id===id)!.path)}
-      items={childPages.map(page=>({key:page.id,label:page.title}))}/>}
+  return <>
     <Routes>
       <Route index element={defaultPage?<Navigate to={defaultPage.path} replace/>:null}/>
       {groupRedirects.map(item=><Route key={`${item.key}-index`} path={item.key}
@@ -101,7 +78,7 @@ export function App({runtime,manifest}:MicroFrontendProps) {
         message="صفحه مدیریت یافت نشد"
         description="مسیر در کاتالوگ مؤثر این کاربر وجود ندارد."/>}/>
     </Routes>
-  </Card>;
+  </>;
 }
 
 /** Compatibility export for consumers that still call mount directly. */

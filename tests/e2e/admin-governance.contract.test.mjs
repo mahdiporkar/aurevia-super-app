@@ -34,6 +34,13 @@ test('all 18 governance pages remain published with explicit authorization metad
   assert.equal((source.match(/\{id:'[^']+',path:'[^']+'/g)??[]).length,18,'route inventory changed; update the E2E matrix and guide');
 });
 
+test('admin navigation uses the Shell side menu and does not render tab navigation',async()=>{
+  const bootstrap=await read('apps/mfe-admin/src/bootstrap.tsx');
+  const catalog=await read('apps/mfe-admin/src/admin-route-catalog.ts');
+  assert.doesNotMatch(bootstrap,/<Tabs\b|\bTabs[,}]/,'Admin MFE must not render top-level or nested tabs');
+  assert.match(catalog,/ADMIN_MENUS[^=]*=ADMIN_PAGE_ROUTES\.map/,'every page must publish a Shell menu entry');
+});
+
 test('every governance form exposes the documented field inventory',async()=>{
   const guide=await read('docs/operator-admin-form-field-guide-fa.md');
   const observed=new Set();

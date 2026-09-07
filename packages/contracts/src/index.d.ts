@@ -12,6 +12,7 @@ export interface PluginMenu {
     parentId?: string | null;
     routeId: string;
     title: string;
+    description?: string;
     icon?: string;
     order: number;
 }
@@ -21,6 +22,7 @@ export interface UiNavigationNode {
     parentKey?: string | null;
     pageKey?: string | null;
     title: string;
+    description?: string;
     icon?: string;
     order: number;
     externalUrl?: string | null;

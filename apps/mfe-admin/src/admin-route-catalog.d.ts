@@ -3,6 +3,7 @@ export type AdminSectionKey = 'operator-guide' | 'ou-access' | 'access-studio' |
 export interface AdminPageDefinition extends PluginRoute {
     section: AdminSectionKey;
     sectionTitle: string;
+    description: string;
     icon: string;
     order: number;
 }

@@ -92,7 +92,7 @@ Authorization Service برای هر درخواست کاربر این ترتیب 
           "remoteName": "aurevia_admin",
           "exposedModule": "./bootstrap",
           "contractVersion": "1.0",
-          "artifactVersion": "0.2.0"
+          "artifactVersion": "0.3.0"
         },
         "runtime": {
           "apiBasePath": "/api/v1/admin"

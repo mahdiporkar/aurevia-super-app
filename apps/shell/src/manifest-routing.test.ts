@@ -8,13 +8,14 @@ function module(routePrefix='management'):UiModuleDefinition{return{
   defaultRouteId:'resources',remote:{remoteEntryUrl:'https://static.example.test/admin/remoteEntry.js',remoteName:'aurevia_admin',exposedModule:'./bootstrap',contractVersion:'1.0',artifactVersion:'0.2.0'},
   runtime:{apiBasePath:'/api/v1/admin'},
   routes:[{id:'resources',path:'resources',title:'منابع'}],
-  menus:[{id:'resources-menu',routeId:'resources',title:'منابع',order:10}],
+  menus:[{id:'resources-menu',routeId:'resources',title:'منابع',description:'مدیریت منابع سامانه',order:10}],
 }}
 
 describe('effective uiCatalog routing',()=>{
   it('consumes only modules and pages returned by the effective catalog',()=>{
     const authorized=module();
     expect(catalogMenuItems([authorized]).map(item=>item.key)).toEqual(['/management/resources']);
+    expect(catalogMenuItems([authorized])[0]?.description).toBe('مدیریت منابع سامانه');
     expect(catalogMenuItems([])).toEqual([]);
     expect(activeCatalogModule([], '/management/resources')).toBeUndefined();
   });

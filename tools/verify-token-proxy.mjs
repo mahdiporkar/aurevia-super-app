@@ -244,7 +244,7 @@ assert.equal(adminModule.remote?.exposedModule,'./bootstrap',
   'The ADMIN Module Federation exposed module is incorrect');
 assert.equal(adminModule.remote?.contractVersion,'1.0',
   'The ADMIN artifact contract version is incorrect');
-assert.equal(adminModule.remote?.artifactVersion,'0.2.0',
+assert.equal(adminModule.remote?.artifactVersion,'0.3.0',
   'The ADMIN active artifact version is incorrect');
 assert.equal(adminModule.runtime?.apiBasePath,'/api/v1/admin',
   'The ADMIN runtime API base path is incorrect');

@@ -1,8 +1,8 @@
 export type Locale = 'fa-IR' | 'en-US';
 export type PresentationMode = 'hide' | 'disable' | 'readOnly';
 export interface PluginRoute { id:string; path:string; title:string; resource?:string; action?:string; }
-export interface PluginMenu { id:string; parentId?:string|null; routeId:string; title:string; icon?:string; order:number; }
-export interface UiNavigationNode { key:string; type:'GROUP'|'PAGE'|'EXTERNAL_LINK'; parentKey?:string|null; pageKey?:string|null; title:string; icon?:string; order:number; externalUrl?:string|null; source:'MANIFEST'|'ADMIN'; }
+export interface PluginMenu { id:string; parentId?:string|null; routeId:string; title:string; description?:string; icon?:string; order:number; }
+export interface UiNavigationNode { key:string; type:'GROUP'|'PAGE'|'EXTERNAL_LINK'; parentKey?:string|null; pageKey?:string|null; title:string; description?:string; icon?:string; order:number; externalUrl?:string|null; source:'MANIFEST'|'ADMIN'; }
 export interface RemoteDescriptor { remoteEntryUrl:string; remoteName:string; exposedModule:string; contractVersion:string; artifactVersion:string; integrity?:string; }
 export interface UiModuleDefinition { registrationId:string; moduleKey:string; displayName:string; displayNameEn:string; description?:string; icon?:string; order:number; routePrefix:string; defaultRouteId?:string; remote:RemoteDescriptor; runtime:{apiBasePath:string}; routes:PluginRoute[]; menus:PluginMenu[]; navigation?:UiNavigationNode[]; classification?:'DEMO'|'REAL'; resourceDefinitionMode?:'MANIFEST'|'MANUAL'|'HYBRID'; }
 export interface UiCatalog { catalogVersion:string; generatedAt:string; contractVersion:string; modules:UiModuleDefinition[]; }
