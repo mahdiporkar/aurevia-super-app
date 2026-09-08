@@ -29,7 +29,7 @@ fresh install» و «آمادگی استقرار Production» تفکیک قائ�
 | Outbox | Pass | pending و dead-letter صفر پس از bootstrap |
 | ورود واقعی | Pass | کاربر `administrator` و cookie مبهم `AUREVIA_SESSION` |
 | عدم افشای token | Pass | token در session سمت کلاینت و پاسخ‌ها وجود نداشت |
-| Admin manifest | Pass | قرارداد 1.0، artifact نسخه 0.3.0، تعداد ۱۸ route نسبی |
+| Admin manifest | Pass | قرارداد 1.0، artifact نسخه 0.4.0، تعداد ۱۸ route نسبی |
 | سطوح دسترسی | Pass | دسترسی administrator به Admin و مدیریت ریشه و منابع Proxy |
 | Manifest governance | Pass | Fetch سمت سرور، Diff/Draft/Preview و عدم تغییر tree پیش از Publish |
 | Proxy Legacy | Pass | cache miss و cache hit با `LEGACY_SERVICE_TOKEN` |

@@ -244,8 +244,13 @@ assert.equal(adminModule.remote?.exposedModule,'./bootstrap',
   'The ADMIN Module Federation exposed module is incorrect');
 assert.equal(adminModule.remote?.contractVersion,'1.0',
   'The ADMIN artifact contract version is incorrect');
-assert.equal(adminModule.remote?.artifactVersion,'0.3.0',
+assert.equal(adminModule.remote?.artifactVersion,'0.4.0',
   'The ADMIN active artifact version is incorrect');
+assert.deepEqual(adminModule.menus.map(menu=>menu.title),[
+  'راهنما','واحدهای سازمانی','گروه‌ها','برنامه‌ها','تحلیل دسترسی','منابع و مجوزها',
+  'میکروفرانت‌ها','مقصدها','مسیرها','عملیات API','اتصال‌ها','احراز هویت','تست اتصال',
+  'محیط‌های گزارش','هویت و نقش','لاگ API','لاگ راهبری','گزارش‌ها',
+], 'The ADMIN runtime menu titles are stale');
 assert.equal(adminModule.runtime?.apiBasePath,'/api/v1/admin',
   'The ADMIN runtime API base path is incorrect');
 assert.equal(adminModule.routes?.length,18,
@@ -375,6 +380,15 @@ for (const [scenario, path, correlationId, expectedService, expectedCredential] 
     service: result.body.service, credentialType: result.body.credentialType });
 }
 
+const logoutResponse=await request('/auth/logout',{
+  method:'POST',
+  headers:{accept:'application/json',[csrf.body.headerName]:csrf.body.token},
+});
+assert.equal(logoutResponse.status,204,
+  `Logout failed with HTTP ${logoutResponse.status}: ${await logoutResponse.text()}`);
+const afterLogout=await json('/api/v1/me',`e2e-after-logout-${Date.now()}`);
+assert.equal(afterLogout.status,401,'Logged-out session can still access the BFF API');
+
 console.log(JSON.stringify({
   login: { username: me.body.username, sessionCookie: 'AUREVIA_SESSION', opaqueSession: true },
   serverSessionContainsTokenMaterial: false,
@@ -394,4 +408,5 @@ console.log(JSON.stringify({
     preview: true, productionTreeUnchanged: true },
   superset: { catalogStatus: reports.status, operationRuntime: supersetRuntime },
   probes: results,
+  logout: { status: logoutResponse.status, accessRevoked: true, postLogoutApiStatus: afterLogout.status },
 }, null, 2));

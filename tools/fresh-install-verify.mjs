@@ -60,7 +60,7 @@ try {
   if (state[2] !== '0') failures.push(`${state[2]} OpenFGA outbox events are still pending; retry after a few seconds`);
   if (!state[3]) failures.push('runtime development administrator canonical subject is missing');
   else administratorUser=`user:${state[3]}`;
-  if (state[4] !== '0.3.0') failures.push(`ADMIN active artifact is ${state[4] || 'missing'}; expected 0.3.0`);
+  if (state[4] !== '0.4.0') failures.push(`ADMIN active artifact is ${state[4] || 'missing'}; expected 0.4.0`);
   if (state[5] !== '1.0') failures.push(`ADMIN manifest contract is ${state[5] || 'missing'}; expected 1.0`);
   if (state[6] !== '18') failures.push(`ADMIN manifest exposes ${state[6] || '0'} routes; expected 18`);
   if (state[7] !== '0') failures.push(`ADMIN manifest contains ${state[7]} absolute route path(s)`);
@@ -93,4 +93,4 @@ if(administratorUser) {
 if (failures.length) {
   console.error('\nFresh-install verification FAILED:'); failures.forEach(item => console.error(` - ${item}`)); process.exit(1);
 }
-console.log('Fresh-install verification passed: V53+, zero OpenFGA drift, outbox, ADMIN 0.3.0 manifest contract and runtime administrator access are effective.');
+console.log('Fresh-install verification passed: V54+, zero OpenFGA drift, outbox, ADMIN 0.4.0 manifest contract and runtime administrator access are effective.');

@@ -9,11 +9,23 @@ import reactor.core.publisher.Mono;
 @Component public class VaultLogoutHandler implements ServerLogoutHandler {
  public static final String HANDLE="TOKEN_VAULT_HANDLE"; private final TokenVaultService vault;
  public VaultLogoutHandler(TokenVaultService vault){this.vault=vault;}
- @Override public Mono<Void> logout(WebFilterExchange exchange,Authentication authentication){expireSupersetSession(exchange.getExchange());return exchange.getExchange().getSession().flatMap(session->{Object handle=session.getAttribute(HANDLE);Mono<?> deletion=handle instanceof String h?vault.delete(h):Mono.empty();return deletion.then(session.invalidate());});}
+ @Override public Mono<Void> logout(WebFilterExchange exchange,Authentication authentication){
+  ServerWebExchange serverExchange=exchange.getExchange();
+  expireCookie(serverExchange,"AUREVIA_OPERATION_SUPERSET");
+  return serverExchange.getSession().flatMap(session->{
+   Object handle=session.getAttribute(HANDLE);
+   Mono<?> deletion=handle instanceof String h?vault.delete(h):Mono.empty();
+   return deletion.then(session.invalidate());
+  });
+ }
 
  static void expireSupersetSession(ServerWebExchange exchange) {
+  expireCookie(exchange,"AUREVIA_OPERATION_SUPERSET");
+ }
+
+ private static void expireCookie(ServerWebExchange exchange,String name) {
   exchange.getResponse().addCookie(ResponseCookie
-      .from("AUREVIA_OPERATION_SUPERSET", "")
+      .from(name, "")
       .httpOnly(true)
       .sameSite("Lax")
       .path("/")
