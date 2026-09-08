@@ -25,7 +25,8 @@ describe('Admin route catalog',()=>{
       .toEqual(ADMIN_PAGE_ROUTES.map(route=>route.id));
     expect(new Set(ADMIN_PUBLISHED_MANIFEST.menus.map(menu=>menu.routeId)).size)
       .toBe(ADMIN_PAGE_ROUTES.length);
-    expect(ADMIN_PUBLISHED_MANIFEST.menus.every(menu=>menu.title.length>=8)).toBe(true);
+    expect(ADMIN_PUBLISHED_MANIFEST.menus.every(menu=>
+      menu.title.trim().length>0&&menu.title.length<=18)).toBe(true);
     expect(ADMIN_PUBLISHED_MANIFEST.menus.every(menu=>(menu.description?.length??0)>=20)).toBe(true);
   });
 
