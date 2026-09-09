@@ -157,8 +157,8 @@ Shell نباید subject، role یا user ID را از query string یا local s
 
 - loader مقدار SRI را روی `script.integrity` و `crossOrigin=anonymous` اعمال می‌کند و تغییر URL/SRI
   برای scope بارگذاری‌شده را رد می‌کند؛ profile تولید نیز SRI معتبر را هنگام انتشار الزامی می‌کند.
-- Authorization Service آدرس Remote Entry و Resource Manifest را با origin allowlist و HTTPS
-  validate می‌کند؛ CSP لبه همان originهای استقرار را محدود می‌کند.
+- Authorization Service آدرس Remote Entry، MF Manifest و Resource Manifest را مستقل و با origin
+  allowlist و HTTPS validate می‌کند؛ CSP لبه همان originهای استقرار را محدود می‌کند.
 - بارگذاری Remote timeout پانزده‌ثانیه‌ای، cache وابسته به نسخه و Error Boundary دارد؛ rollback با
   فعال‌کردن Artifact immutable قبلی انجام می‌شود.
 - `expiresAt` در Manifest عمر کوتاه دارد، اما کنترل امنیتی نهایی مستقل از cache رابط و در هر درخواست

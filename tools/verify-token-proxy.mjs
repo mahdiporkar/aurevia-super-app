@@ -269,10 +269,14 @@ assert.equal(panels.status,200,`Panel registry failed with HTTP ${panels.status}
 const hrPanel=panels.body?.find(panel=>panel.code==='HR');
 assert(hrPanel?.id,'HR panel is missing from the governance registry');
 assert.equal(hrPanel.resource_definition_mode,'HYBRID','HR must exercise HYBRID governance');
+assert.match(hrPanel.mf_manifest_url,/mf-manifest[.]json$/,
+  'HR does not expose an independent MF Manifest URL');
+assert.match(hrPanel.resource_manifest_url,/resource-manifest[.]json$/,
+  'HR does not expose an independent Resource Manifest URL');
+const csrf=await json('/api/v1/csrf',`e2e-csrf-${Date.now()}`);
+assert.equal(csrf.status,200,'CSRF token could not be issued for manifest synchronization');
 const resourcesBefore=await json('/api/v1/admin/resource-tree',`e2e-resource-before-${Date.now()}`);
 assert.equal(resourcesBefore.status,200,'Resource tree could not be read before manifest fetch');
-const csrf=await json('/api/v1/csrf',`e2e-csrf-${Date.now()}`);
-assert.equal(csrf.status,200,'CSRF token could not be issued for manifest fetch');
 const fetchedDraftResponse=await request(
   `/api/v1/admin/panels/${hrPanel.id}/resource-manifests/fetch`,{
     method:'POST',headers:{accept:'application/json',[csrf.body.headerName]:csrf.body.token,
@@ -298,6 +302,48 @@ assert.equal(resourcesAfter.status,200,'Resource tree could not be read after ma
 const resourceRevisions=items=>items.map(item=>`${item.id}:${item.version}`).sort();
 assert.deepEqual(resourceRevisions(resourcesAfter.body),resourceRevisions(resourcesBefore.body),
   'Fetch/preview mutated the production Resource Catalog before approval');
+const resourcePublishResponse=await request(
+  `/api/v1/admin/panels/${hrPanel.id}/resource-manifests/drafts/${fetchedDraft.id}/publish`,{
+    method:'POST',headers:{accept:'application/json',[csrf.body.headerName]:csrf.body.token,
+      'x-correlation-id':`e2e-resource-manifest-publish-${Date.now()}`},
+  });
+const resourcePublishText=await resourcePublishResponse.text();
+let resourcePublish;
+try { resourcePublish=JSON.parse(resourcePublishText); }
+catch { resourcePublish=resourcePublishText; }
+assert.equal(resourcePublishResponse.status,200,
+  `Resource manifest publish failed: ${resourcePublishText}`);
+assert.equal(resourcePublish?.workflowStatus,'PUBLISHED',
+  'Resource manifest did not reach PUBLISHED state');
+const publishedResources=await json('/api/v1/admin/resource-tree',
+  `e2e-resource-published-${Date.now()}`);
+assert.equal(publishedResources.status,200,'Published Resource Catalog could not be read');
+assert(publishedResources.body.some(resource=>resource.resource_key==='field:hr.employee.salary-amount'),
+  'The granular HR salary field resource was not published');
+
+// Resource definitions now exist; frontend sync only validates their references and
+// must not create or mutate them. Repeating the same sync must converge.
+const frontendSyncResponse=await request(
+  `/api/v1/admin/panels/${hrPanel.id}/frontend-manifests/sync`,{
+    method:'POST',headers:{accept:'application/json',[csrf.body.headerName]:csrf.body.token,
+      'x-correlation-id':`e2e-mf-manifest-sync-${Date.now()}`},
+  });
+const frontendSyncText=await frontendSyncResponse.text();
+let frontendSync;
+try { frontendSync=JSON.parse(frontendSyncText); }
+catch { frontendSync=frontendSyncText; }
+assert.equal(frontendSyncResponse.status,200,
+  `Frontend manifest sync failed: ${frontendSyncText}`);
+assert.equal(frontendSync?.status,'SUCCESS','Frontend manifest sync did not succeed');
+const repeatFrontendSyncResponse=await request(
+  `/api/v1/admin/panels/${hrPanel.id}/frontend-manifests/sync`,{
+    method:'POST',headers:{accept:'application/json',[csrf.body.headerName]:csrf.body.token,
+      'x-correlation-id':`e2e-mf-manifest-resync-${Date.now()}`},
+  });
+const repeatFrontendSync=await repeatFrontendSyncResponse.json();
+assert.equal(repeatFrontendSyncResponse.status,200,'Repeated frontend manifest sync failed');
+assert.equal(repeatFrontendSync?.idempotent,true,
+  'Repeated frontend manifest sync did not converge idempotently');
 
 const shellDeepLink=await request('/admin/proxy-routes/routes',{headers:{accept:'text/html'}});
 const shellHtml=await shellDeepLink.text();
@@ -404,8 +450,11 @@ console.log(JSON.stringify({
     dedicatedUiCatalog: true,
     remoteEntries: manifest.body.uiCatalog.modules.length },
   manifestGovernance: { mode: hrPanel.resource_definition_mode,
+    separateFrontendSync: true, frontendSyncIdempotent: repeatFrontendSync.idempotent,
     serverSideFetch: true, workflowStatus: fetchedDraft.workflowStatus,
-    preview: true, productionTreeUnchanged: true },
+    preview: true, productionTreeUnchangedBeforeApproval: true,
+    resourcePublishStatus: resourcePublish.workflowStatus,
+    granularSalaryFieldPublished: true },
   superset: { catalogStatus: reports.status, operationRuntime: supersetRuntime },
   probes: results,
   logout: { status: logoutResponse.status, accessRevoked: true, postLogoutApiStatus: afterLogout.status },

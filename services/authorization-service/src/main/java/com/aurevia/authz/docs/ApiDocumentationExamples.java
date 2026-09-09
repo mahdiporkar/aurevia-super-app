@@ -13,6 +13,12 @@ final class ApiDocumentationExamples {
     return switch (key) {
       case "AuthorizationController#checkBatch" -> List.of(check("application:aurevia/finance", "view"),
           check("resource:page/finance.payments", "approve"));
+      case "ResourceManifestController#importDraft" -> map(
+          "schemaVersion","1.0","module",map("key","finance","name","Finance",
+              "nameFa","مالی","nameEn","Finance","version","1.4.0"),
+          "resources",List.of(map("key","page:finance.payments","type","PAGE",
+              "name","Payments","nameFa","پرداخت‌ها","nameEn","Payments",
+              "classification","INTERNAL","actions",List.of("view"))));
       default -> null;
     };
   }
@@ -25,7 +31,7 @@ final class ApiDocumentationExamples {
           "parentId", "15484e5a-4872-4bf2-a1fa-37a0c264bf9d",
           "nameFa", "پرداخت‌ها", "nameEn", "Payments", "ownerDomain", "finance",
           "classification", "INTERNAL", "source", "ADMIN",
-          "metadata", map("route", "/finance/payments", "icon", "credit-card"));
+          "metadata", map("dataOwner", "finance-operations", "retentionClass", "standard"));
       case "AccessAdminDtos.ActionRequest" -> map(
           "actionKey", "approve", "nameFa", "تأیید", "nameEn", "Approve");
       case "AccessAdminDtos.UserRequest" -> map(
@@ -80,9 +86,10 @@ final class ApiDocumentationExamples {
           "remoteName", "finance", "defaultRouteId", "finance-home",
           "remoteEntry", "http://localhost:3002/remoteEntry.js", "exposedModule", "./App",
           "routeBasePath", "/finance", "semanticVersion", "1.4.0", "contractVersion", "1.0",
-          "integrity", "sha384-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-          "resourceDefinitionMode","HYBRID","classification","REAL",
-          "resourceManifestUrl","https://static.example.test/finance/resource-manifest.json",
+           "integrity", "sha384-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+           "resourceDefinitionMode","HYBRID","classification","REAL",
+           "mfManifestUrl","https://static.example.test/finance/mf-manifest.json",
+           "resourceManifestUrl","https://static.example.test/finance/resource-manifest.json",
           "active", true, "sortOrder", 20);
       case "ProxyRouteDtos.TargetRequest" -> map(
           "code", "finance-operation", "name", "Finance operation service",
@@ -120,19 +127,14 @@ final class ApiDocumentationExamples {
               map("key", "page:finance.payments", "type", "PAGE",
                   "parent", "module:finance", "nameFa", "پرداخت‌ها", "nameEn", "Payments",
                   "ownerDomain", "finance", "classification", "INTERNAL",
-                  "actions", List.of("view", "create", "approve", "reject"), "status", "ACTIVE",
-                  "source", "MANIFEST", "metadata", map("route", "/finance/payments"))));
-      case "ResourceManifestDtos.MicroFrontendManifest" -> map(
-          "schemaVersion","1.0","module",map("key","finance","name","Finance",
-              "nameFa","مالی","nameEn","Finance","version","1.4.0"),
-          "routes",List.of(map("key","payments","path","/payments","component","./Payments",
-              "resourceKey","page:finance.payments","action","view","title","پرداخت‌ها")),
-          "resources",List.of(map("key","page:finance.payments","type","PAGE",
-              "name","Payments","nameFa","پرداخت‌ها","nameEn","Payments",
-              "classification","INTERNAL","actions",List.of("view"))),
-          "navigation",List.of(map("key","finance.nav.root","type","GROUP","title","مالی","order",10),
-              map("key","finance.nav.payments","type","PAGE","parentKey","finance.nav.root",
-                  "pageKey","payments","title","پرداخت‌ها","order",20)));
+                   "actions", List.of("view", "create", "approve", "reject"), "status", "ACTIVE",
+                   "source", "MANIFEST", "metadata", map())));
+      case "ResourceManifestDtos.ResourceManifest" -> map(
+           "schemaVersion","1.0","module",map("key","finance","name","Finance",
+               "nameFa","مالی","nameEn","Finance","version","1.4.0"),
+           "resources",List.of(map("key","page:finance.payments","type","PAGE",
+               "name","Payments","nameFa","پرداخت‌ها","nameEn","Payments",
+               "classification","INTERNAL","actions",List.of("view"))));
       case "SupersetAssetDtos.AssetRequest" -> map(
           "externalId", "dashboard:42", "assetType", "DASHBOARD", "title", "داشبورد فروش روزانه",
           "urlPath", "/superset/dashboard/42/", "ownerExternalId", "8e3a7fd6-designer",

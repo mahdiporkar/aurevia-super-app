@@ -23,14 +23,9 @@ class JdbcAuthorizationQueryRepository implements AuthorizationQueryRepository {
           a.remote_name as "artifactRemoteName",a.exposed_module as "artifactExposedModule",
           a.contract_version as "artifactContractVersion",a.integrity as "artifactIntegrity",
           p.classification,p.resource_definition_mode as "resourceDefinitionMode",
-          coalesce(manifest.payload,a.manifest_snapshot)::text as "manifestJson"
+          a.manifest_snapshot::text as "manifestJson"
         from panel p join ui_module_artifact a on a.id=p.active_artifact_id
           and a.validation_status='VALID'
-        left join lateral (
-          select payload from resource_manifest_import revision
-          where revision.panel_id=p.id and revision.workflow_status='PUBLISHED'
-          order by revision.published_at desc nulls last,revision.created_at desc limit 1
-        ) manifest on true
         where p.active and (:demoEnabled or p.classification='REAL')
         order by p.sort_order,p.code
         """).param("demoEnabled",demoData.enabled()).query(PanelRecord.class).list();

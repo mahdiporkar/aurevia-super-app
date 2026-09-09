@@ -13,7 +13,7 @@ Browser -> same-origin reverse proxy -> Superapp BFF -> Authorization Service / 
 دو روش اتصال وجود دارد:
 
 1. **فرانت‌اند مستقل روی همان origin**: مناسب برنامه‌ای با deployment و repository جدا. reverse proxy مسیرهای UI و BFF را زیر یک scheme/host/port منتشر می‌کند.
-2. **Micro Frontend داخل Shell**: مناسب قابلیتی که باید در navigation و runtime فعلی بارگذاری شود. علاوه بر مراحل API، باید panel، artifact، route، navigation و resource manifest ثبت شود.
+2. **Micro Frontend داخل Shell**: مناسب قابلیتی که باید در navigation و runtime فعلی بارگذاری شود. علاوه بر مراحل API، registration پنل، MF Manifest و در صورت نیاز Resource Manifest جداگانه همگام می‌شوند.
 
 اتصال cross-origin مستقیم توصیه نمی‌شود. cookie نشست `HttpOnly`، `Secure` و `SameSite=Lax` است و BFF عمداً قرارداد عمومی CORS برای SPAهای پراکنده ندارد. اگر دامنه جدا الزامی است، همان دامنه باید یک reverse proxy/BFF هم‌مبدأ داشته باشد؛ فعال‌کردن عمومی CORS یا قراردادن bearer token در browser راه‌حل قابل قبول نیست.
 
@@ -138,10 +138,11 @@ Frontend باید URL عمومی ثبت‌شده در BFF را با مسیر ن�
 
 1. قراردادهای `@aurevia/contracts` و runtime موجود را مصرف کنید.
 2. entry دارای `contractVersion: '1.0'` و export قابل بارگذاری بسازید.
-3. `resource-manifest.json` شامل module، routes، resources و navigation منتشر کنید.
+3. دو فایل مستقل منتشر کنید: `resource-manifest.json` فقط برای Resourceها و
+   `mf-manifest.json` برای runtime، routeهای محلی، navigation پیش‌فرض و reference مجوز.
 4. Remote Entry را روی HTTPS و origin مجاز منتشر کنید.
 5. در بخش Micro Frontend پنل، `remoteEntryUrl`، `remoteName`، `exposedModule`، `routePrefix`، نسخه قرارداد و integrity را ثبت کنید.
-6. Artifact و Resource Manifest را stage، preview و publish کنید.
+6. MF Manifest را sync کنید و Resource Manifest را جداگانه stage، preview و publish کنید.
 7. به user/group/role مجوز application/page/business resource بدهید.
 
 کلیدهای resource باید پایدار و canonical باشند؛ تغییر label ترجمه‌شده نباید باعث تغییر کلید مجوز شود.
@@ -176,4 +177,3 @@ Frontend باید URL عمومی ثبت‌شده در BFF را با مسیر ن�
 - [راهنمای Dynamic Proxy Routing](dynamic-proxy-routing-fa.md)
 - [مدل دسترسی](access-control-fa.md)
 - [آمادگی Production](enterprise-production-readiness-fa.md)
-

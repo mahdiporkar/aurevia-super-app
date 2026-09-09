@@ -66,6 +66,30 @@ export function activeCatalogModule(modules:readonly UiModuleDefinition[],pathna
     pathname.startsWith(`${moduleBasePath(module)}/`));
 }
 
+export function localModulePath(module:Pick<UiModuleDefinition,'routePrefix'>,pathname:string):string {
+  const base=moduleBasePath(module);
+  if(pathname!==base&&!pathname.startsWith(`${base}/`))return '';
+  return pathname.slice(base.length).replace(/^\/+|\/+$/g,'');
+}
+
+export function matchesLocalRoute(pattern:string,pathname:string):boolean {
+  const expected=pattern.replace(/^\/+|\/+$/g,'').split('/').filter(Boolean);
+  const actual=pathname.replace(/^\/+|\/+$/g,'').split('/').filter(Boolean);
+  for(let index=0;index<expected.length;index+=1) {
+    const segment=expected[index]!;
+    if(segment==='*')return true;
+    if(actual[index]===undefined)return false;
+    if(!segment.startsWith(':')&&segment!==actual[index])return false;
+  }
+  return expected.length===actual.length;
+}
+
+/** A module is mounted only when its backend-filtered effective route matches the URL. */
+export function authorizedCatalogRoute(module:UiModuleDefinition,pathname:string) {
+  const local=localModulePath(module,pathname);
+  return module.routes.find(route=>matchesLocalRoute(route.path,local));
+}
+
 export function activeCatalogMenuKey(items:readonly Pick<CatalogMenuItem,'key'>[],pathname:string) {
   return items.filter(item=>item.key.startsWith('/')
       &&(pathname===item.key||pathname.startsWith(`${item.key}/`)))

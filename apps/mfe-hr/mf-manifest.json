@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "microfrontend": { "key": "hr", "name": "Human Resources", "version": "0.2.0" },
+  "runtime": { "remoteEntry": "http://localhost:3002/remoteEntry.js", "remoteName": "aurevia_hr_ui_0_1_0", "exposedModule": "./plugin", "contractVersion": "1.0", "apiBasePath": "/api/proxy/hr" },
+  "defaultRouteKey": "employee-list",
+  "routes": [
+    { "key": "employee-list", "path": "personal", "requiredResource": "page:hr.employee.list", "requiredAction": "view", "title": "پرسنل" },
+    { "key": "employee-details", "path": "personal/:id", "requiredResource": "page:hr.employee.detail", "requiredAction": "view", "title": "اطلاعات پرسنل" },
+    { "key": "department-list", "path": "departments", "requiredResource": "page:hr.departments", "requiredAction": "view", "title": "واحدهای سازمانی" },
+    { "key": "position-list", "path": "positions", "requiredResource": "page:hr.positions", "requiredAction": "view", "title": "سمت‌ها" }
+  ],
+  "navigation": [
+    { "key": "hr.nav.root", "type": "GROUP", "title": "منابع انسانی", "icon": "team", "order": 10 },
+    { "key": "employees-menu", "type": "PAGE", "parentKey": "hr.nav.root", "routeKey": "employee-list", "title": "پرسنل", "icon": "user", "order": 10 },
+    { "key": "departments-menu", "type": "PAGE", "parentKey": "hr.nav.root", "routeKey": "department-list", "title": "واحدهای سازمانی", "icon": "apartment", "order": 20 },
+    { "key": "positions-menu", "type": "PAGE", "parentKey": "hr.nav.root", "routeKey": "position-list", "title": "سمت‌ها", "icon": "solution", "order": 30 }
+  ]
+}

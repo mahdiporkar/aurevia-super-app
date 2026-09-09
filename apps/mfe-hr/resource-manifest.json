@@ -1,30 +1,13 @@
 {
   "schemaVersion": "1.0",
-  "module": {
-    "key": "hr",
-    "name": "Human Resources",
-    "nameFa": "منابع انسانی",
-    "nameEn": "Human Resources",
-    "version": "0.1.1"
-  },
-  "routes": [
-    { "key": "employee-list", "path": "/personal", "component": "./EmployeeList", "resourceKey": "page:hr.employee.list", "action": "view", "title": "پرسنل" },
-    { "key": "employee-details", "path": "/personal/:id", "component": "./EmployeeDetails", "resourceKey": "page:hr.employee.detail", "action": "view", "title": "اطلاعات پرسنل" },
-    { "key": "department-list", "path": "/departments", "component": "./DepartmentList", "resourceKey": "page:hr.departments", "action": "view", "title": "واحدهای سازمانی" },
-    { "key": "position-list", "path": "/positions", "component": "./PositionList", "resourceKey": "page:hr.positions", "action": "view", "title": "سمت‌ها" }
-  ],
+  "module": { "key": "hr", "name": "Human Resources", "nameFa": "منابع انسانی", "nameEn": "Human Resources", "version": "0.2.0" },
   "resources": [
     { "key": "page:hr.employee.list", "type": "PAGE", "name": "Employee List", "nameFa": "لیست کارکنان", "nameEn": "Employee List", "classification": "INTERNAL", "actions": ["view"] },
     { "key": "page:hr.employee.detail", "type": "PAGE", "name": "Employee Details", "nameFa": "جزئیات کارمند", "nameEn": "Employee Details", "classification": "INTERNAL", "actions": ["view"] },
     { "key": "component:hr.employee.salary-information", "type": "UI_COMPONENT", "parentKey": "page:hr.employee.detail", "name": "Salary Information", "nameFa": "اطلاعات حقوق و مزایا", "nameEn": "Salary Information", "classification": "RESTRICTED", "actions": ["view"] },
     { "key": "field:hr.employee.salary-amount", "type": "FIELD", "parentKey": "component:hr.employee.salary-information", "name": "Salary Amount", "nameFa": "مبلغ حقوق", "nameEn": "Salary Amount", "classification": "RESTRICTED", "actions": ["view"] },
+    { "key": "business:hr.employee", "type": "BUSINESS_RESOURCE", "name": "Employee", "nameFa": "کارمند", "nameEn": "Employee", "classification": "INTERNAL", "actions": ["view", "create", "update", "export"] },
     { "key": "page:hr.departments", "type": "PAGE", "name": "Departments", "nameFa": "واحدهای سازمانی", "nameEn": "Departments", "classification": "INTERNAL", "actions": ["view"] },
     { "key": "page:hr.positions", "type": "PAGE", "name": "Positions", "nameFa": "سمت‌ها", "nameEn": "Positions", "classification": "INTERNAL", "actions": ["view"] }
-  ],
-  "navigation": [
-    { "key": "hr.nav.root", "type": "GROUP", "title": "منابع انسانی", "icon": "team", "order": 10 },
-    { "key": "hr.nav.employees", "type": "PAGE", "parentKey": "hr.nav.root", "pageKey": "employee-list", "title": "پرسنل", "icon": "user", "order": 10 },
-    { "key": "hr.nav.departments", "type": "PAGE", "parentKey": "hr.nav.root", "pageKey": "department-list", "title": "واحدهای سازمانی", "icon": "apartment", "order": 20 },
-    { "key": "hr.nav.positions", "type": "PAGE", "parentKey": "hr.nav.root", "pageKey": "position-list", "title": "سمت‌ها", "icon": "solution", "order": 30 }
   ]
 }

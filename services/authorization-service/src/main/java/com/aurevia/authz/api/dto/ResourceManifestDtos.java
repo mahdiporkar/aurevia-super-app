@@ -1,5 +1,6 @@
 package com.aurevia.authz.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -29,26 +30,17 @@ public final class ResourceManifestDtos {
   public record SyncResult(int created,int updated,int deprecated,boolean idempotent,
       String checksum) {}
 
-  /** Preferred versioned resource-manifest.json contract published by a Micro Frontend. */
-  public record MicroFrontendManifest(@NotBlank String schemaVersion,
-      @NotNull @Valid ModuleMetadata module,List<@Valid ManifestRoute> routes,
-      List<@Valid ManifestResource> resources,List<@Valid NavigationNode> navigation) {
-    public MicroFrontendManifest {
-      routes=routes==null?List.of():List.copyOf(routes);
+  /** Authorization-only resource-manifest.json contract published by a Micro Frontend. */
+  @JsonIgnoreProperties(ignoreUnknown=false)
+  public record ResourceManifest(@NotBlank String schemaVersion,
+      @NotNull @Valid ModuleMetadata module,List<@Valid ManifestResource> resources) {
+    public ResourceManifest {
       resources=resources==null?List.of():List.copyOf(resources);
-      navigation=navigation==null?List.of():List.copyOf(navigation);
     }
   }
 
   public record ModuleMetadata(@NotBlank String key,@NotBlank String name,
       String nameFa,String nameEn,@NotBlank String version) {}
-
-  public record ManifestRoute(String key,String id,String path,String component,
-      String resourceKey,String resource,String action,String title) {
-    public String effectiveKey() { return first(key,id); }
-    public String effectiveResourceKey() { return first(resourceKey,resource); }
-    public String effectiveAction() { return first(action,"view"); }
-  }
 
   public record ManifestResource(@NotBlank String key,@NotBlank String type,String parentKey,
       String parent,String name,String nameFa,String nameEn,String ownerDomain,
@@ -61,14 +53,6 @@ public final class ResourceManifestDtos {
     public String effectiveParentKey() { return first(parentKey,parent); }
     public String effectiveNameFa() { return first(nameFa,name,key); }
     public String effectiveNameEn() { return first(nameEn,name,key); }
-  }
-
-  public record NavigationNode(String key,String id,@NotBlank String type,String parentKey,
-      String parentId,String pageKey,String routeId,@NotBlank String title,String icon,
-      Integer order,String externalUrl) {
-    public String effectiveKey() { return first(key,id); }
-    public String effectiveParentKey() { return first(parentKey,parentId); }
-    public String effectivePageKey() { return first(pageKey,routeId); }
   }
 
   public record ManifestChange(String resourceKey,String changeType,String beforeType,

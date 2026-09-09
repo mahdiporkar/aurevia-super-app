@@ -1,7 +1,10 @@
 # معماری حاکمیت Micro Frontend، Resource Catalog و Navigation Catalog
 
-نسخه سند: ۲.۱ — منطبق با migrationهای `V51__microfrontend_governance_catalog.sql` و
-`V52__immutable_resource_manifest_versions.sql`
+> این سند رفتار تاریخی تا migration `V54` را توضیح می‌دهد. از migration `V55` به بعد، مرجع
+> نهایی قراردادها سند [تفکیک MF Manifest از Resource Manifest](mf-and-resource-manifest-separation-fa.md)
+> است. هر اشاره پایین‌تر به route/navigation داخل Resource Manifest منسوخ است.
+
+نسخه سند: ۲.۱ (تاریخی) — منطبق با migrationهای `V51` تا `V54`
 
 این سند مرجع طراحی و عملیات مدل نهایی است. سه مفهوم زیر عمداً از هم جدا هستند:
 

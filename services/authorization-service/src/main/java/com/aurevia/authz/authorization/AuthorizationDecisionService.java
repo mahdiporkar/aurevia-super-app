@@ -131,8 +131,10 @@ public class AuthorizationDecisionService {
       List<UiRoute> routes=new ArrayList<>();
       Set<String> routeIds=new HashSet<>();
       for(JsonNode route:manifest.path("routes")) {
-        String resource=preferredText(route,"resourceKey","resource");
-        String action=route.path("action").asText("view");
+        String resource=first(textOrNull(route,"requiredResource"),
+            preferredText(route,"resourceKey","resource"));
+        String action=first(textOrNull(route,"requiredAction"),
+            textOrNull(route,"action"),"view");
         if(resource==null||!permissions.getOrDefault(resource,List.of()).contains(action)) continue;
         String routeId=preferredText(route,"key","id");
         if(routeId==null)continue;
@@ -151,7 +153,7 @@ public class AuthorizationDecisionService {
         String key=preferredText(item,"key","id");
         if(key==null)continue;
         String type=item.path("type").asText("PAGE").toUpperCase();
-        String page=preferredText(item,"pageKey","routeId");
+        String page=first(textOrNull(item,"routeKey"),preferredText(item,"pageKey","routeId"));
         var override=overrides.get(key);
         candidates.put(key,new NavigationCandidate(key,type,
             preferredText(item,"parentKey","parentId"),page,
@@ -199,7 +201,8 @@ public class AuthorizationDecisionService {
           .map(item->new UiMenu(item.key(),item.parentKey(),item.pageKey(),item.title(),
               item.description(),item.icon(),item.order())).toList());
       menus.sort(Comparator.comparingInt(UiMenu::order));
-      String declaredDefault=textOrNull(manifest,"defaultRouteId");
+      String declaredDefault=first(textOrNull(manifest,"defaultRouteKey"),
+          textOrNull(manifest,"defaultRouteId"));
       String defaultRouteId=routeIds.contains(declaredDefault)?declaredDefault:
           routeIds.contains(panel.defaultRouteId())?panel.defaultRouteId():routes.getFirst().id();
       String apiBasePath=manifest.path("runtime").path("apiBasePath")
@@ -207,7 +210,8 @@ public class AuthorizationDecisionService {
       var remote=new RemoteDescriptor(panel.remoteEntryUrl(),panel.artifactRemoteName(),
           panel.artifactExposedModule(),panel.artifactContractVersion(),panel.artifactVersion(),
           panel.artifactIntegrity());
-      String declaredModuleKey=manifest.path("module").path("key").asText(panel.slug());
+      String declaredModuleKey=first(textOrNull(manifest.path("microfrontend"),"key"),
+          textOrNull(manifest.path("module"),"key"),textOrNull(manifest,"moduleKey"),panel.slug());
       return new UiModuleDefinition(panel.id(),declaredModuleKey,panel.nameFa(),panel.nameEn(),
           panel.description(),panel.icon(),panel.sortOrder(),
           panel.routeBasePath().replaceFirst("^/",""),defaultRouteId,remote,
@@ -229,6 +233,11 @@ public class AuthorizationDecisionService {
 
   private static String textOrDefault(JsonNode parent,String field,String fallback) {
     String value=textOrNull(parent,field);return value==null?fallback:value;
+  }
+
+  private static String first(String... values) {
+    for(String value:values)if(value!=null&&!value.isBlank())return value;
+    return null;
   }
 
   private static PanelSummary panelSummary(AuthorizationQueryRepository.PanelRecord panel) {

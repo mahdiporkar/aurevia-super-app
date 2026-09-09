@@ -6,9 +6,9 @@ public final class PanelDtos {private PanelDtos(){}
    String description,@NotBlank String slug,String serviceSlug,String remoteName,String defaultRouteId,
    @NotBlank String remoteEntry,@NotBlank String exposedModule,@NotBlank String routeBasePath,
    @NotBlank String semanticVersion,@NotBlank String contractVersion,String integrity,
-   String resourceDefinitionMode,String classification,String resourceManifestUrl,
+   String resourceDefinitionMode,String classification,String mfManifestUrl,String resourceManifestUrl,
    boolean active,int sortOrder){
    public PanelCommand toCommand(){return new PanelCommand(code,nameFa,nameEn,description,slug,serviceSlug,
      remoteName,defaultRouteId,remoteEntry,exposedModule,routeBasePath,semanticVersion,contractVersion,
-     integrity,resourceDefinitionMode,classification,resourceManifestUrl,active,sortOrder);}}
+     integrity,resourceDefinitionMode,classification,mfManifestUrl,resourceManifestUrl,active,sortOrder);}}
 }

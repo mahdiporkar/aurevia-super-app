@@ -3,8 +3,13 @@ package com.aurevia.authz.ui;
 import static com.aurevia.authz.api.dto.UiPluginDtos.*;
 
 import com.aurevia.authz.observability.AuditTrail;
+import com.aurevia.authz.registry.ManifestFetcher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.HashSet;
 import java.util.List;
 import java.util.LinkedHashMap;
@@ -12,25 +17,65 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class UiPluginRegistryService {
   private final UiPluginRepository plugins;
   private final ObjectMapper json;
   private final UiArtifactPolicy artifactPolicy;
+  private final ManifestFetcher manifestFetcher;
   private final AuditTrail audit;
 
   public UiPluginRegistryService(UiPluginRepository plugins,ObjectMapper json,
-      UiArtifactPolicy artifactPolicy,AuditTrail audit) {
-    this.plugins=plugins;this.json=json;this.artifactPolicy=artifactPolicy;this.audit=audit;
+      UiArtifactPolicy artifactPolicy,ManifestFetcher manifestFetcher,AuditTrail audit) {
+    this.plugins=plugins;this.json=json;this.artifactPolicy=artifactPolicy;
+    this.manifestFetcher=manifestFetcher;this.audit=audit;
   }
 
   public List<ArtifactView> artifacts(UUID panelId) { return plugins.artifacts(panelId); }
   public List<NavigationOverrideView> navigationOverrides(UUID panelId) {
     return plugins.navigationOverrides(panelId);
+  }
+
+  public List<EffectiveNavigationDefinitionView> navigationDefinitions(UUID panelId) {
+    JsonNode root=plugins.activeManifestOptional(panelId).map(this::read)
+        .orElseGet(json::createObjectNode);
+    Map<String,NavigationOverrideView> overrides=new LinkedHashMap<>();
+    plugins.navigationOverrides(panelId).forEach(value->overrides.put(value.key(),value));
+    List<EffectiveNavigationDefinitionView> result=new ArrayList<>();
+    JsonNode declared=root.path("navigation").isArray()?root.path("navigation"):root.path("menus");
+    if(declared.isArray())for(JsonNode node:declared) {
+      String key=first(textOrNull(node,"key"),textOrNull(node,"id"));
+      String type=first(textOrNull(node,"type"),"PAGE");
+      String parent=text(node,"parentKey","parentId");
+      String route=first(textOrNull(node,"routeKey"),text(node,"pageKey","routeId"));
+      String defaultTitle=textOrNull(node,"title");
+      String defaultIcon=textOrNull(node,"icon");
+      Integer defaultOrder=node.has("order")?node.path("order").asInt():null;
+      NavigationOverrideView override=overrides.remove(key);
+      result.add(new EffectiveNavigationDefinitionView(key,type,parent,route,defaultTitle,
+          override==null?null:override.title(),first(override==null?null:override.title(),defaultTitle),
+          defaultIcon,override==null?null:override.icon(),
+          first(override==null?null:override.icon(),defaultIcon),defaultOrder,
+          override==null?null:override.order(),override!=null&&override.order()!=null
+              ?override.order():defaultOrder,override!=null&&override.hidden(),"MANIFEST","ACTIVE"));
+    }
+    for(NavigationOverrideView override:overrides.values()) {
+      boolean stale="MANIFEST".equals(override.source());
+      result.add(new EffectiveNavigationDefinitionView(override.key(),override.nodeType(),
+          override.parentKey(),override.pageKey(),null,override.title(),
+          stale?null:override.title(),null,override.icon(),stale?null:override.icon(),null,
+          override.order(),stale?null:override.order(),override.hidden(),override.source(),
+          stale?"REMOVED_FROM_SOURCE":"ACTIVE"));
+    }
+    result.sort(java.util.Comparator.comparing(value->value.effectiveOrder()==null
+        ?Integer.MAX_VALUE:value.effectiveOrder()));
+    return List.copyOf(result);
   }
 
   @Transactional
@@ -42,11 +87,101 @@ public class UiPluginRegistryService {
     plugins.insertArtifact(new UiPluginRepository.ArtifactInsert(id,panelId,
         request.artifactVersion(),remoteUrl,request.remoteName(),request.exposedModule(),
         request.contractVersion(),manifest.path("schemaVersion").asText(),request.integrity(),
-        manifest.toString(),safeActor));
+        manifest.toString(),checksum(manifest),null,safeActor));
     audit.success("UI_REGISTRY","UI_ARTIFACT_PUBLISHED",null,null,"PANEL",
         panelId.toString(),request.artifactVersion(),"CREATE",null,
         Map.of("artifactId",id.toString(),"version",request.artifactVersion()));
     return new ArtifactPublishedResponse(id,"VALID");
+  }
+
+  /** Fetches, validates, versions and activates the configured MF manifest atomically. */
+  @Transactional
+  public FrontendManifestSyncResult syncFrontendManifest(UUID panelId,String actor) {
+    String safeActor=actor(actor);
+    var panel=plugins.lockFrontendSettings(panelId).orElseThrow(()->
+        new ResponseStatusException(HttpStatus.NOT_FOUND,"micro frontend registration not found"));
+    if(!panel.active())throw new IllegalArgumentException("micro frontend registration is inactive");
+    if(panel.mfManifestUrl()==null||panel.mfManifestUrl().isBlank())
+      throw new IllegalArgumentException("mfManifestUrl is not configured for this micro frontend");
+    String sourceUrl=artifactPolicy.validateMicroFrontendManifestUrl(panel.mfManifestUrl());
+    JsonNode root=read(manifestFetcher.fetch(sourceUrl));
+    JsonNode microfrontend=root.path("microfrontend");
+    if(!microfrontend.isObject()||root.has("resources"))
+      throw new IllegalArgumentException(
+          "MF manifest requires microfrontend metadata and must not define resources");
+    String moduleKey=microfrontend.path("key").asText();
+    String version=microfrontend.path("version").asText();
+    if(textOrNull(microfrontend,"name")==null||version.isBlank())
+      throw new IllegalArgumentException("microfrontend name and version are required");
+    if(!panel.slug().equals(moduleKey))
+      throw new IllegalArgumentException("microfrontend.key must match the registered panel slug");
+    JsonNode runtime=root.path("runtime");
+    if(!runtime.isObject())throw new IllegalArgumentException("MF manifest runtime is required");
+    String declaredRemote=textOrNull(runtime,"remoteEntry");
+    String declaredRemoteName=textOrNull(runtime,"remoteName");
+    String declaredModule=textOrNull(runtime,"exposedModule");
+    String declaredContract=textOrNull(runtime,"contractVersion");
+    if(declaredRemote==null||declaredRemoteName==null||declaredModule==null||declaredContract==null)
+      throw new IllegalArgumentException("MF manifest runtime integration fields are required");
+    artifactPolicy.validate(declaredRemote,textOrNull(runtime,"integrity"));
+    String effectiveRemote=artifactPolicy.validate(panel.remoteEntryPath(),panel.integrity());
+    ArtifactRequest effective=new ArtifactRequest(version,effectiveRemote,panel.remoteName(),
+        panel.exposedModule(),panel.contractVersion(),panel.integrity(),root.toString());
+    JsonNode validated=validate(panelId,effective);
+    String checksum=checksum(validated);
+    var current=plugins.activeManifestOptional(panelId);
+    ManifestDiff diff=diff(current.orElse(null),validated);
+    List<String> warnings=new ArrayList<>();
+    if(!declaredRemote.equals(panel.remoteEntryPath())||!declaredRemoteName.equals(panel.remoteName())
+        ||!declaredModule.equals(panel.exposedModule())
+        ||!declaredContract.equals(panel.contractVersion())) {
+      warnings.add("Administrator deployment settings override MF manifest runtime defaults");
+    }
+    var existing=plugins.artifactByVersion(panelId,version);
+    UUID artifactId;
+    boolean idempotent=false;
+    if(existing.isPresent()) {
+      var revision=existing.orElseThrow();
+      if(!checksum.equals(revision.checksum()))
+        throw new IllegalArgumentException(
+            "MF manifest version is immutable and already has different content");
+      if(!effectiveRemote.equals(revision.remoteEntryUrl())
+          ||!panel.remoteName().equals(revision.remoteName())
+          ||!panel.exposedModule().equals(revision.exposedModule())
+          ||!panel.contractVersion().equals(revision.contractVersion())
+          ||!java.util.Objects.equals(panel.integrity(),revision.integrity()))
+        throw new IllegalArgumentException(
+            "MF manifest version was synchronized with different deployment settings; bump its version");
+      artifactId=revision.id();
+      if(revision.active())idempotent=true;
+      else if(!plugins.activate(panelId,artifactId,panel.version()))
+        throw new OptimisticLockingFailureException("VERSION_CONFLICT");
+    } else {
+      artifactId=UUID.randomUUID();
+      plugins.insertArtifact(new UiPluginRepository.ArtifactInsert(artifactId,panelId,version,
+          effectiveRemote,panel.remoteName(),panel.exposedModule(),panel.contractVersion(),
+          validated.path("schemaVersion").asText(),panel.integrity(),validated.toString(),checksum,
+          sourceUrl,safeActor));
+      if(!plugins.activate(panelId,artifactId,panel.version()))
+        throw new OptimisticLockingFailureException("VERSION_CONFLICT");
+    }
+    audit.success("UI_REGISTRY","MF_MANIFEST_SYNCHRONIZED",null,null,"PANEL",
+        panelId.toString(),version,"SYNC",null,Map.ofEntries(
+            Map.entry("artifactId",artifactId.toString()),Map.entry("manifestVersion",version),
+            Map.entry("schemaVersion",validated.path("schemaVersion").asText()),
+            Map.entry("sourceUrl",sourceUrl),Map.entry("idempotent",idempotent),
+            Map.entry("runtimeChanged",diff.runtimeChanged()),
+            Map.entry("routesAdded",diff.routesAdded()),
+            Map.entry("routesUpdated",diff.routesUpdated()),
+            Map.entry("routesRemoved",diff.routesRemoved()),
+            Map.entry("navigationAdded",diff.navigationAdded()),
+            Map.entry("navigationUpdated",diff.navigationUpdated()),
+            Map.entry("navigationRemoved",diff.navigationRemoved())));
+    return new FrontendManifestSyncResult(artifactId,"SUCCESS",idempotent,
+        idempotent?0:diff.routesAdded(),idempotent?0:diff.routesUpdated(),
+        idempotent?0:diff.routesRemoved(),idempotent?0:diff.navigationAdded(),
+        idempotent?0:diff.navigationUpdated(),idempotent?0:diff.navigationRemoved(),
+        !idempotent&&diff.runtimeChanged(),List.copyOf(warnings));
   }
 
   @Transactional
@@ -165,8 +300,10 @@ public class UiPluginRegistryService {
       String moduleKey=plugins.activePanelSlug(panelId).orElseThrow(()->
           new IllegalArgumentException("active panel not found"));
       JsonNode root=json.readTree(request.manifest());
-      String declaredModuleKey=root.path("moduleKey").asText(
-          root.path("module").path("key").asText());
+      if(root.has("resources"))throw new IllegalArgumentException(
+          "MF manifest must not define authorization resources");
+      String declaredModuleKey=first(textOrNull(root.path("microfrontend"),"key"),
+          textOrNull(root,"moduleKey"),textOrNull(root.path("module"),"key"));
       if(!"1.0".equals(root.path("schemaVersion").asText())
           ||!moduleKey.equals(declaredModuleKey)||!root.path("routes").isArray()
           ||(!root.path("menus").isArray()&&!root.path("navigation").isArray())) {
@@ -177,21 +314,35 @@ public class UiPluginRegistryService {
         throw new IllegalArgumentException("invalid runtime apiBasePath");
       }
       Set<String> routes=new HashSet<>();
+      Set<String> routeShapes=new HashSet<>();
       for(JsonNode route:root.path("routes")) {
         String id=text(route,"key","id");
+        if(id==null||!id.matches("^[a-z][a-z0-9._-]{1,99}$"))
+          throw new IllegalArgumentException("MF route has an invalid stable key");
+        if(!routes.add(id))throw new IllegalArgumentException("duplicate MF route key: "+id);
+        if(!route.has("path")||!route.path("path").isTextual())
+          throw new IllegalArgumentException("MF route "+id+" requires a textual local path");
         String path=route.path("path").asText();
-        String resource=text(route,"resourceKey","resource");
-        String action=route.path("action").asText("view");
-        if(id==null||id.isBlank()||!routes.add(id)||path.startsWith("//")||path.contains("..")
-            ||path.contains("://")
-            ||resource==null||resource.isBlank()||action.isBlank()) {
-          throw new IllegalArgumentException("invalid or duplicate route");
-        }
+        String routeShape=localRouteShape(path,id);
+        if(!routeShapes.add(routeShape))throw new IllegalArgumentException(
+            "MF route "+id+" conflicts with another effective local route");
+        String resource=first(textOrNull(route,"requiredResource"),
+            text(route,"resourceKey","resource"));
+        String action=first(textOrNull(route,"requiredAction"),
+            textOrNull(route,"action"),"view");
+        if(route.has("component"))throw new IllegalArgumentException(
+            "MF route "+id+" must not contain component implementation details");
+        if(resource==null||resource.isBlank()||action.isBlank())throw new IllegalArgumentException(
+            "MF route "+id+" requires a resource/action reference");
         if(!plugins.resourceActionExists(resource,action)) {
           throw new IllegalArgumentException(
-              "manifest route references an undeclared resource action");
+              "MF route "+id+" references undeclared resource/action "+resource+"/"+action);
         }
       }
+      String defaultRoute=first(textOrNull(root,"defaultRouteKey"),
+          textOrNull(root,"defaultRouteId"));
+      if(defaultRoute!=null&&!routes.contains(defaultRoute))
+        throw new IllegalArgumentException("default route references an unknown route");
       Set<String> menus=new HashSet<>();
       for(JsonNode menu:root.path("menus")) {
         String id=menu.path("id").asText();
@@ -203,11 +354,16 @@ public class UiPluginRegistryService {
       for(JsonNode node:root.path("navigation")) {
         String id=text(node,"key","id");
         String type=node.path("type").asText();
+        if(node.has("requiredResource")||node.has("requiredAction"))
+          throw new IllegalArgumentException(
+              "navigation authorization is inherited from its referenced route");
         if(id==null||!id.matches("^[a-z][a-z0-9._-]{1,99}$")||!menus.add(id)
-            ||!Set.of("GROUP","PAGE","EXTERNAL_LINK").contains(type))
+            ||!Set.of("GROUP","PAGE","EXTERNAL_LINK").contains(type)
+            ||textOrNull(node,"title")==null)
           throw new IllegalArgumentException("invalid or duplicate navigation node");
         NavigationSpec specification=new NavigationSpec(type,
-            text(node,"parentKey","parentId"),text(node,"pageKey","routeId"),
+            text(node,"parentKey","parentId"),first(textOrNull(node,"routeKey"),
+                text(node,"pageKey","routeId")),
             textOrNull(node,"externalUrl"));
         validateNavigationFields(specification,routes);
         declaredNavigation.put(id,specification);
@@ -233,6 +389,32 @@ public class UiPluginRegistryService {
         &&!value.contains("?")&&!value.contains("#");
   }
 
+  private static String localRouteShape(String path,String routeKey) {
+    if(path.startsWith("/")||(!path.isEmpty()&&path.endsWith("/"))||path.contains("//")
+        ||path.contains("..")||path.contains("://")||path.contains("\\")
+        ||path.contains("?")||path.contains("#")||path.contains("%")
+        ||path.chars().anyMatch(value->value<0x20||value==0x7f))
+      throw new IllegalArgumentException("MF route "+routeKey+" has an invalid local path");
+    if(path.isEmpty())return "";
+    String[] segments=path.split("/",-1);
+    List<String> shape=new ArrayList<>();
+    for(int index=0;index<segments.length;index++) {
+      String segment=segments[index];
+      if(segment.equals("*")) {
+        if(index!=segments.length-1)throw new IllegalArgumentException(
+            "MF route "+routeKey+" wildcard must be the final segment");
+        shape.add("*");
+      } else if(segment.startsWith(":")) {
+        if(!segment.matches(":[A-Za-z][A-Za-z0-9_]{0,63}"))
+          throw new IllegalArgumentException("MF route "+routeKey+" has an invalid parameter");
+        shape.add(":");
+      } else if(!segment.matches("[A-Za-z0-9._~-]+")) {
+        throw new IllegalArgumentException("MF route "+routeKey+" has an invalid path segment");
+      } else shape.add(segment.toLowerCase(Locale.ROOT));
+    }
+    return String.join("/",shape);
+  }
+
   private void ensureMenu(UUID panelId,String menuId) {
     try {
       for(JsonNode node:json.readTree(plugins.activeManifest(panelId)).path("menus")) {
@@ -252,7 +434,8 @@ public class UiPluginRegistryService {
       if(navigation.isArray())for(JsonNode node:navigation) {
         String key=text(node,"key","id");
         nodes.put(key,new NavigationSpec(node.path("type").asText(),
-            text(node,"parentKey","parentId"),text(node,"pageKey","routeId"),
+            text(node,"parentKey","parentId"),first(textOrNull(node,"routeKey"),
+                text(node,"pageKey","routeId")),
             textOrNull(node,"externalUrl")));
       }
       if(nodes.isEmpty())for(JsonNode node:root.path("menus")) {
@@ -298,6 +481,55 @@ public class UiPluginRegistryService {
     return value==null||value.isBlank()?fallback:value;
   }
 
+  private JsonNode read(String value) {
+    try { return json.readTree(value); }
+    catch(Exception failure) { throw new IllegalArgumentException("MF manifest is not valid JSON",failure); }
+  }
+
+  private String checksum(JsonNode value) {
+    try {
+      return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+          .digest(json.writeValueAsString(value).getBytes(StandardCharsets.UTF_8)));
+    } catch(Exception failure) { throw new IllegalStateException("Unable to checksum MF manifest",failure); }
+  }
+
+  private ManifestDiff diff(String previous,JsonNode next) {
+    JsonNode before=previous==null?json.createObjectNode():read(previous);
+    Counts routes=counts(index(before.path("routes"),"key","id"),
+        index(next.path("routes"),"key","id"));
+    JsonNode beforeNavigation=before.path("navigation").isArray()
+        ?before.path("navigation"):before.path("menus");
+    Counts navigation=counts(index(beforeNavigation,"key","id"),
+        index(next.path("navigation"),"key","id"));
+    return new ManifestDiff(routes.added(),routes.updated(),routes.removed(),
+        navigation.added(),navigation.updated(),navigation.removed(),
+        !before.path("runtime").equals(next.path("runtime")));
+  }
+
+  private static Map<String,JsonNode> index(JsonNode values,String preferred,String legacy) {
+    Map<String,JsonNode> indexed=new LinkedHashMap<>();
+    if(values.isArray())for(JsonNode value:values) {
+      String key=first(textOrNull(value,preferred),textOrNull(value,legacy));
+      if(key!=null)indexed.put(key,value);
+    }
+    return indexed;
+  }
+
+  private static Counts counts(Map<String,JsonNode> before,Map<String,JsonNode> after) {
+    int added=0,updated=0,removed=0;
+    for(var entry:after.entrySet()) {
+      JsonNode prior=before.get(entry.getKey());
+      if(prior==null)added++;else if(!prior.equals(entry.getValue()))updated++;
+    }
+    for(String key:before.keySet())if(!after.containsKey(key))removed++;
+    return new Counts(added,updated,removed);
+  }
+
+  private static String first(String... values) {
+    for(String value:values)if(value!=null&&!value.isBlank())return value;
+    return null;
+  }
+
   private static String actor(String value) {
     if(value==null||value.isBlank()||value.length()>255) {
       throw new IllegalArgumentException("invalid actor");
@@ -337,4 +569,7 @@ public class UiPluginRegistryService {
   }
 
   private record NavigationSpec(String type,String parentKey,String pageKey,String externalUrl) {}
+  private record Counts(int added,int updated,int removed) {}
+  private record ManifestDiff(int routesAdded,int routesUpdated,int routesRemoved,
+      int navigationAdded,int navigationUpdated,int navigationRemoved,boolean runtimeChanged) {}
 }

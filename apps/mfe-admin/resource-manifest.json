@@ -1,22 +1,5 @@
 {
   "schemaVersion": "1.0",
-  "module": { "key": "admin", "name": "Administration", "nameFa": "راهبری سوپر اپ", "nameEn": "Administration", "version": "0.2.0" },
-  "routes": [
-    { "key": "operator-guide", "path": "/operator-guide", "component": "./bootstrap", "resourceKey": "application:aurevia", "action": "admin", "title": "راهنمای فرم‌ها" },
-    { "key": "access-studio", "path": "/access-studio", "component": "./bootstrap", "resourceKey": "application:aurevia", "action": "admin", "title": "استودیوی دسترسی" },
-    { "key": "panels", "path": "/panels", "component": "./bootstrap", "resourceKey": "application:aurevia", "action": "admin", "title": "میکروفرانت‌ها" },
-    { "key": "proxy-routes", "path": "/proxy-routes/routes", "component": "./bootstrap", "resourceKey": "proxy.route", "action": "admin", "title": "Proxy Routes" },
-    { "key": "identity", "path": "/identity", "component": "./bootstrap", "resourceKey": "application:aurevia", "action": "admin", "title": "گروه‌ها و نقش‌ها" },
-    { "key": "superset", "path": "/superset", "component": "./bootstrap", "resourceKey": "module:admin.superset-catalog", "action": "view", "title": "گزارش‌ها و داشبوردها" }
-  ],
-  "resources": [],
-  "navigation": [
-    { "key": "admin.nav.governance", "type": "GROUP", "title": "راهبری", "icon": "control", "order": 10 },
-    { "key": "admin.nav.guide", "type": "PAGE", "parentKey": "admin.nav.governance", "pageKey": "operator-guide", "title": "راهنمای فرم‌ها", "order": 10 },
-    { "key": "admin.nav.access", "type": "PAGE", "parentKey": "admin.nav.governance", "pageKey": "access-studio", "title": "استودیوی دسترسی", "order": 20 },
-    { "key": "admin.nav.panels", "type": "PAGE", "parentKey": "admin.nav.governance", "pageKey": "panels", "title": "میکروفرانت‌ها", "order": 30 },
-    { "key": "admin.nav.routes", "type": "PAGE", "parentKey": "admin.nav.governance", "pageKey": "proxy-routes", "title": "Proxy Routes", "order": 40 },
-    { "key": "admin.nav.identity", "type": "PAGE", "parentKey": "admin.nav.governance", "pageKey": "identity", "title": "گروه‌ها و نقش‌ها", "order": 50 },
-    { "key": "admin.nav.superset", "type": "PAGE", "parentKey": "admin.nav.governance", "pageKey": "superset", "title": "گزارش‌ها و داشبوردها", "order": 60 }
-  ]
+  "module": { "key": "admin", "name": "Administration", "nameFa": "راهبری سوپر اپ", "nameEn": "Administration", "version": "0.5.0" },
+  "resources": []
 }

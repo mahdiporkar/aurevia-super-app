@@ -123,23 +123,31 @@ PostgreSQL owns control-plane metadata, identity projections, audit, policy defi
 
 ```mermaid
 sequenceDiagram
-  participant M as MFE resource-manifest.json
+  participant MF as MFE mf-manifest.json
+  participant RM as MFE resource-manifest.json
   participant A as Authorization Service
-  participant D as Draft Ledger
+  participant F as UI Artifact Registry
+  participant D as Resource Draft Ledger
   participant O as Administrator
-  participant C as Resource + Navigation Catalog
-  participant B as BFF /api/ui/catalog
+  participant C as Effective Context Resolver
+  participant B as BFF /api/me/context
   participant S as Shell
-  A->>M: HTTPS fetch with origin policy, timeout and size limit
-  A->>A: schema, module, resource, action and navigation validation
+  A->>MF: secure fetch, validate local routes and resource references
+  A->>F: immutable idempotent revision + activation
+  A->>RM: secure fetch, validate authorization resources only
   A->>D: immutable versioned Draft + diff
   O->>D: preview and approval
-  D->>C: transactional publish; missing MANIFEST resources become DEPRECATED
-  C->>B: effective modules, routes, navigation and permissions
-  B->>S: session-authenticated catalog without exposing Keycloak token
+  D->>C: transactional resource publish + OpenFGA outbox
+  F->>C: routes/navigation defaults + admin overlays
+  C->>B: backend-filtered modules, routes, navigation and permissions
+  B->>S: browser-safe session context without exposing Keycloak token
 ```
 
-`panel` همان ثبت canonical یک MFE است. `resource` منبع حقیقت Resource Tree، JSON نسخه فعال به‌علاوه `ui_menu_override` منبع Navigation Tree و `authorization_grant`/OpenFGA منبع Permission Tree است؛ این سه مفهوم با هم ادغام نمی‌شوند. جزئیات قرارداد، modeها، ownership، APIها و runbook در [Resource Catalog و Manifest](resource-catalog-manifest-architecture-fa.md) و مدل فیزیکی در [ER کنترل‌پلین](er-diagram.md) آمده است.
+`panel` همان ثبت canonical یک MFE است. `resource` منبع حقیقت Resource Tree،
+`ui_module_artifact` و `ui_menu_override` منبع Frontend/Navigation Registry، و
+`authorization_grant`/OpenFGA منبع Permission Tree هستند. جزئیات قرارداد تفکیک‌شده در
+[MF و Resource Manifest](mf-and-resource-manifest-separation-fa.md) و مدل فیزیکی در
+[ER کنترل‌پلین](er-diagram.md) آمده است.
 
 ## Deployment and scaling
 

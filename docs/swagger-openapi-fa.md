@@ -88,9 +88,13 @@ X-Correlation-ID: 5e4ddf32-1e7e-4e20-a9f3-64de1c938f97
 
 `subjectId` بدون `issuer` هویت یکتا نیست. `resource` و `action` باید دقیقاً با Resource Manifest ثبت‌شده منطبق باشند. برای هر درخواست یک `correlationId` جدید بسازید.
 
-### چرخه Resource Manifest و Navigation Overlay
+### چرخه‌های مستقل MF Manifest و Resource Manifest
 
 API حاکمیتی Manifest هیچ‌گاه با Import، کاتالوگ فعال را مستقیم تغییر نمی‌دهد:
+
+| عملیات MF | Endpoint | رفتار |
+|---|---|---|
+| Sync Frontend Manifest | `POST /internal/v1/registry/panels/{panelId}/frontend-manifests/sync` | Fetch امن، validation، diff، revision immutable و activate اتمیک؛ بدون تغییر Resource/OpenFGA |
 
 | عملیات | endpoint داخلی | نتیجه |
 |---|---|---|

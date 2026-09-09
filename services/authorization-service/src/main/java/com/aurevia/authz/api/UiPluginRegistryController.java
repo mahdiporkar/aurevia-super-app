@@ -39,6 +39,12 @@ public final class UiPluginRegistryController {
     return plugins.publish(panelId,actor,request);
   }
 
+  @PostMapping("/frontend-manifests/sync")
+  public FrontendManifestSyncResult syncFrontendManifest(@PathVariable UUID panelId,
+      @RequestHeader("X-Actor") String actor) {
+    return plugins.syncFrontendManifest(panelId,actor);
+  }
+
   @PostMapping("/artifacts/{artifactId}/activate")
   public ArtifactActivatedResponse activate(@PathVariable UUID panelId,
       @PathVariable UUID artifactId,@RequestParam long version) {
@@ -55,6 +61,11 @@ public final class UiPluginRegistryController {
   @GetMapping("/navigation-overrides")
   public List<NavigationOverrideView> navigationOverrides(@PathVariable UUID panelId) {
     return plugins.navigationOverrides(panelId);
+  }
+
+  @GetMapping("/navigation-definitions")
+  public List<EffectiveNavigationDefinitionView> navigationDefinitions(@PathVariable UUID panelId) {
+    return plugins.navigationDefinitions(panelId);
   }
 
   @PutMapping("/navigation-overrides/{navigationKey}")

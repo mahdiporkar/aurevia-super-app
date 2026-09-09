@@ -1,6 +1,6 @@
 import{describe,expect,it}from'vitest';
 import type{UiModuleDefinition}from'@aurevia/contracts';
-import{activeCatalogMenuKey,activeCatalogModule,catalogMenuItems,catalogMenuTree,composeModulePath}from'./manifest-routing';
+import{activeCatalogMenuKey,activeCatalogModule,authorizedCatalogRoute,catalogMenuItems,catalogMenuTree,composeModulePath,matchesLocalRoute}from'./manifest-routing';
 
 function module(routePrefix='management'):UiModuleDefinition{return{
   registrationId:'11111111-1111-1111-1111-111111111111',moduleKey:'admin',
@@ -28,6 +28,17 @@ describe('effective uiCatalog routing',()=>{
 
   it('recognizes deep links beneath the registered module prefix',()=>{
     expect(activeCatalogModule([module()],'/management/resources')?.moduleKey).toBe('admin');
+  });
+
+  it('matches only backend-authorized routes, including parameters',()=>{
+    const hr={...module('hr'),routes:[
+      {id:'employees',path:'personal',title:'کارکنان'},
+      {id:'employee-details',path:'personal/:id',title:'جزئیات'},
+    ]};
+    expect(matchesLocalRoute('personal/:id','personal/e-101')).toBe(true);
+    expect(authorizedCatalogRoute(hr,'/hr/personal/e-101')?.id).toBe('employee-details');
+    expect(authorizedCatalogRoute(hr,'/hr/admin/users')).toBeUndefined();
+    expect(authorizedCatalogRoute(hr,'/finance/personal')).toBeUndefined();
   });
 
   it('keeps the nearest parent menu selected on detail routes',()=>{

@@ -3,6 +3,7 @@ package com.aurevia.authz.api;
 import static com.aurevia.authz.api.dto.ResourceManifestDtos.*;
 
 import com.aurevia.authz.registry.ResourceManifestService;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -54,9 +55,9 @@ public final class ResourceManifestController {
   @PostMapping("/panels/{panelId}/resource-manifests/drafts")
   @ResponseStatus(HttpStatus.CREATED)
   public ManifestDraftView importDraft(@PathVariable UUID panelId,
-      @Valid @RequestBody MicroFrontendManifest manifest,
+      @RequestBody JsonNode manifest,
       @RequestHeader("X-Actor") String actor) {
-    return manifests.stage(panelId,manifest,actor);
+    return manifests.stageJson(panelId,manifest,actor);
   }
 
   @GetMapping("/panels/{panelId}/resource-manifests/drafts/{draftId}")

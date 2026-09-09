@@ -41,10 +41,23 @@ public final class UiArtifactPolicy {
   }
 
   /** Metadata is fetched only from the same approved origins as executable UI artifacts. */
+  public String validateResourceManifestUrl(String url) {
+    return validateJsonManifestUrl(url,"Resource manifest");
+  }
+
+  public String validateMicroFrontendManifestUrl(String url) {
+    return validateJsonManifestUrl(url,"MF manifest");
+  }
+
+  /** Compatibility alias for callers compiled against the original resource-only API. */
   public String validateManifestUrl(String url) {
-    URI uri=approvedUri(url,"Resource manifest");
+    return validateResourceManifestUrl(url);
+  }
+
+  private String validateJsonManifestUrl(String url,String label) {
+    URI uri=approvedUri(url,label);
     if(!uri.getPath().endsWith(".json")) {
-      throw new IllegalArgumentException("Resource manifest must be an absolute JSON URL");
+      throw new IllegalArgumentException(label+" must be an absolute JSON URL");
     }
     return uri.toString();
   }

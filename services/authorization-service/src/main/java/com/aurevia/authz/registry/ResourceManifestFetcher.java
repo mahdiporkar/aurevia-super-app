@@ -1,6 +1,4 @@
 package com.aurevia.authz.registry;
 
-/** Outbound port for retrieving a configured, allow-listed resource manifest. */
-public interface ResourceManifestFetcher {
-  String fetch(String url);
-}
+/** Resource-manifest port retained for source compatibility with the resource workflow. */
+public interface ResourceManifestFetcher extends ManifestFetcher {}

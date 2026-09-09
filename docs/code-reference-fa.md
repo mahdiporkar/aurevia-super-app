@@ -150,11 +150,11 @@ Admin APIها از prefix `/api/v1/admin` استفاده می‌کنند. mutati
 - ثبت outbox برای تغییرات panel.
 - مشاهده audit با limit کنترل‌شده.
 
-### کاتالوگ Resource Manifest و Navigation
+### Registryهای مستقل Resource Manifest و MF Manifest/Navigation
 
 - `ResourceManifestController`: endpointهای fetch، ایجاد Draft، preview/diff و publish تأییدشده را ارائه می‌کند؛ endpoint سازگار قدیمی نیز فقط Draft می‌سازد.
 - `ResourceManifestService`: قرارداد نسخه‌دار را normalize و validate می‌کند، ownership/type/parent/action را کنترل می‌کند و منابع غایب نسخه جدید را به `DEPRECATED` می‌برد.
-- `HttpResourceManifestFetcher`: دریافت JSON با timeout، سقف اندازه، content-type، عدم follow redirect و policy نشانی مجاز؛ backend هیچ `remoteEntry.js`ای اجرا نمی‌کند.
+- `HttpManifestFetcher`: دریافت مشترک JSON با timeout، سقف اندازه، content-type و عدم follow redirect؛ URL هر قرارداد پیش از fetch با policy مستقل MF/Resource بررسی می‌شود و backend هیچ `remoteEntry.js`ای اجرا نمی‌کند.
 - `ResourceManifestRepository` و `JdbcResourceManifestRepository`: مرز persistence برای ledger مانیفست، diff، ownership و publish اتمیک.
 - `UiPluginRegistryService`: artifact runtime، Navigation manifest و overlay راهبر را مستقل از Resource Tree مدیریت و Navigation مؤثر را تولید می‌کند.
 - `DemoDataPolicy`: یک policy مرکزی برای حذف پنل و resource نوع `DEMO` از catalog و تصمیم runtime در محیط production.

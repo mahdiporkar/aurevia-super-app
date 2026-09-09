@@ -79,6 +79,43 @@ export interface PanelManifest {
     routes?: PluginRoute[];
     menus?: PluginMenu[];
 }
+export interface MicroFrontendManifestRoute {
+    key: string;
+    path: string;
+    title?: string;
+    requiredResource: string;
+    requiredAction?: string;
+}
+export interface MicroFrontendManifestNavigation {
+    key: string;
+    type: 'GROUP' | 'PAGE' | 'EXTERNAL_LINK';
+    parentKey?: string;
+    routeKey?: string;
+    title: string;
+    description?: string;
+    icon?: string;
+    order?: number;
+    externalUrl?: string;
+}
+export interface MicroFrontendManifest {
+    schemaVersion: '1.0';
+    microfrontend: {
+        key: string;
+        name: string;
+        version: string;
+    };
+    runtime: {
+        remoteEntry: string;
+        remoteName: string;
+        exposedModule: string;
+        contractVersion: string;
+        integrity?: string;
+        apiBasePath?: string;
+    };
+    defaultRouteKey?: string;
+    routes: readonly MicroFrontendManifestRoute[];
+    navigation: readonly MicroFrontendManifestNavigation[];
+}
 export type ResourceType = 'APPLICATION' | 'MODULE' | 'PAGE' | 'UI_COMPONENT' | 'FIELD' | 'BUSINESS_RESOURCE' | 'EXTERNAL_RESOURCE' | 'API_RESOURCE' | 'DATA_RESOURCE' | 'DATA_GOVERNANCE_RESOURCE';
 export interface ManifestResource {
     id: string;
@@ -150,6 +187,23 @@ export interface ResourceDefinitionManifest {
     application: string;
     manifestVersion: string;
     resources: readonly ResourceDefinition[];
+}
+export interface ManifestResourceDefinition extends Omit<ResourceDefinition, 'parent' | 'nameFa' | 'nameEn'> {
+    parentKey?: string | null;
+    name?: string;
+    nameFa?: string;
+    nameEn?: string;
+}
+export interface ResourceManifest {
+    schemaVersion: '1.0';
+    module: {
+        key: string;
+        name: string;
+        nameFa?: string;
+        nameEn?: string;
+        version: string;
+    };
+    resources: readonly ManifestResourceDefinition[];
 }
 export interface CurrentUser {
     issuer: string;

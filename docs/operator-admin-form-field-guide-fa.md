@@ -29,7 +29,8 @@
 - **Resource** چیزی است که باید محافظت شود؛ **Action** کاری است که روی آن انجام می‌شود؛
   **Subject** دارنده دسترسی و **Grant** رابطه میان این سه است.
 - **Panel/MFE** ثبت مدیریتی یک رابط مستقل است؛ **Artifact** نسخه اجرایی immutable آن؛
-  **Resource Manifest** قرارداد منابع، routeها و navigation همان نسخه است.
+  **Resource Manifest** فقط قرارداد منابع مجوزدهی است و **MF Manifest** قرارداد runtime،
+  routeهای محلی و navigation پیش‌فرض همان نسخه است.
 - **Target → Route → Operation** زنجیره عبور API است: مقصد، نگاشت مسیر، سپس قرارداد مجوز هر عملیات.
 
 ### ۰.۳ پیش‌نیاز ورود و ترتیب یادگیری
@@ -210,13 +211,14 @@ metadata یا action باید با نسخه جدید Manifest منتشر شود.
 | آدرس کامل Remote Entry | الزامی؛ HTTP(S) absolute | URL دقیق artifact. در production باید origin allowlisted و سیاست HTTPS/SRI رعایت شود | `https://cdn.example/mfe/payroll/remoteEntry.js` |
 | Exposed Module | الزامی؛ با `./` | module exportشده توسط container | `./plugin` |
 | Route Prefix | الزامی؛ `/` + kebab-case | مسیر UI؛ `login/admin/settings/api/assets/error` برای رکورد جدید رزروشده‌اند | `/payroll` |
-| Default Route ID | الزامی | باید با یکی از `routes[].id` در manifest artifact یکسان باشد | `employee-list` |
+| Default Route ID | الزامی | باید با یکی از `routes[].key` در MF Manifest یکسان باشد | `employee-list` |
 | نسخه | الزامی؛ SemVer | نسخه deploy مانند `1.4.2` یا prerelease معتبر | `1.4.2` |
 | نسخه قرارداد | الزامی | نسخه قرارداد Shell↔MFE؛ مستقل از نسخه محصول | `1.0` |
 | ترتیب | اختیاری؛ عدد | ترتیب menu؛ عدد کوچک‌تر زودتر نمایش داده می‌شود | `30` |
-| حالت تعریف Resource | الزامی؛ `MANIFEST`/`MANUAL`/`HYBRID` | `MANIFEST`: فقط فایل MFE، `MANUAL`: فقط ادمین، `HYBRID`: هر دو با مالکیت مستقل؛ پیش‌فرض توصیه‌شده | `HYBRID` |
+| حالت تعریف Resource | الزامی؛ `MANIFEST`/`MANUAL`/`HYBRID` | فقط منبع تعریف Authorization Resource را تعیین می‌کند: فایل، ادمین، یا هر دو با مالکیت مستقل؛ روی MF Manifest/route/navigation اثری ندارد | `HYBRID` |
 | Classification | الزامی؛ `REAL`/`DEMO` | MFE آزمایشی را صریح علامت می‌زند؛ در production و با `demo-data.enabled=false` از Catalog و تصمیم runtime حذف می‌شود | `REAL` |
 | Resource Manifest URL | در `MANIFEST` الزامی؛ URL مطلق JSON | آدرس `resource-manifest.json`؛ بدون credential/query/fragment و از origin مجاز. Backend فقط JSON را می‌خواند و Webpack اجرا نمی‌کند | `https://cdn.example/mfe/payroll/resource-manifest.json` |
+| MF Manifest URL | اختیاری تا زمان sync؛ URL مطلق JSON | آدرس مستقل `mf-manifest.json` برای runtime، route و navigation؛ از همان allowlist امن | `https://cdn.example/mfe/payroll/mf-manifest.json` |
 | فعال | boolean | فقط MFE فعال وارد catalog/manifest runtime می‌شود | — |
 
 ### ۵.۲ فرم «انتشار Artifact immutable»
@@ -229,12 +231,12 @@ metadata یا action باید با نسخه جدید Manifest منتشر شود.
 | Exposed Module | الزامی | export runtime که `mount` ارائه می‌کند | `./plugin` |
 | Contract | الزامی | باید توسط Shell پشتیبانی شود | `1.0` |
 | SRI | در local اختیاری؛ در production طبق policy | digest کامل مانند `sha384-...`؛ با کوچک‌ترین تغییر فایل باید عوض شود | `sha384-AbCd...` |
-| Manifest Snapshot | الزامی؛ JSON معتبر | routes، menus، resource و action همان artifact؛ پس از انتشار immutable است | نمونه در بخش ۱۳ |
+| MF Manifest Snapshot | الزامی؛ JSON معتبر | runtime، routeهای محلی، navigation پیش‌فرض و referenceهای resource؛ خود Resource را تعریف نمی‌کند و پس از انتشار immutable است | نمونه در بخش ۱۳ |
 | Validate و Publish | mutation | ابتدا schema/URL/SRI را validate و سپس artifact را ثبت می‌کند |
 | Activate / Rollback | تأیید نسخه | active artifact پنل را atomically تغییر می‌دهد؛ rollback یعنی فعال‌کردن artifact معتبر قبلی |
 
-Artifact قرارداد اجرایی Module Federation است؛ Resource Manifest کاتالوگ امنیتی/ناوبری نسخه‌دار
-است. انتشار یکی جای انتشار دیگری را نمی‌گیرد و این دو فرم نباید با هم ادغام شوند.
+Artifact/MF Manifest قرارداد runtime، route و navigation پیش‌فرض است؛ Resource Manifest فقط
+کاتالوگ منابع مجوزدهی نسخه‌دار است. انتشار یکی جای انتشار دیگری را نمی‌گیرد.
 
 ### ۵.۳ فرم «Resource Manifest و Draft»
 
@@ -477,7 +479,49 @@ OU و status قابل مشاهده‌اند اما ایجاد دستی کارب�
 جزئیات log باید safe metadata باشد. Authorization header، cookie، token، password و payload
 حساس نباید در فیلتر یا safe details ظاهر شوند.
 
-## ۱۳. نمونه Resource Manifest استاندارد
+## ۱۳. نمونه قراردادهای جداشدهٔ MF و Resource Manifest
+
+MF Manifest:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "microfrontend": {
+    "key": "hr-payroll",
+    "name": "Payroll",
+    "version": "1.4.2"
+  },
+  "runtime": {
+    "remoteEntry": "https://cdn.example/mfe/payroll/remoteEntry.js",
+    "remoteName": "payroll_ui",
+    "exposedModule": "./plugin",
+    "contractVersion": "1.0",
+    "apiBasePath": "/api/proxy/payroll-api"
+  },
+  "defaultRouteKey": "employee-list",
+  "routes": [
+    {
+      "key": "employee-list",
+      "path": "employees",
+      "title": "کارکنان",
+      "requiredResource": "page:hr.employees",
+      "requiredAction": "view"
+    }
+  ],
+  "navigation": [
+    {
+      "key": "employees-menu",
+      "type": "PAGE",
+      "routeKey": "employee-list",
+      "title": "کارکنان",
+      "icon": "team",
+      "order": 10
+    }
+  ]
+}
+```
+
+Resource Manifest:
 
 ```json
 {
@@ -488,34 +532,13 @@ OU و status قابل مشاهده‌اند اما ایجاد دستی کارب�
     "nameFa": "حقوق و دستمزد",
     "version": "1.4.2"
   },
-  "routes": [
-    {
-      "key": "employee-list",
-      "path": "employees",
-      "component": "EmployeeListPage",
-      "title": "کارکنان",
-      "resourceKey": "page:hr.employees",
-      "action": "view"
-    }
-  ],
   "resources": [
     {
       "key": "page:hr.employees",
       "type": "PAGE",
-      "parentKey": "module:hr-payroll",
       "nameFa": "کارکنان",
       "nameEn": "Employees",
       "actions": ["view"]
-    }
-  ],
-  "navigation": [
-    {
-      "key": "employees-menu",
-      "type": "PAGE",
-      "pageKey": "employee-list",
-      "title": "کارکنان",
-      "icon": "team",
-      "order": 10
     }
   ]
 }
@@ -525,12 +548,12 @@ OU و status قابل مشاهده‌اند اما ایجاد دستی کارب�
 
 - backend یک Application root با کلید `application:aurevia/{panel-slug}` می‌سازد؛ root والد ندارد.
 - هر Resource غیرریشه والد معتبر در همان Panel دارد و ساخت cycle/self-parent مجاز نیست.
-- هر PAGE navigation باید با `pageKey` به `routes[].key` موجود اشاره کند.
-- `resourceKey` باید canonical باشد و action مسیر برای همان Resource تعریف شده باشد.
+- هر PAGE navigation با `routeKey` به `routes[].key` موجود اشاره می‌کند و مجوز را از route به ارث می‌برد.
+- `requiredResource` فقط reference است؛ باید همراه `requiredAction` در Resource Registry موجود باشد.
 - MFE فقط عناصر غیرمجاز را پنهان می‌کند؛ تصمیم امنیتی نهایی همیشه در BFF/Authorization Service است.
 
-قرارداد کامل، APIهای Draft/Publish و قواعد مالکیت در
-[معماری Resource Catalog و Navigation](resource-catalog-manifest-architecture-fa.md) آمده است.
+قرارداد کامل، APIهای مستقل sync و قواعد مالکیت در
+[جداسازی MF و Resource Manifest](mf-and-resource-manifest-separation-fa.md) آمده است.
 
 ## ۱۴. دو نمونه کامل Proxy
 
@@ -578,9 +601,10 @@ OU و status قابل مشاهده‌اند اما ایجاد دستی کارب�
 2. برای پروژه دارای قرارداد منابع `HYBRID` یا `MANIFEST` را انتخاب کنید؛ برای مهاجرت تدریجی
    بدون manifest از `MANUAL` استفاده کنید.
 3. رکورد را ابتدا غیرفعال ذخیره و URLها را از شبکه خود سرویس Registry/BFF آزمایش کنید.
-4. Artifact را با نسخه، URL، Remote Name، Exposed Module، Contract، SRI و snapshot منتشر کنید.
-5. artifact را Activate کنید. سپس Fetch/Import، Preview Diff و Publishِ Resource Manifest را
-   انجام دهید. `CONFLICT` را دور نزنید؛ مالکیت یا نسخه را اصلاح کنید.
+4. «Sync Frontend Manifest» را اجرا کنید؛ برای مهاجرت یا rollback می‌توان Artifact snapshot را
+   دستی منتشر و Activate کرد.
+5. مستقل از آن، Fetch/Import، Preview Diff و Publishِ Resource Manifest را انجام دهید.
+   `CONFLICT` را دور نزنید؛ مالکیت یا نسخه را اصلاح کنید.
 6. navigation را بررسی کنید؛ overlay برای نمایش است و جای Resource/Permission را نمی‌گیرد.
 7. در Access Studio، resource/actionها را بررسی و grant لازم را به Role یا Group بدهید.
 8. Panel را فعال و با یک کاربر مجاز و یک کاربر غیرمجاز تست کنید.

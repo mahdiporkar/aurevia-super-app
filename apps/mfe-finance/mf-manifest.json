@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "microfrontend": { "key": "finance", "name": "Finance", "version": "0.2.0" },
+  "runtime": { "remoteEntry": "http://localhost:3003/remoteEntry.js", "remoteName": "aurevia_finance", "exposedModule": "./bootstrap", "contractVersion": "1.0", "apiBasePath": "/api/proxy/finance" },
+  "defaultRouteKey": "index",
+  "routes": [
+    { "key": "index", "path": "", "requiredResource": "page:finance.payments", "requiredAction": "view", "title": "عملیات مالی" }
+  ],
+  "navigation": [
+    { "key": "finance.nav.root", "type": "GROUP", "title": "مالی", "icon": "bank", "order": 20 },
+    { "key": "main", "type": "PAGE", "parentKey": "finance.nav.root", "routeKey": "index", "title": "عملیات مالی", "icon": "credit-card", "order": 10 }
+  ]
+}

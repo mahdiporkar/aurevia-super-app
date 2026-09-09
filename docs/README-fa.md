@@ -36,6 +36,7 @@
 28. [قرارداد مؤثر UI Catalog و مسیریابی واقعی Admin MFE](effective-ui-catalog-and-admin-routing-fa.md)
 29. [راهنما و گزارش آزمون End-to-End تمام صفحات راهبری](admin-governance-e2e-test-guide-fa.md)
 30. [گزارش اعتبارسنجی Production از دیتابیس خالی در ۲۰۲۶-۰۹-۰۸](production-fresh-stack-validation-2026-09-08-fa.md)
+31. [استاندارد اجباری Manifest همه Micro Frontendها](microfrontend-manifest-contract-standard-fa.md)
 
 ## نقشه مستندات
 
@@ -54,7 +55,8 @@
 | دموی دو کاربر با دسترسی متفاوت به صفحات HR و Finance چگونه اجرا می‌شود؟ | [two-page-openfga-demo-fa.md](two-page-openfga-demo-fa.md) |
 | Shell چه کاری انجام می‌دهد و MFEها را چگونه بارگذاری می‌کند؟ | [shell-runtime-and-mfe-loading-fa.md](shell-runtime-and-mfe-loading-fa.md) |
 | uiCatalog مؤثر چگونه ساخته می‌شود و تب‌های Admin به چه routeهایی تبدیل شده‌اند؟ | [effective-ui-catalog-and-admin-routing-fa.md](effective-ui-catalog-and-admin-routing-fa.md) |
-| Resource Manifest چگونه Fetch، Diff، Approve و Publish می‌شود و Navigation Overlay چیست؟ | [resource-catalog-manifest-architecture-fa.md](resource-catalog-manifest-architecture-fa.md) |
+| MF Manifest، Resource Manifest و Navigation Overlay چگونه از هم جدا شده‌اند؟ | [mf-and-resource-manifest-separation-fa.md](mf-and-resource-manifest-separation-fa.md) |
+| قالب اجباری Resource Manifest و قواعد کامل route و menu همه MFEها چیست؟ | [microfrontend-manifest-contract-standard-fa.md](microfrontend-manifest-contract-standard-fa.md) |
 | موتور مجوزدهی دقیقاً چگونه تصمیم می‌گیرد؟ | [authorization-engine-fa.md](authorization-engine-fa.md) |
 | معماری کامل، همه سطوح OpenFGA و محدودیت‌های فعلی چیست؟ | [architecture-openfga-complete-fa.md](architecture-openfga-complete-fa.md) |
 | هنگام انتشار، آدرس/پورت OpenFGA، Store ID و Model ID را کجا تعریف کنیم؟ | [openfga-deployment-configuration-fa.md](openfga-deployment-configuration-fa.md) |

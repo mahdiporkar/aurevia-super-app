@@ -4,12 +4,13 @@ import static com.aurevia.authz.api.dto.ResourceManifestDtos.*;
 
 import com.aurevia.authz.observability.AuditTrail;
 import com.aurevia.authz.ui.UiArtifactPolicy;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -87,15 +88,21 @@ public class ResourceManifestService {
     if(blank(panel.resourceManifestUrl())) {
       throw new IllegalArgumentException("resourceManifestUrl is not configured for this micro frontend");
     }
-    String url=locationPolicy.validateManifestUrl(panel.resourceManifestUrl());
+    String url=locationPolicy.validateResourceManifestUrl(panel.resourceManifestUrl());
     return stage(panel,read(fetcher.fetch(url)),safeActor(actor),url);
   }
 
   @Transactional
-  public ManifestDraftView stage(UUID panelId,MicroFrontendManifest manifest,String actor) {
+  public ManifestDraftView stage(UUID panelId,ResourceManifest manifest,String actor) {
     var panel=requirePanel(panelId);
     ensureManifestMode(panel);
     return stage(panel,manifest,safeActor(actor),null);
+  }
+
+  @Transactional
+  public ManifestDraftView stageJson(UUID panelId,JsonNode manifest,String actor) {
+    if(manifest==null||manifest.isNull())throw new IllegalArgumentException("manifest is required");
+    return stage(panelId,read(manifest.toString()),actor);
   }
 
   /** Backward-compatible endpoint behavior: legacy payloads are staged, never directly applied. */
@@ -116,9 +123,9 @@ public class ResourceManifestService {
             value.nameEn(),value.ownerDomain(),value.classification(),value.actions(),
             value.metadata(),value.provider(),value.externalType(),value.externalId())).toList();
     String moduleName=panel.nameEn()==null?panel.slug():panel.nameEn();
-    return stage(panel,new MicroFrontendManifest("1.0",
+    return stage(panel,new ResourceManifest("1.0",
         new ModuleMetadata(panel.slug(),moduleName,panel.nameFa(),panel.nameEn(),
-            manifest.manifestVersion()),List.of(),definitions,List.of()),safeActor(actor),null);
+            manifest.manifestVersion()),definitions),safeActor(actor),null);
   }
 
   @Transactional
@@ -130,7 +137,9 @@ public class ResourceManifestService {
     if(!"DRAFT".equals(draft.workflowStatus())) {
       throw new IllegalArgumentException("only a DRAFT manifest can be published");
     }
-    MicroFrontendManifest manifest=read(draft.payload());
+    ResourceManifest manifest=readStored(draft.payload());
+    if(hasFrontendFields(draft.payload()))throw new IllegalArgumentException(
+        "legacy mixed manifest drafts must be restaged as authorization-only resource manifests");
     DefinitionManifest normalized=normalize(panel,manifest);
     if(!checksum(manifest).equals(draft.checksum())) {
       throw new IllegalArgumentException("stored manifest checksum mismatch");
@@ -216,7 +225,7 @@ public class ResourceManifestService {
   }
 
   private ManifestDraftView stage(ResourceManifestRepository.PanelManifestSettings panel,
-      MicroFrontendManifest manifest,String actor,String sourceUrl) {
+      ResourceManifest manifest,String actor,String sourceUrl) {
     DefinitionManifest normalized=normalize(panel,manifest);
     List<ManifestChange> changes=diff(normalized);
     String checksum=checksum(manifest);
@@ -247,7 +256,7 @@ public class ResourceManifestService {
   }
 
   private DefinitionManifest normalize(ResourceManifestRepository.PanelManifestSettings panel,
-      MicroFrontendManifest manifest) {
+      ResourceManifest manifest) {
     validateContract(panel,manifest);
     String root="application:aurevia/"+panel.slug();
     String moduleKey="module:"+manifest.module().key();
@@ -275,25 +284,6 @@ public class ResourceManifestService {
       if(prior!=null&&!syntheticEquivalent(prior,definition))
         throw new IllegalArgumentException("duplicate resource key: "+value.key());
     }
-    Map<String,LinkedHashSet<String>> routeActions=new HashMap<>();
-    for(ManifestRoute route:manifest.routes()) {
-      routeActions.computeIfAbsent(route.effectiveResourceKey(),ignored->new LinkedHashSet<>())
-          .add(route.effectiveAction());
-    }
-    routeActions.forEach((key,actions)->{
-      ResourceDefinition current=definitions.get(key);
-      if(current==null) {
-        if(!"HYBRID".equals(panel.resourceDefinitionMode())
-            ||actions.stream().anyMatch(action->!resources.resourceActionExists(key,action)))
-          throw new IllegalArgumentException("route references unknown resource action: "+key);
-        return;
-      }
-      LinkedHashSet<String> merged=new LinkedHashSet<>(current.actions());merged.addAll(actions);
-      definitions.put(key,new ResourceDefinition(current.key(),current.type(),current.parent(),
-          current.nameFa(),current.nameEn(),current.ownerDomain(),current.classification(),
-          List.copyOf(merged),current.status(),current.source(),current.metadata(),
-          current.provider(),current.externalType(),current.externalId()));
-    });
     definitions.values().forEach(definition->{
       Set<String> unique=new LinkedHashSet<>();
       for(String action:definition.actions()) {
@@ -311,7 +301,7 @@ public class ResourceManifestService {
   }
 
   private void validateContract(ResourceManifestRepository.PanelManifestSettings panel,
-      MicroFrontendManifest manifest) {
+      ResourceManifest manifest) {
     if(manifest==null||manifest.module()==null)
       throw new IllegalArgumentException("manifest module is required");
     if(!"1.0".equals(manifest.schemaVersion()))
@@ -325,48 +315,9 @@ public class ResourceManifestService {
       throw new IllegalArgumentException("module.key must be lowercase kebab-case");
     if(!manifest.module().version().matches("^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$"))
       throw new IllegalArgumentException("module.version must be SemVer");
-    Set<String> routeKeys=new LinkedHashSet<>();
-    for(ManifestRoute route:manifest.routes()) {
-      if(route==null)throw new IllegalArgumentException("manifest route cannot be null");
-      String key=route.effectiveKey();
-      if(blank(key)||!routeKeys.add(key))throw new IllegalArgumentException("invalid or duplicate route key");
-      if(blank(route.effectiveResourceKey()))throw new IllegalArgumentException("route resourceKey is required");
-      if(route.path()==null||route.path().contains("..")||route.path().contains("://")
-          ||route.path().startsWith("//"))
-        throw new IllegalArgumentException("route path must be local to the micro frontend");
-    }
     for(ManifestResource resource:manifest.resources()) {
       if(resource==null||blank(resource.key())||blank(resource.type()))
         throw new IllegalArgumentException("resource key and type are required");
-    }
-    Map<String,NavigationNode> navigation=new LinkedHashMap<>();
-    for(NavigationNode node:manifest.navigation()) {
-      if(node==null||blank(node.type())||blank(node.title()))
-        throw new IllegalArgumentException("navigation type and title are required");
-      String key=node.effectiveKey();
-      String type=node.type().toUpperCase(Locale.ROOT);
-      if(blank(key)||navigation.put(key,node)!=null)
-        throw new IllegalArgumentException("invalid or duplicate navigation key");
-      if(!Set.of("GROUP","PAGE","EXTERNAL_LINK").contains(type))
-        throw new IllegalArgumentException("unsupported navigation node type: "+type);
-      if("PAGE".equals(type)&&!routeKeys.contains(node.effectivePageKey()))
-        throw new IllegalArgumentException("navigation PAGE references an unknown route");
-      if("GROUP".equals(type)
-          &&(!blank(node.effectivePageKey())||!blank(node.externalUrl())))
-        throw new IllegalArgumentException("navigation GROUP cannot have a route or URL");
-      if("PAGE".equals(type)&&!blank(node.externalUrl()))
-        throw new IllegalArgumentException("navigation PAGE cannot have an external URL");
-      if("EXTERNAL_LINK".equals(type))validateExternalUrl(node.externalUrl());
-      if("EXTERNAL_LINK".equals(type)&&!blank(node.effectivePageKey()))
-        throw new IllegalArgumentException("EXTERNAL_LINK cannot reference a route");
-    }
-    for(var entry:navigation.entrySet()) {
-      String parent=entry.getValue().effectiveParentKey();
-      if(parent!=null&&!navigation.containsKey(parent))
-        throw new IllegalArgumentException("navigation parent does not exist: "+parent);
-      if(parent!=null&&!"GROUP".equals(navigation.get(parent).type().toUpperCase(Locale.ROOT)))
-        throw new IllegalArgumentException("navigation parent must be a GROUP: "+parent);
-      assertNavigationAcyclic(entry.getKey(),navigation);
     }
   }
 
@@ -427,7 +378,7 @@ public class ResourceManifestService {
 
   private ManifestDraftView view(ResourceManifestRepository.DraftRecord value) {
     try {
-      MicroFrontendManifest manifest=read(value.payload());
+      ResourceManifest manifest=readStored(value.payload());
       return new ManifestDraftView(value.id(),value.panelId(),manifest.module().key(),
           value.manifestVersion(),value.schemaVersion(),value.checksum(),value.workflowStatus(),
           value.sourceUrl(),json.readValue(value.diffSummary(),CHANGES),value.createdAt(),
@@ -469,14 +420,6 @@ public class ResourceManifestService {
     }
   }
 
-  private static void assertNavigationAcyclic(String key,Map<String,NavigationNode> nodes) {
-    Set<String> visited=new LinkedHashSet<>();String cursor=key;
-    while(cursor!=null) {
-      if(!visited.add(cursor))throw new IllegalArgumentException("navigation hierarchy contains a cycle: "+key);
-      NavigationNode value=nodes.get(cursor);cursor=value==null?null:value.effectiveParentKey();
-    }
-  }
-
   private static boolean sameDefinition(ResourceDefinition left,ResourceDefinition right) {
     return Objects.equals(left.type(),right.type())&&Objects.equals(left.parent(),right.parent())
         &&Objects.equals(left.nameFa(),right.nameFa())&&Objects.equals(left.nameEn(),right.nameEn())
@@ -501,9 +444,56 @@ public class ResourceManifestService {
     } catch(Exception failure) { throw new IllegalStateException(failure); }
   }
 
-  private MicroFrontendManifest read(String value) {
-    try{return json.readValue(value,MicroFrontendManifest.class);}
+  private ResourceManifest read(String value) {
+    try {
+      var root=json.readTree(value);
+      for(String forbidden:frontendFields()) {
+        if(root.has(forbidden))throw new IllegalArgumentException(
+            "resource manifest must not contain frontend field: "+forbidden);
+      }
+      if(root.path("resources").isArray())for(var resource:root.path("resources")) {
+        for(String forbidden:resourceFrontendFields()) {
+          if(resource.has(forbidden)||resource.path("metadata").has(forbidden))
+            throw new IllegalArgumentException(
+                "resource definition must not contain frontend field: "+forbidden);
+        }
+      }
+      return json.treeToValue(root,ResourceManifest.class);
+    }
+    catch(IllegalArgumentException failure){throw failure;}
     catch(Exception failure){throw new IllegalArgumentException("manifest is not valid JSON",failure);}
+  }
+
+  /** Read-only compatibility for immutable revisions created before the contract split. */
+  private ResourceManifest readStored(String value) {
+    try {
+      var root=json.readTree(value);
+      if(root instanceof ObjectNode object)for(String field:frontendFields())object.remove(field);
+      return json.treeToValue(root,ResourceManifest.class);
+    } catch(Exception failure) {
+      throw new IllegalStateException("stored resource manifest is invalid",failure);
+    }
+  }
+
+  private boolean hasFrontendFields(String value) {
+    try {
+      var root=json.readTree(value);
+      if(frontendFields().stream().anyMatch(root::has))return true;
+      if(root.path("resources").isArray())for(JsonNode resource:root.path("resources"))
+        if(resourceFrontendFields().stream().anyMatch(field->resource.has(field)
+            ||resource.path("metadata").has(field)))return true;
+      return false;
+    } catch(Exception failure) { throw new IllegalStateException("stored manifest is invalid",failure); }
+  }
+
+  private static List<String> frontendFields() {
+    return List.of("routes","navigation","menus","runtime","remoteEntry","remoteEntryUrl",
+        "exposedModule","routePrefix","slug","component","components","icon","iconKey");
+  }
+
+  private static List<String> resourceFrontendFields() {
+    return List.of("route","path","menu","navigation","icon","component","remoteEntry",
+        "remoteEntryUrl","exposedModule","routePrefix","slug","label","iconKey");
   }
 
   private String write(Object value) {
@@ -523,16 +513,4 @@ public class ResourceManifestService {
 
   private static boolean blank(String value){return value==null||value.isBlank();}
 
-  private static void validateExternalUrl(String value) {
-    if(blank(value))throw new IllegalArgumentException(
-        "EXTERNAL_LINK requires a safe absolute HTTPS URL");
-    try {
-      var uri=java.net.URI.create(value).normalize();
-      if(!"https".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null
-          ||uri.getUserInfo()!=null||uri.getFragment()!=null)
-        throw new IllegalArgumentException("EXTERNAL_LINK requires a safe absolute HTTPS URL");
-    } catch(IllegalArgumentException invalid) {
-      throw new IllegalArgumentException("EXTERNAL_LINK requires a safe absolute HTTPS URL",invalid);
-    }
-  }
 }

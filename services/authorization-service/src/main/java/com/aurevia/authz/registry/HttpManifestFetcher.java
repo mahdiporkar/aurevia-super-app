@@ -9,9 +9,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import org.springframework.stereotype.Component;
 
-/** Bounded HTTP adapter. Redirects are disabled so the origin allowlist cannot be bypassed. */
+/** Bounded manifest HTTP adapter. Redirects are disabled to prevent allowlist bypasses. */
 @Component
-final class HttpResourceManifestFetcher implements ResourceManifestFetcher {
+final class HttpManifestFetcher implements ResourceManifestFetcher {
   private static final int MAX_BYTES=1_048_576;
   private final HttpClient client=HttpClient.newBuilder()
       .connectTimeout(Duration.ofSeconds(5))
@@ -43,9 +43,9 @@ final class HttpResourceManifestFetcher implements ResourceManifestFetcher {
       throw failure;
     } catch(InterruptedException failure) {
       Thread.currentThread().interrupt();
-      throw new IllegalArgumentException("resource manifest fetch was interrupted",failure);
+      throw new IllegalArgumentException("manifest fetch was interrupted",failure);
     } catch(Exception failure) {
-      throw new IllegalArgumentException("unable to fetch resource manifest",failure);
+      throw new IllegalArgumentException("unable to fetch manifest",failure);
     }
   }
 }

@@ -57,10 +57,13 @@ public class PanelAdministrationService {
     if(!RESOURCE_MODES.contains(mode))throw new IllegalArgumentException("resourceDefinitionMode must be MANIFEST, MANUAL, or HYBRID");
     String classification=value(p.classification(),"REAL").toUpperCase(Locale.ROOT);
     if(!CLASSIFICATIONS.contains(classification))throw new IllegalArgumentException("classification must be DEMO or REAL");
+    String mfManifestUrl=blankToNull(p.mfManifestUrl());
+    if(mfManifestUrl!=null)mfManifestUrl=artifactPolicy.validateMicroFrontendManifestUrl(mfManifestUrl);
     String manifestUrl=blankToNull(p.resourceManifestUrl());
     if("MANIFEST".equals(mode)&&manifestUrl==null)throw new IllegalArgumentException("resourceManifestUrl is required in MANIFEST mode");
-    if(manifestUrl!=null)manifestUrl=artifactPolicy.validateManifestUrl(manifestUrl);
-    return new PanelSettings(service,remote,value(p.defaultRouteId(),"index"),mode,classification,manifestUrl);
+    if(manifestUrl!=null)manifestUrl=artifactPolicy.validateResourceManifestUrl(manifestUrl);
+    return new PanelSettings(service,remote,value(p.defaultRouteId(),"index"),mode,classification,
+        mfManifestUrl,manifestUrl);
   }
   private void audit(String actor,String event,UUID id,String name){auditTrail.success("UI_REGISTRY",event,null,null,"PANEL",id.toString(),name,event,null,Map.of("actor",value(actor,"unknown")));}
   private static String value(String value,String fallback){return value==null||value.isBlank()?fallback:value;}

@@ -6,17 +6,18 @@ not introduce a second registry or authorization model.
 
 ## Ownership and persistence
 
-`panel` remains the canonical `MicroFrontendRegistry`; `resource_manifest_import` is the immutable
-`ManifestRegistry`; `resource` and `resource_action` are the resource/action registries;
+`panel` remains the canonical `MicroFrontendRegistry`; `ui_module_artifact` is the immutable MF
+manifest registry; `resource_manifest_import` is the independent authorization-resource revision
+ledger; `resource` and `resource_action` are the resource/action registries;
 `ui_menu_override` is the navigation catalog; existing policy, assignment, OpenFGA outbox, and audit
 tables remain authoritative. Flyway migrations
 `V51__microfrontend_governance_catalog.sql` and
 `V52__immutable_resource_manifest_versions.sql` evolve these tables without destructive renames.
 
-The MFE owns capability definitions, routes, and default navigation. A manifest contains no user,
-role, group, or permission assignments. Import is draft-first; publish validates schema, ownership,
-hierarchy and actions, then creates/updates resources and deprecates missing definitions in one
-transaction. Grants are never deleted by manifest import.
+The MFE publishes two contracts. `resource-manifest.json` owns capability definitions only;
+`mf-manifest.json` owns runtime defaults, local routes, default navigation, and authorization
+references. Resource import is draft-first; frontend sync is independent, immutable and idempotent.
+Grants and administrator navigation overrides are never deleted by either sync.
 
 ## Effective context API
 

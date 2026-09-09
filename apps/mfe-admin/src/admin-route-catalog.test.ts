@@ -20,14 +20,14 @@ describe('Admin route catalog',()=>{
   });
 
   it('publishes one right-side menu link for every standalone page',()=>{
-    expect(ADMIN_PUBLISHED_MANIFEST.menus).toHaveLength(ADMIN_PAGE_ROUTES.length);
-    expect(ADMIN_PUBLISHED_MANIFEST.menus.map(menu=>menu.routeId))
+    expect(ADMIN_PUBLISHED_MANIFEST.navigation).toHaveLength(ADMIN_PAGE_ROUTES.length);
+    expect(ADMIN_PUBLISHED_MANIFEST.navigation.map(menu=>menu.routeKey))
       .toEqual(ADMIN_PAGE_ROUTES.map(route=>route.id));
-    expect(new Set(ADMIN_PUBLISHED_MANIFEST.menus.map(menu=>menu.routeId)).size)
+    expect(new Set(ADMIN_PUBLISHED_MANIFEST.navigation.map(menu=>menu.routeKey)).size)
       .toBe(ADMIN_PAGE_ROUTES.length);
-    expect(ADMIN_PUBLISHED_MANIFEST.menus.every(menu=>
+    expect(ADMIN_PUBLISHED_MANIFEST.navigation.every(menu=>
       menu.title.trim().length>0&&menu.title.length<=18)).toBe(true);
-    expect(ADMIN_PUBLISHED_MANIFEST.menus.every(menu=>(menu.description?.length??0)>=20)).toBe(true);
+    expect(ADMIN_PUBLISHED_MANIFEST.navigation.every(menu=>(menu.description?.length??0)>=20)).toBe(true);
   });
 
   it.each([

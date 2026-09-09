@@ -1,4 +1,4 @@
-import type {PluginMenu,PluginRoute} from '@aurevia/contracts';
+import type {MicroFrontendManifest,PluginMenu,PluginRoute} from '@aurevia/contracts';
 
 export type AdminSectionKey=
   'operator-guide'|'ou-access'|'access-studio'|'panels'|'proxy-routes'|
@@ -39,13 +39,20 @@ export const ADMIN_MENUS:readonly PluginMenu[]=ADMIN_PAGE_ROUTES.map(route=>({
   icon:route.icon,order:route.order,
 }));
 
-/** Metadata published to the existing UI artifact registry; routePrefix is intentionally absent. */
-export const ADMIN_PUBLISHED_MANIFEST={
-  schemaVersion:'1.0',moduleKey:'admin',defaultRouteId:'operator-guide',
-  runtime:{apiBasePath:'/api/v1/admin'},
-  routes:ADMIN_PAGE_ROUTES.map(({id,path,title,resource,action})=>({id,path,title,resource,action})),
-  menus:ADMIN_MENUS,
-} as const;
+/** Authorization references only; resource definitions live in resource-manifest.json. */
+export const ADMIN_PUBLISHED_MANIFEST:MicroFrontendManifest={
+  schemaVersion:'1.0',
+  microfrontend:{key:'admin',name:'Administration',version:'0.5.0'},
+  runtime:{remoteEntry:'http://localhost:3001/remoteEntry.js',remoteName:'aurevia_admin',
+    exposedModule:'./bootstrap',contractVersion:'1.0',apiBasePath:'/api/v1/admin'},
+  defaultRouteKey:'operator-guide',
+  routes:ADMIN_PAGE_ROUTES.map(({id,path,title,resource,action})=>({
+    key:id,path,title,requiredResource:resource!,requiredAction:action,
+  })),
+  navigation:ADMIN_MENUS.map(menu=>({key:menu.id,type:'PAGE' as const,
+    routeKey:menu.routeId,title:menu.title,description:menu.description,
+    icon:menu.icon,order:menu.order})),
+};
 
 export function authorizedAdminPages(routeIds:readonly string[]|undefined,
     legacyPermissions?:Record<string,readonly string[]>):AdminPageDefinition[] {

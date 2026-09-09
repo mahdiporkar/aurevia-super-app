@@ -126,16 +126,16 @@ class AuthorizationDecisionServiceManifestTest {
         "1.0",null,"REAL","HYBRID","""
         {
           "schemaVersion":"1.0",
-          "moduleKey":"admin",
-          "defaultRouteId":"denied",
+          "microfrontend":{"key":"admin","name":"Administration","version":"0.2.0"},
+          "defaultRouteKey":"denied",
           "runtime":{"apiBasePath":"/api/v1/admin"},
           "routes":[
-            {"id":"denied","path":"settings","title":"تنظیمات","resource":"page:admin.denied","action":"view"},
-            {"id":"allowed","path":"resources","title":"منابع","resource":"page:admin.allowed","action":"view"}
+            {"key":"denied","path":"settings","title":"تنظیمات","requiredResource":"page:admin.denied","requiredAction":"view"},
+            {"key":"allowed","path":"resources","title":"منابع","requiredResource":"page:admin.allowed","requiredAction":"view"}
           ],
-          "menus":[
-            {"id":"denied-menu","routeId":"denied","title":"تنظیمات","order":10},
-            {"id":"allowed-menu","routeId":"allowed","title":"منابع","order":20}
+          "navigation":[
+            {"key":"denied-menu","type":"PAGE","routeKey":"denied","title":"تنظیمات","order":10},
+            {"key":"allowed-menu","type":"PAGE","routeKey":"allowed","title":"منابع","order":20}
           ]
         }
         """);

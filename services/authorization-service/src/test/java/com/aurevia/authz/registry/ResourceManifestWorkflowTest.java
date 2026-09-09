@@ -105,9 +105,9 @@ class ResourceManifestWorkflowTest {
     when(repository.panelSettings(panelId)).thenReturn(Optional.of(
         new ResourceManifestRepository.PanelManifestSettings(panelId,"hr","HR","HR",
             "HYBRID",null)));
-    MicroFrontendManifest wrong=new MicroFrontendManifest("1.0",
+    ResourceManifest wrong=new ResourceManifest("1.0",
         new ModuleMetadata("finance","Finance","مالی","Finance","1.0.0"),
-        List.of(),List.of(),List.of());
+        List.of());
 
     assertThatThrownBy(()->service().stage(panelId,wrong,"operator-1"))
         .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("panel slug");
@@ -118,12 +118,57 @@ class ResourceManifestWorkflowTest {
     when(repository.panelSettings(panelId)).thenReturn(Optional.of(
         new ResourceManifestRepository.PanelManifestSettings(panelId,"hr","HR","HR",
             "HYBRID",null)));
-    MicroFrontendManifest malformed=new MicroFrontendManifest("1.0",null,
-        List.of(),List.of(),List.of());
+    ResourceManifest malformed=new ResourceManifest("1.0",null,List.of());
 
     assertThatThrownBy(()->service().stage(panelId,malformed,"operator-1"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("module is required");
+  }
+
+  @Test void resourceManifestFetchRejectsFrontendDefinitions() {
+    UUID panelId=UUID.randomUUID();
+    String url="https://static.example.test/hr/resource-manifest.json";
+    when(repository.panelSettings(panelId)).thenReturn(Optional.of(
+        new ResourceManifestRepository.PanelManifestSettings(panelId,"hr","HR","HR",
+            "HYBRID",url)));
+    ResourceManifestFetcher fetcher=mock(ResourceManifestFetcher.class);
+    UiArtifactPolicy policy=mock(UiArtifactPolicy.class);
+    when(policy.validateResourceManifestUrl(url)).thenReturn(url);
+    when(fetcher.fetch(url)).thenReturn("""
+        {"schemaVersion":"1.0",
+         "module":{"key":"hr","name":"HR","version":"2.0.0"},
+         "resources":[],"routes":[]}
+        """);
+    ResourceManifestService service=new ResourceManifestService(repository,fetcher,policy,
+        mock(AuditTrail.class),json);
+
+    assertThatThrownBy(()->service.fetch(panelId,"operator-1"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("must not contain frontend field: routes");
+  }
+
+  @Test void resourceManifestFetchRejectsFrontendMetadataOnAResource() {
+    UUID panelId=UUID.randomUUID();
+    String url="https://static.example.test/hr/resource-manifest.json";
+    when(repository.panelSettings(panelId)).thenReturn(Optional.of(
+        new ResourceManifestRepository.PanelManifestSettings(panelId,"hr","HR","HR",
+            "HYBRID",url)));
+    ResourceManifestFetcher fetcher=mock(ResourceManifestFetcher.class);
+    UiArtifactPolicy policy=mock(UiArtifactPolicy.class);
+    when(policy.validateResourceManifestUrl(url)).thenReturn(url);
+    when(fetcher.fetch(url)).thenReturn("""
+        {"schemaVersion":"1.0",
+         "module":{"key":"hr","name":"HR","version":"2.0.0"},
+         "resources":[{"key":"page:hr.employee.list","type":"PAGE",
+           "name":"Employees","actions":["view"],
+           "metadata":{"route":"/hr/employees"}}]}
+        """);
+    ResourceManifestService service=new ResourceManifestService(repository,fetcher,policy,
+        mock(AuditTrail.class),json);
+
+    assertThatThrownBy(()->service.fetch(panelId,"operator-1"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("resource definition must not contain frontend field: route");
   }
 
   private ResourceManifestService service() {
@@ -131,17 +176,11 @@ class ResourceManifestWorkflowTest {
         mock(UiArtifactPolicy.class),mock(AuditTrail.class),json);
   }
 
-  private static MicroFrontendManifest manifest() {
-    return new MicroFrontendManifest("1.0",
+  private static ResourceManifest manifest() {
+    return new ResourceManifest("1.0",
         new ModuleMetadata("hr","Human Resources","منابع انسانی","Human Resources","1.2.0"),
-        List.of(new ManifestRoute("employees",null,"/employees","./EmployeeList",
-            "page:hr.employee.list",null,"view","کارکنان")),
         List.of(new ManifestResource("page:hr.employee.list","PAGE",null,null,
             "Employees","کارکنان","Employees","hr","INTERNAL",List.of("view"),
-            Map.of(),null,null,null)),
-        List.of(new NavigationNode("hr.nav.root",null,"GROUP",null,null,null,null,
-                "منابع انسانی","team",10,null),
-            new NavigationNode("hr.nav.employees",null,"PAGE","hr.nav.root",null,
-                "employees",null,"کارکنان","user",20,null)));
+            Map.of(),null,null,null)));
   }
 }

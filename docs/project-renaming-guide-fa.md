@@ -191,8 +191,9 @@ services/superapp-bff/src/test/java/com/aurevia
 
 فایل‌های source manifest که مستقیماً آن را دارند:
 
-- `apps/mfe-admin/resource-manifest.json`: routeهای operator guide، access studio، panels و identity؛
-- `apps/mfe-reports/resource-manifest.json`: مسیر reports؛
+- `apps/mfe-admin/mf-manifest.json`: routeهای operator guide، access studio، panels و identity؛
+- `apps/mfe-reports/mf-manifest.json`: مسیر reports؛
+- `apps/mfe-*/resource-manifest.json`: فقط resource keyها و actionهای مجوزدهی؛
 - `apps/mfe-admin/src/admin-route-catalog.ts`: مجوزهای admin و fallbackهای legacy؛
 - `apps/mfe-admin/src/Panels.tsx`: نمونهٔ manifest برای panel جدید؛
 - `apps/shell/src/*.test.ts` و MFE testها: fixtureها و expectationها.

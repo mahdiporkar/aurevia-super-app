@@ -19,9 +19,11 @@ class JdbcUiPluginRepository implements UiPluginRepository {
         select id,panel_id as "panelId",artifact_version as "artifactVersion",
           remote_entry_url as "remoteEntryUrl",remote_name as "remoteName",
           exposed_module as "exposedModule",contract_version as "contractVersion",
-          schema_version as "schemaVersion",integrity,manifest_snapshot::text as "manifestSnapshot",
+          schema_version as "schemaVersion",integrity,manifest_checksum as "manifestChecksum",
+          source_url as "sourceUrl",manifest_snapshot::text as "manifestSnapshot",
           validation_status as "validationStatus",validation_error as "validationError",
           immutable,created_at as "createdAt",created_by as "createdBy",
+          synchronized_at as "synchronizedAt",
           (id=(select active_artifact_id from panel where id=:panel)) active,
           (select version from panel where id=:panel) as "panelVersion"
         from ui_module_artifact where panel_id=:panel order by created_at desc
@@ -56,15 +58,30 @@ class JdbcUiPluginRepository implements UiPluginRepository {
     database.sql("""
         insert into ui_module_artifact(id,panel_id,artifact_version,remote_entry_url,
           remote_name,exposed_module,contract_version,schema_version,integrity,
-          manifest_snapshot,validation_status,created_by)
+          manifest_snapshot,manifest_checksum,source_url,synchronized_at,
+          validation_status,created_by)
         values(:id,:panel,:version,:url,:name,:module,:contract,:schema,:integrity,
-          cast(:manifest as jsonb),'VALID',:actor)
+          cast(:manifest as jsonb),:checksum,:source,
+          case when :source is null then null else now() end,'VALID',:actor)
         """).param("id",value.id()).param("panel",value.panelId())
         .param("version",value.artifactVersion()).param("url",value.remoteEntryUrl())
         .param("name",value.remoteName()).param("module",value.exposedModule())
         .param("contract",value.contractVersion()).param("schema",value.schemaVersion())
         .param("integrity",value.integrity()).param("manifest",value.manifest())
+        .param("checksum",value.checksum()).param("source",value.sourceUrl())
         .param("actor",value.actor()).update();
+  }
+
+  @Override public Optional<ArtifactRevision> artifactByVersion(UUID panelId,String version) {
+    return database.sql("""
+        select a.id,a.manifest_checksum as checksum,a.manifest_snapshot::text as manifest,
+          (a.id=p.active_artifact_id) active,a.remote_entry_url as "remoteEntryUrl",
+          a.remote_name as "remoteName",a.exposed_module as "exposedModule",
+          a.contract_version as "contractVersion",a.integrity
+        from ui_module_artifact a join panel p on p.id=a.panel_id
+        where a.panel_id=:panel and a.artifact_version=:version
+        """).param("panel",panelId).param("version",version)
+        .query(ArtifactRevision.class).optional();
   }
 
   @Override public Optional<ArtifactTarget> validArtifact(UUID panelId,UUID artifactId) {
@@ -83,24 +100,37 @@ class JdbcUiPluginRepository implements UiPluginRepository {
         """).param("id",panelId).query(PanelState.class).single();
   }
 
+  @Override public Optional<PanelFrontendSettings> lockFrontendSettings(UUID panelId) {
+    return database.sql("""
+        select id,slug,mf_manifest_url as "mfManifestUrl",
+          remote_entry_path as "remoteEntryPath",remote_name as "remoteName",
+          exposed_module as "exposedModule",contract_version as "contractVersion",integrity,
+          active_artifact_id as "activeArtifactId",version,active
+        from panel where id=:id for update
+        """).param("id",panelId).query(PanelFrontendSettings.class).optional();
+  }
+
   @Override public boolean activate(UUID panelId,UUID artifactId,long expectedVersion) {
     return database.sql("""
-        update panel set active_artifact_id=:artifact,version=version+1,updated_at=now()
+        update panel set active_artifact_id=:artifact,
+          semantic_version=(select artifact_version from ui_module_artifact where id=:artifact),
+          version=version+1,updated_at=now()
         where id=:panel and version=:version
         """).param("artifact",artifactId).param("panel",panelId)
         .param("version",expectedVersion).update()==1;
   }
 
   @Override public String activeManifest(UUID panelId) {
+    return activeManifestOptional(panelId).orElseThrow(()->
+        new IllegalArgumentException("active MF manifest not found"));
+  }
+
+  @Override public Optional<String> activeManifestOptional(UUID panelId) {
     return database.sql("""
-        select coalesce(revision.payload,artifact.manifest_snapshot)::text
+        select artifact.manifest_snapshot::text
         from panel p join ui_module_artifact artifact on artifact.id=p.active_artifact_id
-        left join lateral (
-          select payload from resource_manifest_import item
-          where item.panel_id=p.id and item.workflow_status='PUBLISHED'
-          order by item.published_at desc nulls last,item.created_at desc limit 1
-        ) revision on true where p.id=:panel
-        """).param("panel",panelId).query(String.class).single();
+        where p.id=:panel and artifact.validation_status='VALID'
+        """).param("panel",panelId).query(String.class).optional();
   }
 
   @Override public void upsertMenu(UUID panelId,String menuId,String title,String icon,
