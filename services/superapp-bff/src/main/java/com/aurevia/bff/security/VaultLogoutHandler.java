@@ -12,10 +12,13 @@ import reactor.core.publisher.Mono;
  @Override public Mono<Void> logout(WebFilterExchange exchange,Authentication authentication){
   ServerWebExchange serverExchange=exchange.getExchange();
   expireCookie(serverExchange,"AUREVIA_OPERATION_SUPERSET");
+  expireCookie(serverExchange,"AUREVIA_SESSION");
   return serverExchange.getSession().flatMap(session->{
    Object handle=session.getAttribute(HANDLE);
    Mono<?> deletion=handle instanceof String h?vault.delete(h):Mono.empty();
-   return deletion.then(session.invalidate());
+   // Clearing the persisted state and expiring its opaque client handle revokes access
+   // without invalidating the reactive Redis session while WebFlux is still saving it.
+   return deletion.doOnSuccess(ignored->session.getAttributes().clear()).then();
   });
  }
 

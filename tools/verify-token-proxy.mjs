@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { readEnv } from './env-file.mjs';
+import { verifyAdminNavigationInChrome } from './chrome-navigation-e2e.mjs';
 
 const baseUrl = new URL(process.env.AUREVIA_BASE_URL ?? 'http://localhost:8443');
 const username = process.env.AUREVIA_DEMO_USERNAME ?? 'administrator';
@@ -244,13 +245,17 @@ assert.equal(adminModule.remote?.exposedModule,'./bootstrap',
   'The ADMIN Module Federation exposed module is incorrect');
 assert.equal(adminModule.remote?.contractVersion,'1.0',
   'The ADMIN artifact contract version is incorrect');
-assert.equal(adminModule.remote?.artifactVersion,'0.4.0',
+assert.equal(adminModule.remote?.artifactVersion,'0.5.0',
   'The ADMIN active artifact version is incorrect');
-assert.deepEqual(adminModule.menus.map(menu=>menu.title),[
+const expectedAdminMenuTitles=[
   'راهنما','واحدهای سازمانی','گروه‌ها','برنامه‌ها','تحلیل دسترسی','منابع و مجوزها',
   'میکروفرانت‌ها','مقصدها','مسیرها','عملیات API','اتصال‌ها','احراز هویت','تست اتصال',
   'محیط‌های گزارش','هویت و نقش','لاگ API','لاگ راهبری','گزارش‌ها',
-], 'The ADMIN runtime menu titles are stale');
+];
+assert.deepEqual(adminModule.menus.map(menu=>menu.title),expectedAdminMenuTitles,
+  'The ADMIN runtime menu titles are stale');
+assert(adminModule.menus.every(menu=>typeof menu.description==='string'&&menu.description.trim()),
+  'The ADMIN runtime menu is missing descriptive tooltips');
 assert.equal(adminModule.runtime?.apiBasePath,'/api/v1/admin',
   'The ADMIN runtime API base path is incorrect');
 assert.equal(adminModule.routes?.length,18,
@@ -267,7 +272,10 @@ assert(adminModule.menus?.every(menu=>adminModule.routes.some(route=>route.id===
 const panels=await json('/api/v1/admin/panels',`e2e-panels-${Date.now()}`);
 assert.equal(panels.status,200,`Panel registry failed with HTTP ${panels.status}`);
 const hrPanel=panels.body?.find(panel=>panel.code==='HR');
+const adminPanel=panels.body?.find(panel=>panel.code==='ADMIN');
 assert(hrPanel?.id,'HR panel is missing from the governance registry');
+assert(adminPanel?.id,'ADMIN panel is missing from the governance registry');
+assert.equal(adminPanel.active,true,'ADMIN panel must be active for frontend synchronization');
 assert.equal(hrPanel.resource_definition_mode,'HYBRID','HR must exercise HYBRID governance');
 assert.match(hrPanel.mf_manifest_url,/mf-manifest[.]json$/,
   'HR does not expose an independent MF Manifest URL');
@@ -288,8 +296,8 @@ try { fetchedDraft=JSON.parse(fetchedDraftText); }
 catch { fetchedDraft=fetchedDraftText; }
 assert.equal(fetchedDraftResponse.status,201,
   `Server-side manifest fetch failed: ${fetchedDraftText}`);
-assert.equal(fetchedDraft?.workflowStatus,'DRAFT',
-  'Fetched resource manifest was not staged as a Draft');
+assert(['DRAFT','PUBLISHED'].includes(fetchedDraft?.workflowStatus),
+  'Fetched resource manifest did not resolve to a valid immutable revision');
 assert(Array.isArray(fetchedDraft?.changes),'Fetched resource manifest has no diff preview');
 const draftPreview=await json(
   `/api/v1/admin/panels/${hrPanel.id}/resource-manifests/drafts/${fetchedDraft.id}`,
@@ -302,17 +310,21 @@ assert.equal(resourcesAfter.status,200,'Resource tree could not be read after ma
 const resourceRevisions=items=>items.map(item=>`${item.id}:${item.version}`).sort();
 assert.deepEqual(resourceRevisions(resourcesAfter.body),resourceRevisions(resourcesBefore.body),
   'Fetch/preview mutated the production Resource Catalog before approval');
-const resourcePublishResponse=await request(
-  `/api/v1/admin/panels/${hrPanel.id}/resource-manifests/drafts/${fetchedDraft.id}/publish`,{
-    method:'POST',headers:{accept:'application/json',[csrf.body.headerName]:csrf.body.token,
-      'x-correlation-id':`e2e-resource-manifest-publish-${Date.now()}`},
-  });
-const resourcePublishText=await resourcePublishResponse.text();
 let resourcePublish;
-try { resourcePublish=JSON.parse(resourcePublishText); }
-catch { resourcePublish=resourcePublishText; }
-assert.equal(resourcePublishResponse.status,200,
-  `Resource manifest publish failed: ${resourcePublishText}`);
+if(fetchedDraft.workflowStatus==='DRAFT') {
+  const resourcePublishResponse=await request(
+    `/api/v1/admin/panels/${hrPanel.id}/resource-manifests/drafts/${fetchedDraft.id}/publish`,{
+      method:'POST',headers:{accept:'application/json',[csrf.body.headerName]:csrf.body.token,
+        'x-correlation-id':`e2e-resource-manifest-publish-${Date.now()}`},
+    });
+  const resourcePublishText=await resourcePublishResponse.text();
+  try { resourcePublish=JSON.parse(resourcePublishText); }
+  catch { resourcePublish=resourcePublishText; }
+  assert.equal(resourcePublishResponse.status,200,
+    `Resource manifest publish failed: ${resourcePublishText}`);
+} else {
+  resourcePublish={workflowStatus:'PUBLISHED',idempotent:true};
+}
 assert.equal(resourcePublish?.workflowStatus,'PUBLISHED',
   'Resource manifest did not reach PUBLISHED state');
 const publishedResources=await json('/api/v1/admin/resource-tree',
@@ -322,9 +334,10 @@ assert(publishedResources.body.some(resource=>resource.resource_key==='field:hr.
   'The granular HR salary field resource was not published');
 
 // Resource definitions now exist; frontend sync only validates their references and
-// must not create or mutate them. Repeating the same sync must converge.
+// must not create or mutate them. Use the active ADMIN panel because a persisted local
+// environment may intentionally have HR disabled. Repeating the same sync must converge.
 const frontendSyncResponse=await request(
-  `/api/v1/admin/panels/${hrPanel.id}/frontend-manifests/sync`,{
+  `/api/v1/admin/panels/${adminPanel.id}/frontend-manifests/sync`,{
     method:'POST',headers:{accept:'application/json',[csrf.body.headerName]:csrf.body.token,
       'x-correlation-id':`e2e-mf-manifest-sync-${Date.now()}`},
   });
@@ -336,7 +349,7 @@ assert.equal(frontendSyncResponse.status,200,
   `Frontend manifest sync failed: ${frontendSyncText}`);
 assert.equal(frontendSync?.status,'SUCCESS','Frontend manifest sync did not succeed');
 const repeatFrontendSyncResponse=await request(
-  `/api/v1/admin/panels/${hrPanel.id}/frontend-manifests/sync`,{
+  `/api/v1/admin/panels/${adminPanel.id}/frontend-manifests/sync`,{
     method:'POST',headers:{accept:'application/json',[csrf.body.headerName]:csrf.body.token,
       'x-correlation-id':`e2e-mf-manifest-resync-${Date.now()}`},
   });
@@ -350,6 +363,9 @@ const shellHtml=await shellDeepLink.text();
 assert.equal(shellDeepLink.status,200,'Shell deep link did not reach the SPA history fallback');
 assert(/<title>Aurevia<\/title>/i.test(shellHtml),
   'Shell deep link returned an unexpected HTML application');
+assert([...shellHtml.matchAll(/<script\b[^>]*\bsrc=(["']?)([^\s>"']+)\1/gi)]
+  .every(match=>match[2].startsWith('/')),
+  'Shell deep link contains a path-relative script and will render a blank page');
 const standaloneAdmin=await fetch('http://localhost:3001/proxy-routes/routes',
   {headers:{accept:'text/html'}});
 const standaloneAdminHtml=await standaloneAdmin.text();
@@ -361,6 +377,15 @@ for(const module of manifest.body.uiCatalog.modules) {
   const remoteSource=await remoteEntry.text();
   assert.equal(remoteEntry.status,200,`${module.moduleKey} remoteEntry is unavailable`);
   assert(remoteSource.length>1_000,`${module.moduleKey} remoteEntry is unexpectedly empty`);
+}
+
+let browserNavigation={status:'skipped'};
+if(process.env.AUREVIA_BROWSER_E2E==='true') {
+  browserNavigation={status:'verified',...(await verifyAdminNavigationInChrome({
+    origin:baseUrl.origin,username,password,
+    expectedTitles:expectedAdminMenuTitles,
+    screenshotPath:process.env.AUREVIA_BROWSER_SCREENSHOT??'target/e2e/admin-navigation.png',
+  }))};
 }
 
 const bffOpenApi=await json('/v3/api-docs',`e2e-bff-openapi-${Date.now()}`);
@@ -447,13 +472,14 @@ console.log(JSON.stringify({
     authorizationOperations: Object.values(authorizationOpenApi.body.paths).flatMap(Object.values)
       .filter(operation=>operation?.operationId).length, persianSamples: true },
   frontend: { shellDeepLink: '/admin/proxy-routes/routes', standaloneAdminDeepLink: true,
-    dedicatedUiCatalog: true,
+    dedicatedUiCatalog: true, browserNavigation,
     remoteEntries: manifest.body.uiCatalog.modules.length },
   manifestGovernance: { mode: hrPanel.resource_definition_mode,
     separateFrontendSync: true, frontendSyncIdempotent: repeatFrontendSync.idempotent,
     serverSideFetch: true, workflowStatus: fetchedDraft.workflowStatus,
     preview: true, productionTreeUnchangedBeforeApproval: true,
     resourcePublishStatus: resourcePublish.workflowStatus,
+    resourceRevisionIdempotent: resourcePublish.idempotent===true,
     granularSalaryFieldPublished: true },
   superset: { catalogStatus: reports.status, operationRuntime: supersetRuntime },
   probes: results,

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import test from 'node:test';
@@ -37,8 +38,24 @@ test('all 18 governance pages remain published with explicit authorization metad
 test('admin navigation uses the Shell side menu and does not render tab navigation',async()=>{
   const bootstrap=await read('apps/mfe-admin/src/bootstrap.tsx');
   const catalog=await read('apps/mfe-admin/src/admin-route-catalog.ts');
+  const shellWebpack=await read('apps/shell/webpack.config.cjs');
   assert.doesNotMatch(bootstrap,/<Tabs\b|\bTabs[,}]/,'Admin MFE must not render top-level or nested tabs');
   assert.match(catalog,/ADMIN_MENUS[^=]*=ADMIN_PAGE_ROUTES\.map/,'every page must publish a Shell menu entry');
+  assert.match(shellWebpack,/publicPath:'\/'/,
+    'Shell assets must remain root-absolute so direct navigation to a deep link can bootstrap');
+});
+
+test('the deploy migration activates the exact canonical ADMIN 0.5.0 MF manifest',async()=>{
+  const source=JSON.parse(await read('apps/mfe-admin/mf-manifest.json'));
+  const migration=await read('services/authorization-service/src/main/resources/db/migration/V56__activate_admin_mf_manifest_0_5_0.sql');
+  const checksum=createHash('sha256').update(JSON.stringify(source)).digest('hex');
+  assert.equal(source.microfrontend.version,'0.5.0');
+  assert.equal(source.navigation.length,18);
+  assert.equal(source.menus,undefined,'canonical MF manifests must use navigation, not legacy menus');
+  assert(source.navigation.every(item=>item.description?.trim()),'every ADMIN navigation item needs a tooltip description');
+  assert(migration.includes(checksum),'V56 checksum drifted from apps/mfe-admin/mf-manifest.json');
+  assert.match(migration,/active_artifact_id=a\.id[^;]+artifact_version='0\.5\.0'/s,
+    'V56 must activate the canonical ADMIN artifact');
 });
 
 test('every governance form exposes the documented field inventory',async()=>{

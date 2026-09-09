@@ -12,8 +12,6 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.web.server.authentication.RedirectServerAuthenticationEntryPoint;
 import org.springframework.security.web.server.authentication.logout.HttpStatusReturningServerLogoutSuccessHandler;
-import org.springframework.security.web.server.authentication.logout.DelegatingServerLogoutHandler;
-import org.springframework.security.web.server.authentication.logout.SecurityContextServerLogoutHandler;
 
 @Configuration
 class SecurityConfig {
@@ -25,9 +23,6 @@ class SecurityConfig {
         "/api/v1/superset-instances/**");
     var loginEntryPoint=new RedirectServerAuthenticationEntryPoint(
         "/oauth2/authorization/public-iam");
-    var securityContextLogout=new SecurityContextServerLogoutHandler();
-    securityContextLogout.setSecurityContextRepository(securityContexts);
-    var logoutHandlers=new DelegatingServerLogoutHandler(securityContextLogout,vaultLogout);
     return http.authorizeExchange(a -> a
           .pathMatchers("/actuator/health/**", "/", "/auth/login", "/auth/callback").permitAll()
           .anyExchange().authenticated())
@@ -47,7 +42,7 @@ class SecurityConfig {
         .securityContextRepository(securityContexts)
         .oauth2Login(o -> o.authenticationSuccessHandler(loginSuccess))
         .logout(l -> l.logoutUrl("/auth/logout")
-            .logoutHandler(logoutHandlers)
+            .logoutHandler(vaultLogout)
             .logoutSuccessHandler(new HttpStatusReturningServerLogoutSuccessHandler(
                 HttpStatus.NO_CONTENT))).build();
   }
