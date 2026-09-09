@@ -9,3 +9,7 @@ playwright-report/
 test-results/
 **/*.test.d.ts
 *.log
+
+# Docker images
+*.tar.gz
+*.tar
