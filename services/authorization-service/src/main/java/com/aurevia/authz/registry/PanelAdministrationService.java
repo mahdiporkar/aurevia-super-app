@@ -4,6 +4,7 @@ import static com.aurevia.authz.registry.PanelModels.*;
 import com.aurevia.authz.observability.AuditTrail;
 import com.aurevia.authz.ui.UiArtifactPolicy;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -27,20 +28,28 @@ public class PanelAdministrationService {
 
   @Transactional public MutationResult create(PanelCommand command,String actor){
     PanelSettings normalized=validate(command,null);UUID id=UUID.randomUUID();
-    repository.create(id,command,normalized);
-    repository.enqueue(id,"PANEL_CREATED",command.code(),0);audit(actor,"panel.created",id,command.code());
+    repository.create(id,command,normalized);repository.enqueue(id,"PANEL_CREATED",command.code(),0);
+    audit(actor,"panel.created",id,command.code(),null,securityState(command,normalized));
     return new MutationResult(id,0);
   }
   @Transactional public MutationResult update(UUID id,long version,PanelCommand command,String actor){
+    Map<String,Object> before=repository.panel(id).map(PanelAdministrationService::securityState)
+        .orElse(null);
     PanelSettings normalized=validate(command,id);
     if(repository.update(id,version,command,normalized)!=1)
       throw new OptimisticLockingFailureException("panel changed or missing");
-    repository.enqueue(id,"PANEL_UPDATED",command.code(),version+1);audit(actor,"panel.updated",id,command.code());
+    repository.enqueue(id,"PANEL_UPDATED",command.code(),version+1);
+    audit(actor,"panel.updated",id,command.code(),before,securityState(command,normalized));
     return new MutationResult(id,version+1);
   }
   @Transactional public void archive(UUID id,long version,String actor){
+    Map<String,Object> before=repository.panel(id).map(PanelAdministrationService::securityState)
+        .orElse(null);
     if(repository.archive(id,version)!=1)throw new OptimisticLockingFailureException("panel changed or missing");
-    repository.enqueue(id,"PANEL_ARCHIVED",id.toString(),version+1);audit(actor,"panel.archived",id,id.toString());
+    repository.enqueue(id,"PANEL_ARCHIVED",id.toString(),version+1);
+    Map<String,Object> after=before==null?null:new LinkedHashMap<>(before);
+    if(after!=null)after.put("active",false);
+    audit(actor,"panel.archived",id,id.toString(),before,after);
   }
   private PanelSettings validate(PanelCommand p,UUID id){
     if(!p.code().matches("^[A-Z][A-Z0-9_-]{1,99}$"))throw new IllegalArgumentException("code must be uppercase and stable");
@@ -65,7 +74,31 @@ public class PanelAdministrationService {
     return new PanelSettings(service,remote,value(p.defaultRouteId(),"index"),mode,classification,
         mfManifestUrl,manifestUrl);
   }
-  private void audit(String actor,String event,UUID id,String name){auditTrail.success("UI_REGISTRY",event,null,null,"PANEL",id.toString(),name,event,null,Map.of("actor",value(actor,"unknown")));}
+  private void audit(String actor,String event,UUID id,String name,Map<String,Object> before,
+      Map<String,Object> after){
+    Map<String,Object> auditedAfter=after==null?null:new LinkedHashMap<>(after);
+    if(auditedAfter!=null)auditedAfter.put("actor",value(actor,"unknown"));
+    auditTrail.success("UI_REGISTRY",event,null,null,"PANEL",id.toString(),name,event,before,
+        auditedAfter);
+  }
+  private static Map<String,Object> securityState(PanelCommand panel,PanelSettings settings){
+    Map<String,Object> state=new LinkedHashMap<>();
+    state.put("remoteEntryUrl",panel.remoteEntry());
+    state.put("mfManifestUrl",settings.mfManifestUrl());
+    state.put("resourceManifestUrl",settings.resourceManifestUrl());
+    state.put("integrityConfigured",panel.integrity()!=null&&!panel.integrity().isBlank());
+    state.put("active",panel.active());
+    return state;
+  }
+  private static Map<String,Object> securityState(PanelView panel){
+    Map<String,Object> state=new LinkedHashMap<>();
+    state.put("remoteEntryUrl",panel.remoteEntryPath());
+    state.put("mfManifestUrl",panel.mfManifestUrl());
+    state.put("resourceManifestUrl",panel.resourceManifestUrl());
+    state.put("integrityConfigured",panel.integrity()!=null&&!panel.integrity().isBlank());
+    state.put("active",panel.active());
+    return state;
+  }
   private static String value(String value,String fallback){return value==null||value.isBlank()?fallback:value;}
   private static String blankToNull(String value){return value==null||value.isBlank()?null:value.trim();}
 }

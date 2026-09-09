@@ -90,7 +90,9 @@ public class UiPluginRegistryService {
         manifest.toString(),checksum(manifest),null,safeActor));
     audit.success("UI_REGISTRY","UI_ARTIFACT_PUBLISHED",null,null,"PANEL",
         panelId.toString(),request.artifactVersion(),"CREATE",null,
-        Map.of("artifactId",id.toString(),"version",request.artifactVersion()));
+        Map.of("artifactId",id.toString(),"version",request.artifactVersion(),
+            "remoteEntryUrl",remoteUrl,"integrityConfigured",
+            request.integrity()!=null&&!request.integrity().isBlank()));
     return new ArtifactPublishedResponse(id,"VALID");
   }
 
@@ -170,6 +172,7 @@ public class UiPluginRegistryService {
             Map.entry("artifactId",artifactId.toString()),Map.entry("manifestVersion",version),
             Map.entry("schemaVersion",validated.path("schemaVersion").asText()),
             Map.entry("sourceUrl",sourceUrl),Map.entry("idempotent",idempotent),
+            Map.entry("remoteEntryUrl",effectiveRemote),
             Map.entry("runtimeChanged",diff.runtimeChanged()),
             Map.entry("routesAdded",diff.routesAdded()),
             Map.entry("routesUpdated",diff.routesUpdated()),
@@ -196,7 +199,9 @@ public class UiPluginRegistryService {
     audit.success("UI_REGISTRY","UI_ARTIFACT_ACTIVATED",null,null,"PANEL",
         panelId.toString(),panelId.toString(),"ACTIVATE",
         Map.of("activeArtifactId",String.valueOf(prior.activeArtifactId())),
-        Map.of("activeArtifactId",artifactId.toString()));
+        Map.of("activeArtifactId",artifactId.toString(),
+            "remoteEntryUrl",artifact.remoteEntryUrl(),"integrityConfigured",
+            artifact.integrity()!=null&&!artifact.integrity().isBlank()));
     return new ArtifactActivatedResponse(artifactId,version+1);
   }
 

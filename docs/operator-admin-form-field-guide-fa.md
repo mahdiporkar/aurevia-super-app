@@ -208,7 +208,7 @@ metadata یا action باید با نسخه جدید Manifest منتشر شود.
 | توضیحات | اختیاری | مالک، هدف و محدوده MFE | — |
 | Service Slug | الزامی؛ lowercase kebab-case | namespace عمومی API؛ مستقل از route نمایشی | `payroll-api` |
 | Remote Name | الزامی؛ حرف آغازین و سپس حرف/عدد/underscore | نام container در Module Federation و باید در هر artifact یکتا باشد | `payroll_ui_1_2_0` |
-| آدرس کامل Remote Entry | الزامی؛ HTTP(S) absolute | URL دقیق artifact. در production باید origin allowlisted و سیاست HTTPS/SRI رعایت شود | `https://cdn.example/mfe/payroll/remoteEntry.js` |
+| آدرس کامل Remote Entry | الزامی؛ HTTP(S) absolute | URL دقیق artifact. در production باید policy شبکه و سیاست HTTPS/SRI رعایت شود؛ origin-list ثابت وجود ندارد | `https://cdn.example/mfe/payroll/remoteEntry.js` |
 | Exposed Module | الزامی؛ با `./` | module exportشده توسط container | `./plugin` |
 | Route Prefix | الزامی؛ `/` + kebab-case | مسیر UI؛ `login/admin/settings/api/assets/error` برای رکورد جدید رزروشده‌اند | `/payroll` |
 | Default Route ID | الزامی | باید با یکی از `routes[].key` در MF Manifest یکسان باشد | `employee-list` |
@@ -217,8 +217,8 @@ metadata یا action باید با نسخه جدید Manifest منتشر شود.
 | ترتیب | اختیاری؛ عدد | ترتیب menu؛ عدد کوچک‌تر زودتر نمایش داده می‌شود | `30` |
 | حالت تعریف Resource | الزامی؛ `MANIFEST`/`MANUAL`/`HYBRID` | فقط منبع تعریف Authorization Resource را تعیین می‌کند: فایل، ادمین، یا هر دو با مالکیت مستقل؛ روی MF Manifest/route/navigation اثری ندارد | `HYBRID` |
 | Classification | الزامی؛ `REAL`/`DEMO` | MFE آزمایشی را صریح علامت می‌زند؛ در production و با `demo-data.enabled=false` از Catalog و تصمیم runtime حذف می‌شود | `REAL` |
-| Resource Manifest URL | در `MANIFEST` الزامی؛ URL مطلق JSON | آدرس `resource-manifest.json`؛ بدون credential/query/fragment و از origin مجاز. Backend فقط JSON را می‌خواند و Webpack اجرا نمی‌کند | `https://cdn.example/mfe/payroll/resource-manifest.json` |
-| MF Manifest URL | اختیاری تا زمان sync؛ URL مطلق JSON | آدرس مستقل `mf-manifest.json` برای runtime، route و navigation؛ از همان allowlist امن | `https://cdn.example/mfe/payroll/mf-manifest.json` |
+| Resource Manifest URL | در `MANIFEST` الزامی؛ URL مطلق JSON | آدرس `resource-manifest.json`؛ بدون credential/query/fragment و سازگار با policy شبکه. Backend فقط JSON را می‌خواند و Webpack اجرا نمی‌کند | `https://cdn.example/mfe/payroll/resource-manifest.json` |
+| MF Manifest URL | اختیاری تا زمان sync؛ URL مطلق JSON | آدرس مستقل `mf-manifest.json` برای runtime، route و navigation؛ تابع همان policy شبکه | `https://cdn.example/mfe/payroll/mf-manifest.json` |
 | فعال | boolean | فقط MFE فعال وارد catalog/manifest runtime می‌شود | — |
 
 ### ۵.۲ فرم «انتشار Artifact immutable»
@@ -242,7 +242,7 @@ Artifact/MF Manifest قرارداد runtime، route و navigation پیش‌فر�
 
 | کنترل/فیلد | الزام/قالب | معنا و نکته |
 |---|---|---|
-| Fetch Manifest | URL از Panel | فایل را از URL ثبت‌شده با allowlist، timeout و سقف ۱ MiB دریافت و فقط Draft می‌سازد |
+| Fetch Manifest | URL از Panel | فایل را از URL ثبت‌شده با کنترل SSRF/network policy، timeout و سقف ۱ MiB دریافت و فقط Draft می‌سازد |
 | Import JSON | JSON مطابق schema | برای محیطی که CDN در دسترس نیست؛ باز هم مستقیماً production را تغییر نمی‌دهد |
 | Schema Version | الزامی | نسخه قرارداد JSON؛ اکنون `1.0` |
 | Module Key | الزامی و دقیقاً مطابق Panel slug | از اتصال اتفاقی manifest یک MFE به Panel دیگر جلوگیری می‌کند |
@@ -691,7 +691,7 @@ Rollback با revoke کردن grant برنامه یا غیرفعال‌کردن 
 | منوی ادمین دیده نمی‌شود | grant route نیست یا context قدیمی است | مجوز بخش ۰.۴، ورود مجدد و پاسخ context را بررسی کنید |
 | `Remote Entry must be a complete http(s) URL` | URL artifact خالی/نسبی یا catalog قدیمی است | URL و نسخه فعال را کنترل و catalog را تازه کنید |
 | MIME برابر JSON و status 500 برای Remote Entry | proxy پاسخ خطا داده، نه JavaScript | `/api/mfe/{slug}/remoteEntry.js` و لاگ BFF/شبکه MFE را بررسی کنید |
-| Manifest Fetch رد می‌شود | allowlist، size/schema یا moduleKey ناسازگار است | origin، content، slug و نسخه را تطبیق دهید |
+| Manifest Fetch رد می‌شود | network policy، DNS، size/schema یا moduleKey ناسازگار است | مقصد، content، slug و نسخه را تطبیق دهید |
 | `VERSION_CONFLICT` | تغییر هم‌زمان رخ داده | reload، مقایسه و اعمال دوباره؛ overwrite کور نکنید |
 | target اشتباه resolve می‌شود | prefix/priority یا rewrite هم‌پوشان است | Validate، Resolve Test و Match Test را با path واقعی اجرا کنید |
 | upstream پاسخ 401 می‌دهد | profile یا token transport غلط است | mode، connection/secret ref و expiry را بررسی؛ token را لاگ نکنید |
@@ -737,7 +737,7 @@ Audit/API Log و وضعیت sync بررسی و نسخه قبلی را تا پا�
 | دسترسی MFE | `applicationId`, `accessGroupId` |
 | Resource | `type`, `parentId`, `resourceKey`, `nameFa`, `nameEn`, `ownerDomain`, `classification`, `panelId`, `source`, `visibilityEnabled`, `externalSystem`, `externalType`, `externalId` |
 | Grant | `subjectType`, `subjectId`, `actionId`, `relation`, `expiresAt` |
-| Panel | `code`, `slug`, `name_fa`, `name_en`, `description`, `service_slug`, `remote_name`, `remote_entry_path`, `exposed_module`, `route_base_path`, `default_route_id`, `semantic_version`, `contract_version`, `resource_definition_mode`, `classification`, `resource_manifest_url`, `sort_order`, `active` |
+| Panel | `code`, `slug`, `name_fa`, `name_en`, `description`, `service_slug`, `remote_name`, `remote_entry_path`, `exposed_module`, `route_base_path`, `default_route_id`, `semantic_version`, `contract_version`, `resource_definition_mode`, `classification`, `mf_manifest_url`, `resource_manifest_url`, `sort_order`, `active` |
 | Artifact | `artifactVersion`, `remoteEntryUrl`, `remoteName`, `exposedModule`, `contractVersion`, `integrity`, `manifest` |
 | Navigation | `key`, `source`, `nodeType`, `title`, `parentKey`, `pageKey`, `externalUrl`, `order`, `hidden` |
 | Service Target | `code`, `name`, `environment`, `outboundAuthProfileId`, `gatewayBaseUrl`, `upstreamBasePath`, `healthCheckPath`, `tlsProfileRef`, `secretRef`, `connectTimeoutMs`, `responseTimeoutMs`, `maxResponseSize`, `active`, `description` |

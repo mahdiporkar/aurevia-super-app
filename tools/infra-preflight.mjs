@@ -15,8 +15,8 @@ for (const key of ['OPENFGA_STORE_ID', 'OPENFGA_MODEL_ID']) {
   const value = values.get(key) ?? '';
   if (!value || value.includes('created-by-') || value.includes('bootstrap-required')) errors.push(`${key} is not a real pinned ID`);
 }
-for (const path of ['apps/shell/dist', 'apps/mfe-admin/dist', 'apps/mfe-hr/dist', 'apps/mfe-finance/dist', 'apps/mfe-reports/dist']) {
-  if (!existsSync(path)) errors.push(`${path} is missing; run npm ci && npm run build`);
+for (const path of ['apps/shell/dist']) {
+  if (!existsSync(path)) errors.push(`${path} is missing; run npm ci && npm run build --workspace=@aurevia/shell`);
 }
 const docker = spawnSync('docker', ['version', '--format', '{{.Server.Version}}'], { encoding: 'utf8', shell: process.platform === 'win32' });
 if (docker.error || docker.status !== 0) errors.push('Docker Engine is not running or is inaccessible');
@@ -35,4 +35,4 @@ try {
   if (!model.ok) errors.push(`OPENFGA_MODEL_ID is not present in configured store (HTTP ${model.status})`);
 } catch (error) { errors.push(`cannot validate OpenFGA at ${apiUrl}: ${error.message}`); }
 if (errors.length) fail(errors);
-console.log('Infrastructure preflight passed: Docker, frontend artifacts, OpenFGA store and pinned model are valid.');
+console.log('Core infrastructure preflight passed: Docker, Shell artifact, OpenFGA store and pinned model are valid.');

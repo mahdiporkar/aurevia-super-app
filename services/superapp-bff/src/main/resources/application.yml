@@ -52,7 +52,13 @@ springdoc:
         url: /api/v1/docs/authorization/openapi
 aurevia:
   mfe-proxy:
-    loopback-targets: ${MFE_PROXY_LOOPBACK_TARGETS:}
+    network-policy: ${UI_ARTIFACT_NETWORK_POLICY:DEVELOPMENT}
+    development-host: ${UI_ARTIFACT_DEVELOPMENT_HOST:}
+    allowed-private-cidrs: ${UI_ARTIFACT_ALLOWED_PRIVATE_CIDRS:}
+    allow-http: ${UI_ARTIFACT_ALLOW_HTTP:true}
+    connect-timeout-ms: ${MFE_PROXY_CONNECT_TIMEOUT_MS:3000}
+    response-timeout-ms: ${MFE_PROXY_RESPONSE_TIMEOUT_MS:10000}
+    max-response-bytes: ${MFE_PROXY_MAX_RESPONSE_BYTES:8388608}
   documentation:
     max-openapi-bytes: ${OPENAPI_MAX_BYTES:2097152}
   token-vault:

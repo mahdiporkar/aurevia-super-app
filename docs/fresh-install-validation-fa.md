@@ -15,7 +15,7 @@ outbox retry و سپس dead-letter می‌شوند و این نشانه‌ها �
 - دکمه اعطا خطا می‌دهد یا grant فقط در PostgreSQL دیده می‌شود؛
 - تب Audit با وجود ورود administrator پاسخ 403 می‌گیرد.
 
-از این نسخه به بعد `npm run infra:up` قبل از Compose وجود artifactهای frontend و اعتبار واقعی
+از این نسخه به بعد `npm run infra:up` قبل از Compose وجود artifact مربوط به Shell و اعتبار واقعی
 Store/Model را بررسی می‌کند و به‌جای اجرای نیمه‌سالم، با پیام قابل اقدام متوقف می‌شود.
 
 ## ۱. پیش‌نیازها
@@ -50,7 +50,8 @@ npm run build
 npm test
 ```
 
-فایل‌های `apps/*/dist` باید قبل از Nginx ساخته شده باشند؛ این directoryها داخل Git نیستند.
+فایل `apps/shell/dist` باید قبل از Nginx Core ساخته شده باشد. خروجی MFEها فقط هنگام اجرای
+چرخهٔ اختیاری Demo لازم است و داخل Git نیست.
 
 ## ۳. Bootstrap قطعی OpenFGA
 
@@ -81,10 +82,16 @@ FGA_STORE_NAME=aurevia-demo FGA_API_URL=http://127.0.0.1:8080 npm run openfga:bo
 npm run infra:up
 ```
 
+این فرمان فقط Core را اجرا می‌کند. برای اجرای جداگانهٔ چهار MFE نمونه:
+
+```bash
+npm run mfe:up
+```
+
 preflight موارد زیر را کنترل می‌کند:
 
 - Docker Engine در دسترس است؛
-- dist مربوط به Shell و چهار MFE وجود دارد؛
+- dist مربوط به Shell وجود دارد؛
 - شناسه‌ها placeholder نیستند؛
 - endpoint، Store و Model واقعاً در OpenFGA موجودند.
 

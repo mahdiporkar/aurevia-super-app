@@ -37,6 +37,7 @@
 29. [راهنما و گزارش آزمون End-to-End تمام صفحات راهبری](admin-governance-e2e-test-guide-fa.md)
 30. [گزارش اعتبارسنجی Production از دیتابیس خالی در ۲۰۲۶-۰۹-۰۸](production-fresh-stack-validation-2026-09-08-fa.md)
 31. [استاندارد اجباری Manifest همه Micro Frontendها](microfrontend-manifest-contract-standard-fa.md)
+32. [چرخهٔ مستقل Core/MFE و سیاست URL و SSRF](mfe-independent-lifecycle-fa.md)
 
 ## نقشه مستندات
 
@@ -54,6 +55,7 @@
 | دسترسی یک Micro Frontend چگونه مستقیم یا از طریق نقش/گروه داده می‌شود؟ | [access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش](access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش) |
 | دموی دو کاربر با دسترسی متفاوت به صفحات HR و Finance چگونه اجرا می‌شود؟ | [two-page-openfga-demo-fa.md](two-page-openfga-demo-fa.md) |
 | Shell چه کاری انجام می‌دهد و MFEها را چگونه بارگذاری می‌کند؟ | [shell-runtime-and-mfe-loading-fa.md](shell-runtime-and-mfe-loading-fa.md) |
+| Core و MFEها چگونه مستقل اجرا می‌شوند و URL خارجی چگونه امن ثبت می‌شود؟ | [mfe-independent-lifecycle-fa.md](mfe-independent-lifecycle-fa.md) |
 | uiCatalog مؤثر چگونه ساخته می‌شود و تب‌های Admin به چه routeهایی تبدیل شده‌اند؟ | [effective-ui-catalog-and-admin-routing-fa.md](effective-ui-catalog-and-admin-routing-fa.md) |
 | MF Manifest، Resource Manifest و Navigation Overlay چگونه از هم جدا شده‌اند؟ | [mf-and-resource-manifest-separation-fa.md](mf-and-resource-manifest-separation-fa.md) |
 | قالب اجباری Resource Manifest و قواعد کامل route و menu همه MFEها چیست؟ | [microfrontend-manifest-contract-standard-fa.md](microfrontend-manifest-contract-standard-fa.md) |

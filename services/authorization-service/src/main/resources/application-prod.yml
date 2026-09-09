@@ -22,6 +22,8 @@ aurevia:
   directory:
     require-tls: true
   ui-artifacts:
-    allowed-origins: ${UI_ARTIFACT_ALLOWED_ORIGINS}
+    network-policy: ${UI_ARTIFACT_NETWORK_POLICY:PRODUCTION_INTERNET}
+    development-host: ""
+    allowed-private-cidrs: ${UI_ARTIFACT_ALLOWED_PRIVATE_CIDRS:}
     allow-http: false
     require-integrity: true

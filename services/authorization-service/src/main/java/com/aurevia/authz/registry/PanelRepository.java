@@ -7,6 +7,9 @@ import java.util.UUID;
 
 public interface PanelRepository {
   List<PanelView> panels();
+  default Optional<PanelView> panel(UUID id) {
+    return panels().stream().filter(panel->panel.id().equals(id)).findFirst();
+  }
   List<AuditView> audit(int limit);
   Optional<String> routePath(UUID id);
   boolean routePathExists(String path,UUID excludingId);

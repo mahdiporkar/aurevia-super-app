@@ -1,35 +1,31 @@
 package com.aurevia.authz.ui;
 
-import java.net.URI;
-import java.util.Arrays;
-import java.util.Locale;
-import java.util.Set;
-import java.util.stream.Collectors;
+import static com.aurevia.artifacts.security.UiArtifactUriPolicy.ArtifactType.JSON_MANIFEST;
+import static com.aurevia.artifacts.security.UiArtifactUriPolicy.ArtifactType.REMOTE_ENTRY;
+
+import com.aurevia.artifacts.security.UiArtifactUriPolicy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /** Server-side trust policy for executable browser artifacts. */
 @Component
 public final class UiArtifactPolicy {
-  private final Set<String> allowedOrigins;
-  private final boolean allowHttp;
+  private final UiArtifactUriPolicy locations;
   private final boolean requireIntegrity;
 
-  public UiArtifactPolicy(@Value("${aurevia.ui-artifacts.allowed-origins}") String origins,
+  public UiArtifactPolicy(
+      @Value("${aurevia.ui-artifacts.network-policy:PRODUCTION_INTERNET}") String networkPolicy,
       @Value("${aurevia.ui-artifacts.allow-http:false}") boolean allowHttp,
-      @Value("${aurevia.ui-artifacts.require-integrity:true}") boolean requireIntegrity) {
-    this.allowedOrigins=Arrays.stream(origins.split(",")).map(String::trim)
-        .filter(value->!value.isEmpty()).map(UiArtifactPolicy::origin)
-        .collect(Collectors.toUnmodifiableSet());
-    this.allowHttp=allowHttp;this.requireIntegrity=requireIntegrity;
-    if(allowedOrigins.isEmpty()) throw new IllegalStateException("UI artifact origin allowlist is empty");
+      @Value("${aurevia.ui-artifacts.require-integrity:true}") boolean requireIntegrity,
+      @Value("${aurevia.ui-artifacts.development-host:}") String developmentHost,
+      @Value("${aurevia.ui-artifacts.allowed-private-cidrs:}") String allowedPrivateCidrs) {
+    this.locations=new UiArtifactUriPolicy(networkPolicy,allowHttp,developmentHost,
+        allowedPrivateCidrs);
+    this.requireIntegrity=requireIntegrity;
   }
 
   public String validate(String url,String integrity) {
-    URI uri=approvedUri(url,"Remote Entry");
-    if(!uri.getPath().endsWith(".js")) {
-      throw new IllegalArgumentException("Remote Entry must be an absolute JavaScript URL");
-    }
+    var uri=locations.validateConfigured(url,REMOTE_ENTRY,"Remote Entry");
     if(requireIntegrity&&(integrity==null||integrity.isBlank())) {
       throw new IllegalArgumentException("SRI is required for UI artifacts");
     }
@@ -40,7 +36,7 @@ public final class UiArtifactPolicy {
     return uri.toString();
   }
 
-  /** Metadata is fetched only from the same approved origins as executable UI artifacts. */
+  /** Resource metadata follows the same URL and network policy as executable UI artifacts. */
   public String validateResourceManifestUrl(String url) {
     return validateJsonManifestUrl(url,"Resource manifest");
   }
@@ -55,39 +51,13 @@ public final class UiArtifactPolicy {
   }
 
   private String validateJsonManifestUrl(String url,String label) {
-    URI uri=approvedUri(url,label);
-    if(!uri.getPath().endsWith(".json")) {
-      throw new IllegalArgumentException(label+" must be an absolute JSON URL");
-    }
-    return uri.toString();
+    return locations.validateConfigured(url,JSON_MANIFEST,label).toString();
   }
 
   public boolean requireIntegrity() { return requireIntegrity; }
 
-  private URI approvedUri(String url,String label) {
-    URI uri;
-    try { uri=URI.create(url).normalize(); }
-    catch(RuntimeException invalid) { throw new IllegalArgumentException("Invalid "+label+" URL",invalid); }
-    if(uri.getHost()==null||uri.getUserInfo()!=null||uri.getQuery()!=null||uri.getFragment()!=null) {
-      throw new IllegalArgumentException(label+" must be an absolute URL without credentials, query, or fragment");
-    }
-    if(!"https".equals(uri.getScheme()) && !(allowHttp&&"http".equals(uri.getScheme()))) {
-      throw new IllegalArgumentException(label+" must use HTTPS");
-    }
-    if(!allowedOrigins.contains(origin(uri.toString()))) {
-      throw new IllegalArgumentException(label+" origin is not approved");
-    }
-    return uri;
-  }
-
-  private static String origin(String value) {
-    URI uri=URI.create(value.trim());
-    String scheme=uri.getScheme()==null?"":uri.getScheme().toLowerCase(Locale.ROOT);
-    String host=uri.getHost()==null?"":uri.getHost().toLowerCase(Locale.ROOT);
-    int port=uri.getPort();
-    if(host.isEmpty()||!Set.of("http","https").contains(scheme)) {
-      throw new IllegalArgumentException("Invalid UI artifact origin allowlist");
-    }
-    return scheme+"://"+host+(port<0?"":":"+port);
+  /** Fetch-time validation includes DNS/network policy and development-only loopback rewriting. */
+  public String resolveManifestFetchUrl(String url) {
+    return locations.prepareForFetch(url,JSON_MANIFEST,"Manifest").toString();
   }
 }

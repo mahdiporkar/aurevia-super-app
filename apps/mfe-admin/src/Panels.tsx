@@ -192,8 +192,8 @@ export function PanelsView() {
           <Form.Item name="contract_version" label="نسخه قرارداد" rules={required}><Input /></Form.Item>
           <Form.Item name="resource_definition_mode" label="روش تعریف Resource" rules={required} extra="HYBRID: ساختار Manifest و Resourceهای تکمیلی مستقل با مالکیت ADMIN در کنار هم"><Select style={{width:220}} options={['HYBRID','MANIFEST','MANUAL'].map(value=>({value,label:value}))}/></Form.Item>
           <Form.Item name="classification" label="رده Micro Frontend" rules={required} extra="DEMO در production با demo-data.enabled=false وارد Catalog مؤثر نمی‌شود"><Select style={{width:160}} options={['REAL','DEMO'].map(value=>({value,label:value}))}/></Form.Item>
-          <Form.Item name="mf_manifest_url" label="MF Manifest URL" extra="runtime، routeهای محلی و navigation پیش‌فرض؛ مستقل از Resource Manifest"><Input placeholder="http://localhost:3001/mf-manifest.json" style={{width:390}}/></Form.Item>
-          <Form.Item name="resource_manifest_url" label="Resource Manifest URL" extra="برای HYBRID اختیاری و برای MANIFEST الزامی؛ فقط origin مجاز و فایل JSON"><Input placeholder="http://localhost:3001/resource-manifest.json" style={{width:390}}/></Form.Item>
+          <Form.Item name="mf_manifest_url" label="MF Manifest URL" extra="runtime، routeهای محلی و navigation پیش‌فرض؛ URL ثبت‌شده باید با policy شبکه محیط سازگار باشد"><Input placeholder="http://localhost:3001/mf-manifest.json" style={{width:390}}/></Form.Item>
+          <Form.Item name="resource_manifest_url" label="Resource Manifest URL" extra="برای HYBRID اختیاری و برای MANIFEST الزامی؛ URL فایل JSON تابع policy شبکه محیط است"><Input placeholder="http://localhost:3001/resource-manifest.json" style={{width:390}}/></Form.Item>
           <Form.Item name="sort_order" label="ترتیب"><InputNumber /></Form.Item>
           <Form.Item name="active" valuePropName="checked"><Checkbox>فعال</Checkbox></Form.Item>
         </Space>

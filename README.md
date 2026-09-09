@@ -16,6 +16,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [English complete guide](docs/README-en.md)
 - [راهنمای جامع فارسی](docs/README-fa.md)
 - [راهنمای اتصال یک فرانت‌اند مستقل به Backend](docs/connecting-separate-frontend-fa.md)
+- [چرخهٔ مستقل Core و Micro Frontend و سیاست امنیت URL](docs/mfe-independent-lifecycle-fa.md)
 - [راهنمای تغییر نام پروژه](docs/project-renaming-guide-fa.md)
 - [راهنمای آموزشی صفر تا تسلط تیم فنی](docs/technical-team-zero-to-production-fa.md)
 - [Architecture](docs/architecture.md)
@@ -72,13 +73,15 @@ docs/                         ADRs, diagrams, threat model and runbooks
 
 Copy `.env.example` to `.env` and replace every `change-me` value. On a new OpenFGA database,
 bootstrap the store/model before starting the complete stack. `infra:up` now fails early if the
-store/model are placeholders, unavailable, or the frontend artifacts have not been built.
+store/model are placeholders, unavailable, or the Shell artifact has not been built.
 
 ```bash
 npm ci
-npm run build
+npm run build --workspace=@aurevia/shell
 npm run openfga:bootstrap
 npm run infra:up
+npm run mfe:build                 # optional demo MFE lifecycle
+npm run mfe:up
 ./mvnw verify
 npm test
 npm run infra:verify
@@ -90,18 +93,23 @@ then requires Flyway V52+, zero projection drift and the complete ADMIN manifest
 `infra:verify:token-proxy` exercises real OIDC login, the token-free Redis session, Superset,
 Legacy token caching and OAuth2 user-token forwarding end to end.
 
-The microfrontends are served independently from the Shell. With Docker Compose,
-their default Remote Entry URLs are:
+`npm run infra:up` starts only Aurevia Core and remains healthy with zero MFEs online.
+The optional demo microfrontends are served by their own Compose project (`npm run mfe:up` and
+`npm run mfe:down`). Their default registry URLs are:
 
 - Admin: `http://localhost:3001/remoteEntry.js`
 - HR: `http://localhost:3002/remoteEntry.js`
 - Finance: `http://localhost:3003/remoteEntry.js`
 - Reports: `http://localhost:3004/remoteEntry.js`
 
-The Administration panel accepts a complete `http://` or `https://` Remote Entry
-URL. For local webpack development, run `dev:mfe:admin`, `dev:mfe:hr`,
+The Administration panel accepts a complete policy-valid `http://` or `https://` Remote Entry
+URL without an origin list or Core restart. For local webpack development, run `dev:mfe:admin`, `dev:mfe:hr`,
 `dev:mfe:finance`, and `dev:mfe:reports` in separate terminals. Use an HTTPS
 Remote Entry URL when the Shell itself is deployed over HTTPS.
+
+Production uses `PRODUCTION_INTERNET` URL/network policy (HTTPS, public destinations and SRI).
+Private enterprise MFE networks use the platform-wide `INTERNAL_ENTERPRISE` policy. These are
+network boundaries, not per-MFE address lists; the registry remains the source of truth.
 
 On Windows use `mvnw.cmd verify`. No real credentials or external deployment are needed. See [architecture](docs/architecture.md) for boundaries and request flows.
 
@@ -200,7 +208,7 @@ Field semantics:
 | `version` | Content-derived version suitable for change detection |
 | `expiresAt` | Refresh deadline; the current service TTL is 60 seconds |
 | `panels` | Active panels for which OpenFGA returned `can_view` |
-| `remoteEntry` | Complete allowlisted `http://` or `https://` Module Federation URL |
+| `remoteEntry` | Complete registry URL accepted by the environment URL/network policy |
 | `permissions` | Effective active USER, GROUP and ROLE actions keyed by canonical resource key |
 | `resourceTree` | Authorized nodes plus ancestors required to render the hierarchy |
 | `presentation` | Optional `hide`, `disable` or `readOnly` UI policy when supplied |

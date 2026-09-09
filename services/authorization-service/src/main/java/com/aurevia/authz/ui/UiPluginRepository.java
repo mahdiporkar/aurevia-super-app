@@ -30,7 +30,7 @@ public interface UiPluginRepository {
   record ArtifactInsert(UUID id,UUID panelId,String artifactVersion,String remoteEntryUrl,
       String remoteName,String exposedModule,String contractVersion,String schemaVersion,
       String integrity,String manifest,String checksum,String sourceUrl,String actor) {}
-  record ArtifactTarget(String remoteEntryUrl,String integrity) {}
+  record ArtifactTarget(String remoteEntryUrl,String integrity,String classification) {}
   record ArtifactRevision(UUID id,String checksum,String manifest,boolean active,
       String remoteEntryUrl,String remoteName,String exposedModule,String contractVersion,
       String integrity) {}

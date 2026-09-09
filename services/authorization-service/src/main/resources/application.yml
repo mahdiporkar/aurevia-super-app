@@ -55,6 +55,8 @@ aurevia:
     max-removal-ratio: ${DIRECTORY_MAX_REMOVAL_RATIO:0.25}
     require-tls: ${DIRECTORY_REQUIRE_TLS:false}
   ui-artifacts:
-    allowed-origins: ${UI_ARTIFACT_ALLOWED_ORIGINS:http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004}
+    network-policy: ${UI_ARTIFACT_NETWORK_POLICY:DEVELOPMENT}
+    development-host: ${UI_ARTIFACT_DEVELOPMENT_HOST:}
+    allowed-private-cidrs: ${UI_ARTIFACT_ALLOWED_PRIVATE_CIDRS:}
     allow-http: ${UI_ARTIFACT_ALLOW_HTTP:true}
     require-integrity: ${UI_ARTIFACT_REQUIRE_INTEGRITY:false}

@@ -48,7 +48,7 @@ checksum متفاوت باید نسخه جدید منتشر شود. `module.key`
 |---|---|---|
 | `resource_definition_mode` | `MANIFEST`, `MANUAL`, `HYBRID` | مالک ایجاد ساختار Resource |
 | `classification` | `DEMO`, `REAL` | خروجی‌دادن یا حذف MFE از Catalog محیط production |
-| `resource_manifest_url` | URL مطلق JSON | آدرس Fetch؛ فقط origin مجاز و بدون query/credential |
+| `resource_manifest_url` | URL مطلق JSON | آدرس Fetch؛ سازگار با policy شبکه و بدون query/credential |
 
 پیش‌فرض `HYBRID` است. `MANIFEST` بدون URL معتبر پذیرفته نمی‌شود. در `MANUAL` endpointهای
 Fetch/Import رد می‌شوند.
@@ -166,7 +166,7 @@ sequenceDiagram
   A->>B: Fetch یا Import JSON
   B->>Z: درخواست راهبری + actor
   opt Fetch
-    Z->>Z: allowlist / HTTPS / size / content-type
+    Z->>Z: SSRF policy / HTTPS / size / content-type
     Z->>M: GET resource-manifest.json
   end
   Z->>Z: schema + hierarchy + route + navigation validation
@@ -299,7 +299,7 @@ ADMIN با classification=REAL باقی می‌ماند. داده دمو شرط 
 - origin با `aurevia.ui-artifacts.allowed-origins` کنترل می‌شود؛
 - production فقط HTTPS و Artifact SRIدار را می‌پذیرد؛
 - credential، query و fragment در URL Manifest رد می‌شوند؛
-- redirect دنبال نمی‌شود تا allowlist دور زده نشود؛
+- redirect دنبال نمی‌شود تا policy مقصد و مرز same-origin دور زده نشود؛
 - timeout اتصال ۵ ثانیه، timeout درخواست ۱۰ ثانیه و سقف پاسخ ۱ MiB است؛
 - backend فقط JSON را parse می‌کند و هیچ JavaScript/Webpack runtime اجرا نمی‌شود.
 
@@ -307,7 +307,7 @@ ADMIN با classification=REAL باقی می‌ماند. داده دمو شرط 
 
 1. `resourceKey`ها canonical و پایدارند و button/URL به‌عنوان Resource ثبت نشده است.
 2. mode و classification پنل درست انتخاب شده‌اند.
-3. Remote Entry و Resource Manifest از origin مجاز هستند.
+3. Remote Entry و Resource Manifest با URL/network policy محیط سازگار هستند.
 4. Diff بدون `CONFLICT` بازبینی شده و DEPRECATEها آگاهانه تأیید شده‌اند.
 5. PAGE navigation به route موجود اشاره می‌کند و cycle ندارد.
 6. Permissionهای Resource جدید پیش از فعال‌کردن مسیر business اعطا شده‌اند.

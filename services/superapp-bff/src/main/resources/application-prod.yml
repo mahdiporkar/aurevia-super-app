@@ -10,6 +10,11 @@ springdoc:
   api-docs.enabled: false
   swagger-ui.enabled: false
 aurevia:
+  mfe-proxy:
+    network-policy: ${UI_ARTIFACT_NETWORK_POLICY:PRODUCTION_INTERNET}
+    development-host: ""
+    allowed-private-cidrs: ${UI_ARTIFACT_ALLOWED_PRIVATE_CIDRS:}
+    allow-http: false
   development:
     token-evidence-logging:
       enabled: false

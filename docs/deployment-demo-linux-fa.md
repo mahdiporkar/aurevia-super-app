@@ -151,7 +151,8 @@ sudo ufw allow OpenSSH
 sudo ufw enable
 ```
 
-Compose، OpenFGA و Keycloak را روی loopback منتشر می‌کند؛ پورت‌های Shell/MFE در Compose فعلی host binding عمومی دارند، اما firewall بالا دسترسی اینترنتی را می‌بندد.
+Compose، OpenFGA و Keycloak را روی loopback منتشر می‌کند؛ پورت‌های Shell و Compose مستقل
+MFEهای Demo روی host منتشر می‌شوند، اما firewall بالا دسترسی اینترنتی را می‌بندد.
 
 ## ۶. Bootstrap کردن OpenFGA
 
@@ -192,12 +193,18 @@ fga model test --tests infra/openfga/model-tests.yaml
 
 اگر syntax نسخه CLI متفاوت بود، `fga store create --help` و `fga model write --help` همان نسخه pin‌شده را مبنا قرار دهید. Store یا Model فرضی موجود در `.env.example` قابل استفاده نیست.
 
-## ۷. اجرای کل Stack
+## ۷. اجرای Core و سپس MFEهای Demo
 
 ```bash
 docker compose --env-file .env --profile superset \
   -f infra/docker-compose/compose.yml \
   up -d --build
+```
+
+این Compose فقط Core را اجرا می‌کند. چهار MFE نمونه lifecycle مستقل دارند و اختیاری‌اند:
+
+```bash
+npm run mfe:up
 ```
 
 Superset init در اجرای اول migration، ساخت admin و در صورت خالی بودن دیتابیس، بارگذاری مثال‌ها را انجام می‌دهد. این مرحله ممکن است چند دقیقه طول بکشد.
@@ -207,6 +214,8 @@ Superset init در اجرای اول migration، ساخت admin و در صورت
 ```bash
 docker compose --env-file .env --profile superset \
   -f infra/docker-compose/compose.yml ps
+docker compose --env-file .env \
+  -f infra/docker-compose/compose.mfe-demo.yml ps
 ```
 
 لاگ کلی:
@@ -273,6 +282,7 @@ docker logs --tail 100 aurevia-operation-superset-1
 ```bash
 docker compose --env-file .env --profile superset \
   -f infra/docker-compose/compose.yml down
+npm run mfe:down
 ```
 
 بروزرسانی کنترل‌شده:
@@ -285,6 +295,7 @@ npm run build
 ./mvnw verify
 docker compose --env-file .env --profile superset \
   -f infra/docker-compose/compose.yml up -d --build
+npm run mfe:up
 ```
 
 از `down -v` استفاده نکنید مگر این‌که هدف، حذف غیرقابل‌بازگشت تمام دیتابیس‌ها و داده Demo باشد.

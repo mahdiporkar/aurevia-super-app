@@ -86,9 +86,9 @@ class JdbcUiPluginRepository implements UiPluginRepository {
 
   @Override public Optional<ArtifactTarget> validArtifact(UUID panelId,UUID artifactId) {
     return database.sql("""
-        select remote_entry_url as "remoteEntryUrl",integrity
-        from ui_module_artifact
-        where id=:id and panel_id=:panel and validation_status='VALID'
+        select a.remote_entry_url as "remoteEntryUrl",a.integrity,p.classification
+        from ui_module_artifact a join panel p on p.id=a.panel_id
+        where a.id=:id and a.panel_id=:panel and a.validation_status='VALID'
         """).param("id",artifactId).param("panel",panelId)
         .query(ArtifactTarget.class).optional();
   }
@@ -178,7 +178,7 @@ class JdbcUiPluginRepository implements UiPluginRepository {
 
   @Override public List<ArtifactTarget> activeArtifactTargets() {
     return database.sql("""
-        select a.remote_entry_url as "remoteEntryUrl",a.integrity
+        select a.remote_entry_url as "remoteEntryUrl",a.integrity,p.classification
         from panel p join ui_module_artifact a on a.id=p.active_artifact_id
         where p.active
         """).query(ArtifactTarget.class).list();

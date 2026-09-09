@@ -58,7 +58,8 @@ repository برای یکسان ماندن قالب تیم‌ها الزامی ا
 - پاسخ موفق `2xx` بدهد و `Content-Type` شامل `json` باشد.
 - حداکثر اندازه هر فایل `1 MiB` است.
 - redirect دنبال نمی‌شود؛ URL نهایی باید مستقیم باشد.
-- URL باید absolute، بدون credentials، query و fragment و از origin موجود در allowlist باشد.
+- URL باید absolute، بدون credentials، query و fragment و سازگار با policy شبکهٔ محیط باشد؛
+  origin-list ثابت برای هر MFE وجود ندارد.
 - در Production فقط HTTPS مجاز است. HTTP تنها با `aurevia.ui-artifacts.allow-http=true` برای
   محیط محلی مجاز است.
 - فایل نباید secret یا تنظیم محرمانه محیط را شامل شود.
@@ -482,7 +483,7 @@ Resource Catalog + Outbox parent events -> OpenFGA
 
 | فیلد | الزام | قاعده |
 |---|---|---|
-| `remoteEntry` | باید | URL absolute فایل `.js` از origin مجاز |
+| `remoteEntry` | باید | URL absolute فایل `.js` در مقصد مجاز طبق policy شبکه |
 | `remoteName` | باید | `^[A-Za-z][A-Za-z0-9_]*$` و یکتا بین Panelها |
 | `exposedModule` | باید | با `./` شروع شود؛ مانند `./plugin` |
 | `contractVersion` | باید | دقیقاً `1.0` |
@@ -841,11 +842,11 @@ Effective Context برای هر module اطلاعاتی مانند `moduleKey`،
 4. navigation را با reference به route بسازد؛ مجوز تکراری اضافه نکند.
 5. هر دو نسخه را مطابق تغییر افزایش دهد.
 6. build تولیدی MFE را اجرا کند تا هر دو validator webpack اجرا و فایل‌ها emit شوند.
-7. فایل خروجی و `remoteEntry.js` را روی origin مجاز و immutable منتشر کند.
+7. فایل خروجی و `remoteEntry.js` را روی مقصد سازگار با policy و به‌صورت immutable منتشر کند.
 
 ### ۲۱.۲. راهبر محیط
 
-1. Registration و دو URL را ثبت و originها را allowlist کند.
+1. Registration و دو URL را ثبت کند؛ policy سراسری محیط باید نوع شبکهٔ مقصد را بپذیرد.
 2. deployment overrideها و SRI واقعی `remoteEntry.js` را ثبت کند.
 3. Resource Manifest را fetch/import و Diff را review کند.
 4. draft بدون conflict را publish و رسیدن outbox را پایش کند.
@@ -903,7 +904,7 @@ validator build در `tools/resource-manifest-webpack-plugin.cjs` قرار دا�
 
 - [ ] `schemaVersion` و `contractVersion` برابر `1.0` هستند.
 - [ ] `microfrontend.key` با `panel.slug` برابر است.
-- [ ] runtime URL، allowlist و SRI معتبرند.
+- [ ] runtime URL، network policy و SRI معتبرند.
 - [ ] routeها local، یکتا، غیرمبهم و بدون `component` هستند.
 - [ ] همه Resource/Action referenceها قبلاً publish شده‌اند.
 - [ ] `defaultRouteKey` موجود است.

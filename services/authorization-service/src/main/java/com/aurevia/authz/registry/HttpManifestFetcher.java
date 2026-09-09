@@ -1,5 +1,6 @@
 package com.aurevia.authz.registry;
 
+import com.aurevia.authz.ui.UiArtifactPolicy;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -15,14 +16,18 @@ import org.springframework.stereotype.Component;
   final class HttpManifestFetcher implements ManifestFetcher
   {
   private static final int MAX_BYTES=1_048_576;
+  private final UiArtifactPolicy policy;
   private final HttpClient client=HttpClient.newBuilder()
       .connectTimeout(Duration.ofSeconds(5))
       .followRedirects(HttpClient.Redirect.NEVER)
       .build();
 
+  HttpManifestFetcher(UiArtifactPolicy policy) { this.policy=policy; }
+
   @Override public String fetch(String url) {
     try {
-      HttpRequest request=HttpRequest.newBuilder(URI.create(url))
+      URI target=URI.create(policy.resolveManifestFetchUrl(url));
+      HttpRequest request=HttpRequest.newBuilder(target)
           .timeout(Duration.ofSeconds(10))
           .header("Accept","application/json")
           .GET().build();

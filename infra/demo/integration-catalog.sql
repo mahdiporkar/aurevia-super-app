@@ -3,23 +3,8 @@ BEGIN;
 
 -- Development-only catalog. This file is applied by docker-compose after
 -- Flyway finishes; it is never part of the production migration chain.
--- Browser-facing Remote Entry URLs remain on localhost. Both manifest URLs are
--- control-plane addresses resolved by Authorization Service inside Docker.
-UPDATE panel SET resource_manifest_url=CASE code
-  WHEN 'ADMIN' THEN 'http://mfe-admin:8080/resource-manifest.json'
-  WHEN 'HR' THEN 'http://mfe-hr:8080/resource-manifest.json'
-  WHEN 'FINANCE' THEN 'http://mfe-finance:8080/resource-manifest.json'
-  WHEN 'REPORTS' THEN 'http://mfe-reports:8080/resource-manifest.json'
-  ELSE resource_manifest_url END
-WHERE code IN ('ADMIN','HR','FINANCE','REPORTS');
-
-UPDATE panel SET mf_manifest_url=CASE code
-  WHEN 'ADMIN' THEN 'http://mfe-admin:8080/mf-manifest.json'
-  WHEN 'HR' THEN 'http://mfe-hr:8080/mf-manifest.json'
-  WHEN 'FINANCE' THEN 'http://mfe-finance:8080/mf-manifest.json'
-  WHEN 'REPORTS' THEN 'http://mfe-reports:8080/mf-manifest.json'
-  ELSE mf_manifest_url END
-WHERE code IN ('ADMIN','HR','FINANCE','REPORTS');
+-- MFE artifact locations belong only to the panel registry. They are seeded by
+-- migrations and are not rewritten to Docker service names by this operational fixture.
 
 INSERT INTO outbound_connection(id,connection_ref,name,kind,base_url,tls_required,active,created_by,updated_by)
 VALUES('45000000-0000-0000-0000-000000000001','connection://demo/legacy',

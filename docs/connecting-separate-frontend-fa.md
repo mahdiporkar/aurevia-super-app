@@ -140,7 +140,8 @@ Frontend باید URL عمومی ثبت‌شده در BFF را با مسیر ن�
 2. entry دارای `contractVersion: '1.0'` و export قابل بارگذاری بسازید.
 3. دو فایل مستقل منتشر کنید: `resource-manifest.json` فقط برای Resourceها و
    `mf-manifest.json` برای runtime، routeهای محلی، navigation پیش‌فرض و reference مجوز.
-4. Remote Entry را روی HTTPS و origin مجاز منتشر کنید.
+4. Remote Entry را روی HTTPS و مقصد سازگار با policy شبکهٔ محیط منتشر کنید؛ فهرست origin
+   جداگانه برای هر MFE وجود ندارد.
 5. در بخش Micro Frontend پنل، `remoteEntryUrl`، `remoteName`، `exposedModule`، `routePrefix`، نسخه قرارداد و integrity را ثبت کنید.
 6. MF Manifest را sync کنید و Resource Manifest را جداگانه stage، preview و publish کنید.
 7. به user/group/role مجوز application/page/business resource بدهید.

@@ -21,7 +21,11 @@
     "infra:verify:token-proxy": "node tools/verify-token-proxy.mjs",
     "release:verify:runtime": "node tools/release-runtime-verify.mjs",
     "infra:up": "npm run infra:preflight && docker compose --env-file .env --profile superset -f infra/docker-compose/compose.yml up -d --build",
-    "infra:down": "docker compose --env-file .env --profile superset -f infra/docker-compose/compose.yml down"
+    "infra:down": "docker compose --env-file .env --profile superset -f infra/docker-compose/compose.yml down",
+    "mfe:preflight": "node tools/mfe-demo-preflight.mjs",
+    "mfe:build": "npm run build --workspace=@aurevia/mfe-admin && npm run build --workspace=@aurevia/mfe-hr && npm run build --workspace=@aurevia/mfe-finance && npm run build --workspace=@aurevia/mfe-reports",
+    "mfe:up": "npm run mfe:preflight && docker compose -f infra/docker-compose/compose.mfe-demo.yml up -d",
+    "mfe:down": "docker compose -f infra/docker-compose/compose.mfe-demo.yml down"
   },
   "devDependencies": {
     "@types/react": "19.1.11",

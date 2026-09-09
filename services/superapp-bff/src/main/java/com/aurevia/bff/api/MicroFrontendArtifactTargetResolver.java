@@ -1,51 +1,29 @@
 package com.aurevia.bff.api;
 
+import com.aurevia.artifacts.security.UiArtifactUriPolicy;
 import java.net.URI;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-/** Maps browser loopback artifact URLs to explicit Docker-network targets in local deployments. */
+/** Applies the shared SSRF policy and an optional development-only loopback host bridge. */
 @Component
 final class MicroFrontendArtifactTargetResolver {
-  private final Map<Integer,URI> loopbackTargets;
+  private final UiArtifactUriPolicy policy;
 
   MicroFrontendArtifactTargetResolver(
-      @Value("${aurevia.mfe-proxy.loopback-targets:}") String configuredTargets) {
-    loopbackTargets=parse(configuredTargets);
+      @Value("${aurevia.mfe-proxy.network-policy:PRODUCTION_INTERNET}") String networkPolicy,
+      @Value("${aurevia.mfe-proxy.allow-http:false}") boolean allowHttp,
+      @Value("${aurevia.mfe-proxy.development-host:}") String developmentHost,
+      @Value("${aurevia.mfe-proxy.allowed-private-cidrs:}") String allowedPrivateCidrs) {
+    policy=new UiArtifactUriPolicy(networkPolicy,allowHttp,developmentHost,allowedPrivateCidrs);
   }
 
   URI resolve(String registeredUrl) {
-    URI source=URI.create(registeredUrl);
-    if(!isLoopback(source.getHost()))return source;
-    URI target=loopbackTargets.get(source.getPort());
-    if(target==null)return source;
-    return URI.create(target.toString().replaceFirst("/+$","")+source.getRawPath());
+    return policy.prepareForFetch(registeredUrl,
+        UiArtifactUriPolicy.ArtifactType.REMOTE_ENTRY,"Remote Entry");
   }
 
   URI resolveAsset(String registeredUrl,String assetPath) {
-    if(assetPath==null||assetPath.isBlank()||assetPath.contains("..")||assetPath.contains("\\"))
-      throw new IllegalArgumentException("invalid MFE asset path");
-    URI registered=URI.create(registeredUrl);
-    URI asset=registered.resolve(assetPath.replaceFirst("^/+",""));
-    return resolve(asset.toString());
-  }
-
-  private static boolean isLoopback(String host) {
-    return "localhost".equalsIgnoreCase(host)||"127.0.0.1".equals(host)||"::1".equals(host);
-  }
-
-  private static Map<Integer,URI> parse(String value) {
-    if(value==null||value.isBlank())return Map.of();
-    return Arrays.stream(value.split(",")).map(String::trim).filter(entry->!entry.isBlank())
-        .map(entry->entry.split("=",2)).collect(Collectors.toUnmodifiableMap(
-            entry->Integer.parseInt(entry[0]),entry->{
-              URI uri=URI.create(entry[1]);
-              if(!"http".equals(uri.getScheme())&&!"https".equals(uri.getScheme()))
-                throw new IllegalArgumentException("MFE proxy target must use HTTP(S)");
-              return uri;
-            }));
+    return policy.prepareAssetForFetch(registeredUrl,assetPath);
   }
 }

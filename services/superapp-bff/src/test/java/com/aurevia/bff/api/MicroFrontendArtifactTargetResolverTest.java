@@ -1,21 +1,26 @@
 package com.aurevia.bff.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 
 class MicroFrontendArtifactTargetResolverTest {
-  @Test void mapsOnlyExplicitLoopbackPortsToDockerNetworkTargets() {
-    var resolver=new MicroFrontendArtifactTargetResolver(
-        "3001=http://mfe-admin:8080,3002=http://mfe-hr:8080");
+  @Test void mapsAnyLoopbackPortToOneDevelopmentHost() {
+    var resolver=new MicroFrontendArtifactTargetResolver("DEVELOPMENT",true,"localhost","");
     assertThat(resolver.resolve("http://localhost:3001/remoteEntry.js").toString())
-        .isEqualTo("http://mfe-admin:8080/remoteEntry.js");
+        .isEqualTo("http://localhost:3001/remoteEntry.js");
     assertThat(resolver.resolve("http://127.0.0.1:3002/assets/chunk.js").toString())
-        .isEqualTo("http://mfe-hr:8080/assets/chunk.js");
-    assertThat(resolver.resolve("https://cdn.example/mfe/remoteEntry.js").toString())
-        .isEqualTo("https://cdn.example/mfe/remoteEntry.js");
+        .isEqualTo("http://localhost:3002/assets/chunk.js");
     assertThat(resolver.resolve("http://localhost:3999/remoteEntry.js").toString())
         .isEqualTo("http://localhost:3999/remoteEntry.js");
     assertThat(resolver.resolveAsset("http://localhost:3001/remoteEntry.js","925.js").toString())
-        .isEqualTo("http://mfe-admin:8080/925.js");
+        .isEqualTo("http://localhost:3001/925.js");
+  }
+
+  @Test void productionProxyRejectsLoopbackSsrfTarget() {
+    var resolver=new MicroFrontendArtifactTargetResolver("PRODUCTION_INTERNET",true,"","");
+    assertThatThrownBy(()->resolver.resolveAsset(
+        "http://127.0.0.1:8080/remoteEntry.js","remoteEntry.js"))
+        .hasMessageContaining("loopback");
   }
 }

@@ -3,6 +3,7 @@
   <parent><groupId>com.aurevia</groupId><artifactId>aurevia-super-app</artifactId><version>0.1.0</version><relativePath>../../pom.xml</relativePath></parent>
   <artifactId>superapp-bff</artifactId>
   <dependencies>
+    <dependency><groupId>com.aurevia</groupId><artifactId>ui-artifact-security</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-webflux</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-oauth2-client</artifactId></dependency>
