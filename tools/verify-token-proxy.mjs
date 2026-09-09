@@ -247,13 +247,31 @@ assert.equal(adminModule.remote?.contractVersion,'1.0',
   'The ADMIN artifact contract version is incorrect');
 assert.equal(adminModule.remote?.artifactVersion,'0.5.0',
   'The ADMIN active artifact version is incorrect');
-const expectedAdminMenuTitles=[
-  'راهنما','واحدهای سازمانی','گروه‌ها','برنامه‌ها','تحلیل دسترسی','منابع و مجوزها',
-  'میکروفرانت‌ها','مقصدها','مسیرها','عملیات API','اتصال‌ها','احراز هویت','تست اتصال',
-  'محیط‌های گزارش','هویت و نقش','لاگ API','لاگ راهبری','گزارش‌ها',
+const expectedAdminRoutes=[
+  {path:'operator-guide',title:'راهنما'},
+  {path:'ou-access/ous',title:'واحدهای سازمانی'},
+  {path:'ou-access/groups',title:'گروه‌ها'},
+  {path:'ou-access/applications',title:'برنامه‌ها'},
+  {path:'ou-access/explain',title:'تحلیل دسترسی'},
+  {path:'access-studio',title:'منابع و مجوزها'},
+  {path:'panels',title:'میکروفرانت‌ها'},
+  {path:'proxy-routes/targets',title:'مقصدها'},
+  {path:'proxy-routes/routes',title:'مسیرها'},
+  {path:'proxy-routes/operations',title:'عملیات API'},
+  {path:'outbound-connections',title:'اتصال‌ها'},
+  {path:'outbound-auth',title:'احراز هویت'},
+  {path:'integration-test',title:'تست اتصال'},
+  {path:'superset-instances',title:'محیط‌های گزارش'},
+  {path:'identity',title:'هویت و نقش'},
+  {path:'logs/api',title:'لاگ API'},
+  {path:'logs/audit',title:'لاگ راهبری'},
+  {path:'superset',title:'گزارش‌ها'},
 ];
+const expectedAdminMenuTitles=expectedAdminRoutes.map(route=>route.title);
 assert.deepEqual(adminModule.menus.map(menu=>menu.title),expectedAdminMenuTitles,
   'The ADMIN runtime menu titles are stale');
+assert.deepEqual(adminModule.routes.map(route=>({path:route.path,title:route.title})),expectedAdminRoutes,
+  'The ADMIN runtime route paths or titles are stale');
 assert(adminModule.menus.every(menu=>typeof menu.description==='string'&&menu.description.trim()),
   'The ADMIN runtime menu is missing descriptive tooltips');
 assert.equal(adminModule.runtime?.apiBasePath,'/api/v1/admin',
@@ -383,8 +401,9 @@ let browserNavigation={status:'skipped'};
 if(process.env.AUREVIA_BROWSER_E2E==='true') {
   browserNavigation={status:'verified',...(await verifyAdminNavigationInChrome({
     origin:baseUrl.origin,username,password,
-    expectedTitles:expectedAdminMenuTitles,
-    screenshotPath:process.env.AUREVIA_BROWSER_SCREENSHOT??'target/e2e/admin-navigation.png',
+    expectedRoutes:expectedAdminRoutes,
+    screenshotPath:process.env.AUREVIA_BROWSER_SCREENSHOT
+      ??'target/e2e/admin-navigation-route-sweep.png',
   }))};
 }
 

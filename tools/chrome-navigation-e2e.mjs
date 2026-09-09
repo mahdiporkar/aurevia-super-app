@@ -57,9 +57,13 @@ async function connectCdp(websocketUrl) {
   });
   let nextId=0;
   const pending=new Map();
+  const events=[];
   socket.addEventListener('message',event=>{
     const message=JSON.parse(String(event.data));
-    if(!message.id)return;
+    if(!message.id) {
+      events.push(message);
+      return;
+    }
     const callback=pending.get(message.id);
     if(!callback)return;
     pending.delete(message.id);
@@ -71,7 +75,7 @@ async function connectCdp(websocketUrl) {
     pending.set(id,{resolve:resolveCall,reject});
     socket.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));
   });
-  return {socket,call};
+  return {socket,call,events};
 }
 
 async function evaluate(call,sessionId,expression) {
@@ -80,8 +84,9 @@ async function evaluate(call,sessionId,expression) {
   return result.result?.value;
 }
 
-export async function verifyAdminNavigationInChrome({origin,username,password,expectedTitles,
+export async function verifyAdminNavigationInChrome({origin,username,password,expectedRoutes,
     screenshotPath='target/e2e/admin-navigation.png'}) {
+  const expectedTitles=expectedRoutes.map(route=>route.title);
   const executable=installedChrome();
   if(!executable)throw new Error('Chrome or Edge is required when AUREVIA_BROWSER_E2E=true');
   const profile=mkdtempSync(join(tmpdir(),'aurevia-navigation-e2e-'));
@@ -96,6 +101,7 @@ export async function verifyAdminNavigationInChrome({origin,username,password,ex
       cdp.call('Network.enable',{},sessionId),
       cdp.call('Page.enable',{},sessionId),
       cdp.call('Runtime.enable',{},sessionId),
+      cdp.call('Log.enable',{},sessionId),
     ]);
     const shellOrigin=new URL(origin);
     const targetUrl=new URL('/admin/operator-guide',shellOrigin).href;
@@ -152,6 +158,10 @@ export async function verifyAdminNavigationInChrome({origin,username,password,ex
     if(state.iconText.length)throw new Error(`Navigation icon keys are visible as text: ${state.iconText.join(', ')}`);
     if(state.selected!=='راهنما')throw new Error(`Unexpected selected ADMIN menu item: ${JSON.stringify(state)}`);
     if(state.error)throw new Error(`ADMIN remote rendered an error: ${state.error}`);
+    // The shell intentionally probes /api/v1/me before OIDC login and receives 401.
+    // Only browser events emitted after the authenticated ADMIN page is ready belong
+    // to the navigation sweep under test.
+    const routeSweepEventStart=cdp.events.length;
 
     const firstItem=await evaluate(cdp.call,sessionId,`(()=>{const rect=document.querySelector('.nav-menu-label')?.getBoundingClientRect();return rect?{x:rect.left+rect.width/2,y:rect.top+rect.height/2}:null})()`);
     if(!firstItem)throw new Error('Cannot locate the first ADMIN navigation label');
@@ -163,6 +173,96 @@ export async function verifyAdminNavigationInChrome({origin,username,password,ex
         `document.querySelector('.ant-tooltip-inner')?.textContent?.trim()??''`);
     }
     if(!tooltip)throw new Error('ADMIN navigation tooltip did not render on hover');
+
+    const routeChecks=[];
+    for(const route of expectedRoutes) {
+      const expectedPath=`/admin/${route.path}`;
+      if(new URL(state.url).pathname!==expectedPath) {
+        const target=await evaluate(cdp.call,sessionId,`(()=>{
+          const expectedPath=${JSON.stringify(expectedPath)};
+          const item=[...document.querySelectorAll('.ant-menu-item')]
+            .find(node=>(node.getAttribute('data-menu-id')??'').endsWith(expectedPath));
+          if(!item)return null;
+          item.scrollIntoView({block:'center',inline:'nearest'});
+          const rect=item.getBoundingClientRect();
+          return {x:rect.left+rect.width/2,y:rect.top+rect.height/2,
+            text:item.textContent?.trim(),width:rect.width,height:rect.height};
+        })()`);
+        if(!target||target.width<=0||target.height<=0) {
+          throw new Error(`Cannot locate visible ADMIN menu item for ${expectedPath}`);
+        }
+        await cdp.call('Input.dispatchMouseEvent',
+          {type:'mouseMoved',x:target.x,y:target.y},sessionId);
+        await cdp.call('Input.dispatchMouseEvent',
+          {type:'mousePressed',x:target.x,y:target.y,button:'left',clickCount:1},sessionId);
+        await cdp.call('Input.dispatchMouseEvent',
+          {type:'mouseReleased',x:target.x,y:target.y,button:'left',clickCount:1},sessionId);
+        await delay(250);
+      }
+
+      let routeState;
+      const routeDeadline=Date.now()+20_000;
+      while(Date.now()<routeDeadline) {
+        routeState=await evaluate(cdp.call,sessionId,`(()=>({
+          pathname:location.pathname,
+          selected:document.querySelector('.ant-menu-item-selected .nav-menu-label')?.textContent?.trim()
+            ??document.querySelector('.ant-menu-item-selected')?.textContent?.trim(),
+          spinner:Boolean(document.querySelector('.remote-surface .ant-spin')),
+          error:document.querySelector('.remote-surface .ant-alert-error')?.textContent?.trim(),
+          tabCount:document.querySelectorAll('.ant-tabs-tab').length,
+          remoteText:document.querySelector('.remote-surface')?.innerText?.trim().slice(0,240)??''
+        }))()`);
+        if(routeState?.pathname===expectedPath&&routeState.selected===route.title
+            &&!routeState.spinner&&routeState.remoteText)break;
+        await delay(250);
+      }
+      if(routeState?.pathname!==expectedPath||routeState.selected!==route.title
+          ||routeState.spinner||!routeState.remoteText) {
+        throw new Error(`ADMIN route did not become ready: ${JSON.stringify({
+          expectedPath,expectedTitle:route.title,routeState,
+        })}`);
+      }
+      if(routeState.error)throw new Error(`ADMIN route ${expectedPath} rendered an error: ${routeState.error}`);
+      if(routeState.tabCount!==0) {
+        throw new Error(`ADMIN route ${expectedPath} rendered ${routeState.tabCount} obsolete tab(s)`);
+      }
+      routeChecks.push({path:expectedPath,title:route.title,selected:routeState.selected,
+        contentLength:routeState.remoteText.length});
+      state.url=new URL(expectedPath,shellOrigin).href;
+      state.selected=routeState.selected;
+    }
+
+    const captureAfterSweep=await cdp.call(
+      'Page.captureScreenshot',{format:'png',captureBeyondViewport:false},sessionId);
+    writeFileSync(absoluteScreenshot,Buffer.from(captureAfterSweep.data,'base64'));
+
+    const routeSweepEvents=cdp.events.slice(routeSweepEventStart);
+    const runtimeExceptions=routeSweepEvents
+      .filter(event=>event.sessionId===sessionId&&event.method==='Runtime.exceptionThrown')
+      .map(event=>event.params?.exceptionDetails?.exception?.description
+        ??event.params?.exceptionDetails?.text??'Unknown runtime exception');
+    const consoleErrors=routeSweepEvents
+      .filter(event=>event.sessionId===sessionId&&event.method==='Runtime.consoleAPICalled'
+        &&event.params?.type==='error')
+      .map(event=>event.params?.args?.map(argument=>argument.value??argument.description).join(' '));
+    const browserLogErrors=routeSweepEvents
+      .filter(event=>event.sessionId===sessionId&&event.method==='Log.entryAdded'
+        &&event.params?.entry?.level==='error')
+      .map(event=>event.params.entry.text);
+    const serverErrors=routeSweepEvents
+      .filter(event=>event.sessionId===sessionId&&event.method==='Network.responseReceived'
+        &&event.params?.response?.status>=500)
+      .map(event=>({status:event.params.response.status,url:event.params.response.url}));
+    const networkFailures=routeSweepEvents
+      .filter(event=>event.sessionId===sessionId&&event.method==='Network.loadingFailed'
+        &&event.params?.canceled!==true&&event.params?.errorText!=='net::ERR_ABORTED')
+      .map(event=>({error:event.params.errorText,type:event.params.type}));
+    if(runtimeExceptions.length||consoleErrors.length||browserLogErrors.length
+        ||serverErrors.length||networkFailures.length) {
+      throw new Error(`ADMIN route sweep observed browser errors: ${JSON.stringify({
+        runtimeExceptions,consoleErrors,browserLogErrors,serverErrors,networkFailures,
+      })}`);
+    }
 
     const logoutStatus=await evaluate(cdp.call,sessionId,`(async()=>{
       const csrf=await fetch('/api/v1/csrf',{headers:{accept:'application/json'}}).then(response=>response.json());
@@ -176,7 +276,10 @@ export async function verifyAdminNavigationInChrome({origin,username,password,ex
       `Browser session still has API access after logout (HTTP ${postLogoutStatus})`);
 
     return {browser:executable,url:state.url,menuCount:state.menuTitles.length,
-      selected:state.selected,tooltip,screenshot:absoluteScreenshot,logoutStatus,postLogoutStatus};
+      selected:state.selected,tooltip,routeChecks,runtimeExceptionCount:runtimeExceptions.length,
+      consoleErrorCount:consoleErrors.length,browserLogErrorCount:browserLogErrors.length,
+      serverErrorCount:serverErrors.length,networkFailureCount:networkFailures.length,
+      screenshot:absoluteScreenshot,logoutStatus,postLogoutStatus};
   } finally {
     if(cdp) {
       try {await cdp.call('Browser.close');} catch { /* Chrome may already be closed. */ }
