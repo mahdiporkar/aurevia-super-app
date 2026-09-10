@@ -18,4 +18,13 @@ public class SupersetProxyResolutionService {
         new ResponseStatusException(HttpStatus.NOT_FOUND,
             "Active Superset proxy mapping not found"));
   }
+
+  public Map<String,Object> resolveIntegration(String instanceCode) {
+    if(instanceCode==null||!instanceCode.matches("[a-z][a-z0-9-]{2,79}")) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid Superset integration code");
+    }
+    return mappings.activeMapping(instanceCode).or(()->mappings.activeInstance(instanceCode))
+        .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,
+            "Active Superset integration not found"));
+  }
 }

@@ -15,7 +15,7 @@ import{ProxyRouteManagement}from'./ProxyRoutes';
 import{SupersetAssets}from'./SupersetAssets';
 import{SupersetInstances}from'./SupersetInstances';
 import{IdentityAndRoles}from'./IdentityAndRoles';
-import{adminApi}from'./api';
+import{adminApi,sameOriginApi}from'./api';
 import{
   ADMIN_PUBLISHED_MANIFEST,authorizedAdminPages,defaultAdminPage,
   type AdminPageDefinition,
@@ -39,7 +39,7 @@ function Page({page}:{page:AdminPageDefinition}) {
     case'outbound-connections':return <OutboundConnections api={adminApi}/>;
     case'outbound-auth':return <OutboundAuthProfiles api={adminApi}/>;
     case'integration-test':return <IntegrationTestLab api={adminApi}/>;
-    case'superset-instances':return <SupersetInstances api={adminApi}/>;
+    case'superset-instances':return <SupersetInstances api={adminApi} healthApi={sameOriginApi}/>;
     case'identity':return <IdentityAndRoles/>;
     case'logs-api':return <LogsView section="api"/>;
     case'logs-audit':return <LogsView section="audit"/>;

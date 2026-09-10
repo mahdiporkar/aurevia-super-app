@@ -2,6 +2,7 @@ package com.aurevia.artifacts.security;
 
 import static com.aurevia.artifacts.security.UiArtifactUriPolicy.ArtifactType.JSON_MANIFEST;
 import static com.aurevia.artifacts.security.UiArtifactUriPolicy.ArtifactType.REMOTE_ENTRY;
+import static com.aurevia.artifacts.security.UiArtifactUriPolicy.ArtifactType.EXTERNAL_ORIGIN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -16,6 +17,18 @@ class UiArtifactUriPolicyTest {
     assertThat(policy.validateConfigured(
         "https://example-mfe.company.com/mf-manifest.json",JSON_MANIFEST,"MF manifest").toString())
         .endsWith("/mf-manifest.json");
+  }
+
+  @Test void acceptsExternalIntegrationBasePathButRejectsCredentialsAndMetadataTargets() {
+    var policy=new UiArtifactUriPolicy("PRODUCTION_INTERNET",false,"");
+    assertThat(policy.validateConfigured("https://example.com/superset",EXTERNAL_ORIGIN,
+        "Superset").toString()).isEqualTo("https://example.com/superset");
+    assertThatThrownBy(()->policy.validateConfigured(
+        "https://user:secret@example.com/superset",EXTERNAL_ORIGIN,"Superset"))
+        .hasMessageContaining("credentials");
+    assertThatThrownBy(()->policy.validateConfigured(
+        "https://169.254.169.254/latest/meta-data",EXTERNAL_ORIGIN,"Superset"))
+        .hasMessageContaining("blocked");
   }
 
   @Test void rejectsMalformedCredentialsQueriesFragmentsAndWrongExtensions() {

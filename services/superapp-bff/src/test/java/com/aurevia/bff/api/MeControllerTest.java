@@ -61,6 +61,9 @@ class MeControllerTest {
         "uiCatalog",Map.of("catalogVersion","manifest-9","modules",List.of(module)),
         "permissions",Map.of("finance.invoice",List.of("view")),"resourceTree",List.of());
     when(authorization.manifest("https://issuer.example","subject-1")).thenReturn(Mono.just(body));
+    when(authorization.supersetIntegrations("https://issuer.example","subject-1"))
+        .thenReturn(Mono.just(List.of(Map.of("key","superset-public",
+            "url","/api/integrations/superset/superset-public/"))));
 
     var result=new MeController(authorization).context(
         new SessionIdentity("https://issuer.example","subject-1","operator"));
@@ -68,7 +71,10 @@ class MeControllerTest {
     StepVerifier.create(result).assertNext(response->{
       Map<String,Object> context=response.getBody();
       assertThat(context).isNotNull();
-      assertThat(context.get("allowedApplications")).isEqualTo(List.of("finance"));
+      assertThat(context.get("allowedApplications")).isEqualTo(
+          List.of("finance","superset-public"));
+      assertThat(context.get("applications")).isEqualTo(List.of(Map.of(
+          "key","superset-public","url","/api/integrations/superset/superset-public/")));
       assertThat(context.get("actions")).isEqualTo(body.get("permissions"));
       @SuppressWarnings("unchecked") Map<String,Object> catalog=(Map<String,Object>)context.get("uiCatalog");
       @SuppressWarnings("unchecked") Map<String,Object> effective=(Map<String,Object>)((List<?>)catalog.get("modules")).getFirst();

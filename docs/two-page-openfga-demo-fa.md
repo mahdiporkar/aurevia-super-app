@@ -85,8 +85,7 @@ Migration، grantها را در PostgreSQL ثبت و `GRANT_WRITE` را در Tra
 ```bash
 npm ci
 npm run build
-docker compose --env-file .env --profile superset \
-  -f infra/docker-compose/compose.yml up -d --build
+npm run infra:up
 ```
 
 Flyway، migration نسخه ۲۹ را اجرا می‌کند و realm تازه Keycloak نیز دو کاربر را import می‌کند.

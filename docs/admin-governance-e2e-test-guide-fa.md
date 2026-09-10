@@ -50,7 +50,7 @@ credentialهای local فقط از fixture محیط دریافت شوند. passw
 ## ۴. آماده‌سازی
 
 ```powershell
-docker compose --env-file .env --profile superset `
+docker compose --env-file .env `
   -f infra/docker-compose/compose.yml ps
 npm run infra:verify
 ```

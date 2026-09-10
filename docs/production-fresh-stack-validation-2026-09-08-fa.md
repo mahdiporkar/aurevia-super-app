@@ -48,7 +48,7 @@ npm test
 npm run build
 npm audit --audit-level=high
 npm run openfga:bootstrap
-docker compose --env-file .env --profile superset -f infra/docker-compose/compose.yml up -d --build
+npm run infra:up
 npm run infra:verify
 npm run infra:verify:token-proxy
 ```

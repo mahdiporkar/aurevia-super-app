@@ -20,9 +20,9 @@ flowchart LR
   A --> P[(PostgreSQL)]
   A --> F[OpenFGA]
   B --> G[Operation Gateway]
+  B --> SU[External Superset Registry URL]
   G --> HR[HR]
   G --> FI[Finance]
-  G --> SU[Superset]
 ```
 
 سه قانون را همیشه به خاطر بسپارید:
@@ -72,6 +72,7 @@ Copy-Item .env.example .env
 npm ci
 npm run build
 npm run infra:up
+npm run superset:up # اختیاری؛ lifecycle مستقل demo
 ```
 
 تست:
@@ -109,8 +110,9 @@ password: local-change-me
 - `workspaces` تمام appها و packageهای frontend را در یک dependency graph قرار می‌دهد.
 - `build --workspaces --if-present` build هر workspace را اجرا می‌کند.
 - `dev:mfe:*` هر remote را روی پورت مستقل اجرا می‌کند.
-- `infra:up` Compose را با `.env` و profile کامل Superset بالا می‌آورد.
-- `infra:down` تمام سرویس‌های همان profile را متوقف می‌کند.
+- `infra:up` فقط Aurevia Core را با `.env` بالا می‌آورد.
+- `infra:down` فقط Core را متوقف می‌کند.
+- `superset:up` و `superset:down` Compose مستقل Superset demo را مدیریت می‌کنند.
 
 ### `pom.xml`
 
@@ -720,12 +722,12 @@ OpenFGA model tests:
 
 ### Superset 500/502
 
-1. operation-superset-db healthy باشد.
-2. init باید exit code صفر داشته باشد.
-3. operation-superset healthy باشد.
-4. gateway باید DNS آن را resolve کند.
-5. BFF باید gateway را روی شبکه مشترک ببیند.
-6. `/reports-runtime/login/` باید cookie مستقل Superset بسازد.
+1. `base_url` و `health_status` رجیستری را بررسی کنید.
+2. برای demo مستقل، DB healthy و init دارای exit code صفر باشد.
+3. `GET /api/integrations/superset/{code}/health` را از نشست مجاز اجرا کنید.
+4. network policy و DNS مقصد از داخل BFF را بررسی کنید.
+5. در `REMOTE_USER`، ingress مقصد باید هدر trusted را فقط از BFF بپذیرد.
+6. cookie با prefix مخصوص instance باید ساخته شود.
 
 ## ۱۸. Observability
 

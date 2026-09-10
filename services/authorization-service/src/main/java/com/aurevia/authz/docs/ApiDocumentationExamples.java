@@ -144,7 +144,7 @@ final class ApiDocumentationExamples {
           "level", "VIEW");
       case "SupersetInstanceDtos.InstanceRequest" -> map(
           "code", "operation-default", "name", "Superset عملیاتی", "zone", "OPERATION",
-          "baseUrl", "http://operation-superset:8088", "connectionRef", "connection://superset/operation-default",
+          "baseUrl", "https://bi.example.com/superset", "connectionRef", "connection://superset/operation-default",
           "authMode", "REMOTE_USER", "tlsRequired", false, "active", true, "version", 0);
       case "SupersetInstanceDtos.MappingRequest" -> map(
           "publicInstanceId", "d9771d2d-6239-4453-8167-c16a40bbbe7d",

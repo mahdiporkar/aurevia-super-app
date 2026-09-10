@@ -27,3 +27,8 @@ aurevia:
     allowed-private-cidrs: ${UI_ARTIFACT_ALLOWED_PRIVATE_CIDRS:}
     allow-http: false
     require-integrity: true
+  superset:
+    network-policy: ${SUPERSET_NETWORK_POLICY:PRODUCTION_INTERNET}
+    development-host: ""
+    allowed-private-cidrs: ${SUPERSET_ALLOWED_PRIVATE_CIDRS:}
+    allow-http: false

@@ -196,9 +196,8 @@ fga model test --tests infra/openfga/model-tests.yaml
 ## ۷. اجرای Core و سپس MFEهای Demo
 
 ```bash
-docker compose --env-file .env --profile superset \
-  -f infra/docker-compose/compose.yml \
-  up -d --build
+npm run infra:up
+npm run superset:up
 ```
 
 این Compose فقط Core را اجرا می‌کند. چهار MFE نمونه lifecycle مستقل دارند و اختیاری‌اند:
@@ -212,8 +211,10 @@ Superset init در اجرای اول migration، ساخت admin و در صورت
 وضعیت:
 
 ```bash
-docker compose --env-file .env --profile superset \
+docker compose --env-file .env \
   -f infra/docker-compose/compose.yml ps
+docker compose --env-file .env \
+  -f infra/docker-compose/compose.superset-demo.yml ps
 docker compose --env-file .env \
   -f infra/docker-compose/compose.mfe-demo.yml ps
 ```
@@ -221,7 +222,7 @@ docker compose --env-file .env \
 لاگ کلی:
 
 ```bash
-docker compose --env-file .env --profile superset \
+docker compose --env-file .env \
   -f infra/docker-compose/compose.yml logs --tail=200
 ```
 
@@ -270,7 +271,7 @@ http://localhost:8443
 curl -I http://127.0.0.1:8443/
 curl -I http://127.0.0.1:3001/remoteEntry.js
 docker logs --tail 100 aurevia-bff
-docker logs --tail 100 aurevia-operation-superset-1
+docker compose -f infra/docker-compose/compose.superset-demo.yml logs --tail 100 superset-operation
 ```
 
 نام دقیق container ممکن است بر اساس Compose تغییر کند؛ در آن صورت خروجی `docker compose ps` را مبنا قرار دهید.
@@ -280,8 +281,8 @@ docker logs --tail 100 aurevia-operation-superset-1
 توقف بدون حذف داده:
 
 ```bash
-docker compose --env-file .env --profile superset \
-  -f infra/docker-compose/compose.yml down
+npm run superset:down
+npm run infra:down
 npm run mfe:down
 ```
 
@@ -293,8 +294,8 @@ git checkout <NEW_APPROVED_TAG>
 npm ci
 npm run build
 ./mvnw verify
-docker compose --env-file .env --profile superset \
-  -f infra/docker-compose/compose.yml up -d --build
+npm run infra:up
+npm run superset:up
 npm run mfe:up
 ```
 

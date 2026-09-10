@@ -60,3 +60,8 @@ aurevia:
     allowed-private-cidrs: ${UI_ARTIFACT_ALLOWED_PRIVATE_CIDRS:}
     allow-http: ${UI_ARTIFACT_ALLOW_HTTP:true}
     require-integrity: ${UI_ARTIFACT_REQUIRE_INTEGRITY:false}
+  superset:
+    network-policy: ${SUPERSET_NETWORK_POLICY:DEVELOPMENT}
+    development-host: ${SUPERSET_DEVELOPMENT_HOST:}
+    allowed-private-cidrs: ${SUPERSET_ALLOWED_PRIVATE_CIDRS:}
+    allow-http: ${SUPERSET_ALLOW_HTTP:true}

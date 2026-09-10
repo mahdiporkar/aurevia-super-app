@@ -33,13 +33,14 @@ public class SupersetAssetController {
   @GetMapping("/subjects/{subject}/superset-access")
   public RuntimeAccess accessForSubject(@PathVariable String subject, @RequestParam String issuer,
       @RequestParam(value = "instance", defaultValue = "operation-default") String instance,
+      @RequestParam(value = "integration", defaultValue = "") String integration,
       @RequestParam String path,
       @RequestParam(value = "method", defaultValue = "GET") String method,
       @RequestParam(value = "query", defaultValue = "") String query,
       @RequestParam(value = "assetType", defaultValue = "") String assetType,
       @RequestParam(value = "assetId", defaultValue = "") String assetId) {
-    return service.accessForSubject(issuer, subject, instance, path, method, query, assetType,
-        assetId);
+    return service.accessForSubject(issuer, subject,
+        integration.isBlank()?instance:integration,instance,path,method,query,assetType,assetId);
   }
 
   @GetMapping("/superset-assets/{assetId}/grants")

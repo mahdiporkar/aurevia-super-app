@@ -26,14 +26,16 @@ public class SupersetAssetService {
   private final RelationshipAuthorizationPort relationships;
   private final AccessAdministrationService access;
   private final AuditTrail auditTrail;
+  private final SupersetInstanceService integrations;
 
   public SupersetAssetService(SupersetAssetRepository repository,
       RelationshipAuthorizationPort relationships, AccessAdministrationService access,
-      AuditTrail auditTrail) {
+      AuditTrail auditTrail,SupersetInstanceService integrations) {
     this.repository = repository;
     this.relationships = relationships;
     this.access = access;
     this.auditTrail = auditTrail;
+    this.integrations=integrations;
   }
 
   public List<AssetView> assets() { return repository.assets(); }
@@ -52,7 +54,15 @@ public class SupersetAssetService {
 
   public RuntimeAccess accessForSubject(String issuer, String subject, String instance,
       String path, String method, String query, String assetType, String assetId) {
+    return accessForSubject(issuer,subject,instance,instance,path,method,query,assetType,assetId);
+  }
+
+  public RuntimeAccess accessForSubject(String issuer, String subject, String integration,
+      String instance,String path, String method, String query, String assetType, String assetId) {
     String user = new SubjectKey(issuer, subject).openFgaUser();
+    if(!integrations.canAccess(issuer,subject,integration,instance)) {
+      return new RuntimeAccess("DENY","SUPERSET_INTEGRATION_DENIED");
+    }
     if (relationships.check(user, "can_manage", "application:aurevia")) {
       return new RuntimeAccess("ALLOW", "SUPERSET_ADMIN_ALLOWED");
     }
@@ -125,7 +135,7 @@ public class SupersetAssetService {
   }
   private static boolean isCommonRuntimePath(String path) {
     return path.equals("/") || path.startsWith("/login") || path.startsWith("/logout")
-        || path.startsWith("/static/") || path.startsWith("/api/v1/me")
+        || path.startsWith("/health") || path.startsWith("/static/") || path.startsWith("/api/v1/me")
         || path.startsWith("/api/v1/security/csrf_token")
         || path.startsWith("/api/v1/menu/") || path.endsWith("/_info");
   }

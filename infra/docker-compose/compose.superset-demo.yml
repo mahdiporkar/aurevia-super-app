@@ -1,0 +1,43 @@
+name: aurevia-superset-demo
+services:
+  superset-public:
+    image: aurevia/superset-public-assets:5.0.0
+    build: {context: ../.., dockerfile: infra/superset-public/Dockerfile}
+    ports: ["127.0.0.1:8089:8088"]
+    networks: [public-assets]
+    healthcheck: {test: [CMD-SHELL, "wget -qO- http://127.0.0.1:8088/health"], interval: 10s, timeout: 5s, retries: 20}
+
+  superset-operation-db:
+    image: postgres:17.6-alpine
+    environment: {POSTGRES_DB: superset_operation, POSTGRES_USER: superset_operation, POSTGRES_PASSWORD: "${OPERATION_SUPERSET_DB_PASSWORD:-change-me}"}
+    volumes: [superset-operation-db:/var/lib/postgresql/data]
+    networks: [superset-runtime]
+    healthcheck: {test: [CMD-SHELL, "pg_isready -U superset_operation -d superset_operation"], interval: 5s, timeout: 3s, retries: 20}
+
+  superset-operation-init:
+    image: aurevia/superset:5.0.0-postgres
+    build: {context: ../.., dockerfile: infra/superset/Dockerfile}
+    command: [sh, -c, "superset db upgrade && (superset fab create-admin --username admin --firstname Aurevia --lastname Admin --email admin@aurevia.local --password $${SUPERSET_ADMIN_PASSWORD} || true) && superset init && DASHBOARD_COUNT=$$(python -c \"from sqlalchemy import create_engine,text; import os; e=create_engine(os.environ['SUPERSET_DATABASE_URI']); print(e.connect().execute(text('select count(*) from dashboards')).scalar())\") && if [ \"$${SUPERSET_LOAD_EXAMPLES:-yes}\" = \"yes\" ] && [ \"$${DASHBOARD_COUNT}\" = \"0\" ]; then superset load-examples; else echo \"Superset examples already loaded or disabled (dashboards=$${DASHBOARD_COUNT})\"; fi"]
+    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@superset-operation-db:5432/superset_operation", SUPERSET_ADMIN_PASSWORD: "${OPERATION_SUPERSET_ADMIN_PASSWORD:-local-change-me}", SUPERSET_LOAD_EXAMPLES: "${SUPERSET_LOAD_EXAMPLES:-yes}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
+    volumes: [../superset-operation/superset_config.py:/app/pythonpath/superset_config.py:ro]
+    depends_on: {superset-operation-db: {condition: service_healthy}}
+    networks: [superset-runtime, bootstrap-egress]
+
+  superset-operation:
+    image: aurevia/superset:5.0.0-postgres
+    build: {context: ../.., dockerfile: infra/superset/Dockerfile}
+    command: [superset, run, -h, 0.0.0.0, -p, "8088", --with-threads]
+    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@superset-operation-db:5432/superset_operation", SUPERSET_REMOTE_USER_ROLE: "${SUPERSET_REMOTE_USER_ROLE:-Gamma}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
+    volumes: [../superset-operation/superset_config.py:/app/pythonpath/superset_config.py:ro]
+    depends_on: {superset-operation-init: {condition: service_completed_successfully}}
+    ports: ["127.0.0.1:8088:8088"]
+    networks: [superset-runtime]
+    healthcheck: {test: [CMD-SHELL, "curl -fsS http://127.0.0.1:8088/health"], interval: 10s, timeout: 5s, retries: 30}
+
+networks:
+  public-assets: {internal: false}
+  superset-runtime: {internal: true}
+  bootstrap-egress: {internal: false}
+volumes:
+  # Preserve the data volume created by the former Core profile during upgrade.
+  superset-operation-db: {name: aurevia_operation-superset-db}

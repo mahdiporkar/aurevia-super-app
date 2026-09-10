@@ -262,11 +262,13 @@ API حاکمیتی Manifest هیچ‌گاه با Import، کاتالوگ فعا�
   "code": "operation-default",
   "name": "Superset عملیاتی",
   "zone": "OPERATION",
-  "baseUrl": "http://operation-superset:8088",
+  "baseUrl": "https://bi.example.com/superset",
   "connectionRef": "connection://superset/operation-default",
   "authMode": "REMOTE_USER",
   "tlsRequired": false,
   "active": true,
+  "proxyMode": true,
+  "metadata": {"owner": "BI"},
   "version": 0
 }
 ```

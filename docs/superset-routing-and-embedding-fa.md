@@ -2,6 +2,11 @@
 
 این سند مرجع فنی تعریف دو محیط Superset، مالکیت routeها، ثبت داشبورد، کنترل OpenFGA و نمایش گزارش داخل Micro Frontend گزارشات است.
 
+> **به‌روزرسانی معماری:** Superset اکنون External Integration است و عضو Core Compose یا
+> Operation Gateway نیست. مرجع lifecycle، ثبت URL، SSRF policy و endpoint جدید در
+> [external-integration-superset-fa.md](external-integration-superset-fa.md) است. بخش‌های
+> asset-level authorization این سند همچنان معتبرند؛ topology قدیمی Gateway معتبر نیست.
+
 ## اصل معماری
 
 Aurevia دو جزء جداگانه با مسئولیت‌های متفاوت دارد:
@@ -17,19 +22,20 @@ Aurevia دو جزء جداگانه با مسئولیت‌های متفاوت د�
 
 ### سرویس‌ها و تنظیمات محیط
 
-- `infra/docker-compose/compose.yml`: سرویس‌های `public-superset`، `operation-superset`، دیتابیس و init.
+- `infra/docker-compose/compose.superset-demo.yml`: Supersetهای اختیاری و مستقل demo.
 - `.env`: secret و تنظیمات local مانند `OPERATION_SUPERSET_SECRET_KEY` و `SUPERSET_LOAD_EXAMPLES`.
 - `infra/superset-operation/superset_config.py`: authentication از نوع Remote User، session cookie و تنظیمات runtime.
 - `infra/superset-public/Dockerfile`: ساخت image عمومی فقط برای static assetها.
 
-در محیط Production همین topology باید در manifest استقرار Kubernetes/VM تعریف شود؛ Compose این مخزن فقط مرجع local است.
+`infra/docker-compose/compose.yml` فقط Core را اجرا می‌کند. در Production هر Superset روی
+Kubernetes/VM یا Compose مستقل خود است و فقط URL رجیستری به Aurevia معرفی می‌شود.
 
 ### Route فایل‌های عمومی
 
-در `infra/nginx/nginx.conf` مسیر زیر فقط به Public Superset می‌رود:
+در `infra/nginx/nginx.conf` فایل‌های absolute نیز به BFF same-origin می‌روند:
 
 ```text
-/static/* -> public-superset:8088
+/static/* -> Java BFF -> Registry base_url
 ```
 
 هیچ مسیر dashboard یا API نباید به Public Superset اضافه شود.
@@ -46,13 +52,7 @@ Aurevia دو جزء جداگانه با مسئولیت‌های متفاوت د�
 مرز Java در `OperationSupersetProxyController` است:
 
 ```text
-/api/v1/superset/** -> OpenFGA check -> Operation Gateway /superset/**
-```
-
-و route داخلی Gateway در `infra/mock-operation/gateway.conf` است:
-
-```text
-/superset/* -> operation-superset:8088
+/api/integrations/superset/{code}/** -> OpenFGA check -> Registry base_url
 ```
 
 جریان نهایی:
@@ -62,12 +62,13 @@ Browser
   -> Public Nginx
   -> Java BFF / OperationSupersetProxyController
   -> Authorization Service / OpenFGA
-  -> Operation Gateway
-  -> Operation Superset
+  -> SSRF/network policy
+  -> External Superset
   -> DWH
 ```
 
-Operation Superset نباید host port یا network route عمومی داشته باشد. header هویت `X-Aurevia-Subject` فقط در BFF تولید و فقط روی شبکه خصوصی Gateway پذیرفته می‌شود.
+header هویت `X-Aurevia-Subject` فقط در BFF تولید می‌شود. مقصد `REMOTE_USER` در Production
+باید آن را فقط از ingress احرازشده BFF (ترجیحاً mTLS) بپذیرد و نسخه ورودی اینترنتی را حذف کند.
 
 ## احراز هویت و SSO بین Super App و Superset
 
@@ -202,7 +203,7 @@ Chart:     /explore/?slice_id={chartId}
 این URLها ممنوع‌اند:
 
 ```text
-http://operation-superset:8088/...
+https://bi.company.com/...
 http://localhost:8088/...
 http://<operation-host>/...
 ```

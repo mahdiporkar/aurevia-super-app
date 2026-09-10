@@ -65,9 +65,16 @@ public class AuthorizationServiceClient {
 
   public Mono<Map> supersetAccess(String issuer, String subject, String instanceCode,
       String path, String method, String query, String assetType, String assetId) {
+    return supersetAccess(issuer,subject,instanceCode,instanceCode,path,method,query,
+        assetType,assetId);
+  }
+
+  public Mono<Map> supersetAccess(String issuer,String subject,String integrationCode,
+      String instanceCode,String path,String method,String query,String assetType,String assetId) {
     return client.get()
         .uri(builder -> builder.path("/internal/v1/registry/subjects/{subject}/superset-access")
             .queryParam("issuer", issuer)
+            .queryParam("integration",integrationCode)
             .queryParam("instance", instanceCode)
             .queryParam("path", path)
             .queryParam("method", method)
@@ -80,9 +87,31 @@ public class AuthorizationServiceClient {
 
   public Mono<Map> resolveSupersetProxy(String publicInstance) {
     return client.get()
-        .uri(builder -> builder.path("/internal/v1/superset-proxy/resolve")
-            .queryParam("publicInstance", publicInstance).build())
+        .uri(builder -> {
+          var target=builder.path("/internal/v1/superset-proxy/resolve");
+          if(publicInstance!=null&&!publicInstance.isBlank()) {
+            target.queryParam("publicInstance",publicInstance);
+          }
+          return target.build();
+        })
         .retrieve().bodyToMono(Map.class);
+  }
+
+  public Mono<Map> resolveSupersetIntegration(String instanceCode) {
+    return client.get().uri(builder->builder.path("/internal/v1/superset-proxy/resolve-integration")
+        .queryParam("instance",instanceCode).build()).retrieve().bodyToMono(Map.class);
+  }
+
+  public Mono<List<Map>> supersetIntegrations(String issuer,String subject) {
+    return client.get().uri(builder->builder
+        .path("/internal/v1/superset-proxy/subjects/{subject}/integrations")
+        .queryParam("issuer",issuer).build(subject))
+        .retrieve().bodyToFlux(Map.class).collectList();
+  }
+
+  public Mono<Void> recordSupersetHealth(String instanceCode,String status) {
+    return client.post().uri(builder->builder.path("/internal/v1/superset-proxy/{code}/health")
+        .queryParam("status",status).build(instanceCode)).retrieve().bodyToMono(Void.class);
   }
 
   public Mono<List<Map>> supersetAssets(String issuer, String subject,

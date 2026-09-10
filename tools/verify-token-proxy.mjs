@@ -11,6 +11,8 @@ let password = process.env.AUREVIA_DEMO_PASSWORD;
 const { values: localEnvironment } = readEnv('.env');
 const redisPassword = process.env.REDIS_PASSWORD ?? localEnvironment.get('REDIS_PASSWORD') ?? 'change-me';
 const composePrefix = ['compose', '--env-file', '.env', '-f', 'infra/docker-compose/compose.yml'];
+const supersetComposePrefix = ['compose', '--env-file', '.env', '-f',
+  'infra/docker-compose/compose.superset-demo.yml'];
 
 if (!password && localHosts.has(baseUrl.hostname)) {
   const realm=JSON.parse(readFileSync('infra/keycloak/realm-aurevia.json','utf8'));
@@ -422,10 +424,11 @@ assert.equal(reports.status,200,
 assert(Array.isArray(reports.body),'Superset catalog response is not an array');
 
 let supersetRuntime='not-running';
-const runningServices=compose(['ps','--status','running','--services']);
-if(runningServices.status===0
-    && runningServices.stdout.split(/\r?\n/).includes('operation-superset')) {
-  const supersetHealth=await request('/api/v1/superset-instances/public-default/health',{
+const runningSuperset=spawnSync('docker',[...supersetComposePrefix,'ps','--status','running',
+  '--services'],{encoding:'utf8',shell:false});
+if(runningSuperset.status===0
+    && runningSuperset.stdout.split(/\r?\n/).includes('superset-operation')) {
+  const supersetHealth=await request('/api/integrations/superset/public-default/health',{
     headers:{accept:'text/plain','x-correlation-id':`e2e-superset-${Date.now()}`},
   });
   const healthBody=await supersetHealth.text();

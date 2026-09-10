@@ -1,59 +1,44 @@
 package com.aurevia.bff.proxy;
 
+import static com.aurevia.artifacts.security.UiArtifactUriPolicy.ArtifactType.EXTERNAL_ORIGIN;
+
+import com.aurevia.artifacts.security.UiArtifactUriPolicy;
 import java.net.URI;
-import java.util.Arrays;
-import java.util.Locale;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /** Validates registry-provided Superset origins before the trusted Gateway sees them. */
 @Component
 public final class SupersetTargetPolicy {
-  private final Set<String> allowedHosts;
-  private final Set<Integer> allowedPorts;
-  private final boolean allowHttp;
+  private final UiArtifactUriPolicy locations;
 
   public SupersetTargetPolicy(
-      @Value("${aurevia.superset.allowed-hosts}") String hosts,
-      @Value("${aurevia.superset.allowed-ports:443}") String ports,
-      @Value("${aurevia.superset.allow-http:false}") boolean allowHttp) {
-    this.allowedHosts=split(hosts);
-    this.allowedPorts=Arrays.stream(ports.split(",")).map(String::trim)
-        .filter(value->!value.isEmpty()).map(Integer::parseInt).collect(Collectors.toUnmodifiableSet());
-    this.allowHttp=allowHttp;
-    if(allowedHosts.isEmpty() || allowedPorts.isEmpty()) {
-      throw new IllegalArgumentException("Superset host and port allowlists must not be empty");
-    }
+      @Value("${aurevia.superset.network-policy:DEVELOPMENT}") String networkPolicy,
+      @Value("${aurevia.superset.allow-http:false}") boolean allowHttp,
+      @Value("${aurevia.superset.development-host:}") String developmentHost,
+      @Value("${aurevia.superset.allowed-private-cidrs:}") String allowedPrivateCidrs) {
+    this.locations=new UiArtifactUriPolicy(networkPolicy,allowHttp,developmentHost,
+        allowedPrivateCidrs);
   }
 
   public URI validate(String registeredOrigin, boolean tlsRequired) {
-    URI uri;
-    try { uri=URI.create(registeredOrigin).normalize(); }
-    catch(RuntimeException invalid) { throw new IllegalArgumentException("Invalid registered Superset origin",invalid); }
-    String scheme=uri.getScheme();
-    String host=uri.getHost()==null?null:uri.getHost().toLowerCase(Locale.ROOT);
-    int port=uri.getPort()<0?("https".equals(scheme)?443:80):uri.getPort();
-    if(host==null || uri.getUserInfo()!=null || uri.getQuery()!=null || uri.getFragment()!=null
-        || !(uri.getPath().isEmpty() || "/".equals(uri.getPath()))) {
-      throw new IllegalArgumentException("Registered Superset target must be an origin");
-    }
-    if(!"https".equals(scheme) && !(allowHttp && "http".equals(scheme))) {
-      throw new IllegalArgumentException("Registered Superset target must use HTTPS");
-    }
-    if(tlsRequired && !"https".equals(scheme)) {
+    URI uri=locations.prepareForFetch(registeredOrigin,EXTERNAL_ORIGIN,"Superset target");
+    if(tlsRequired && !"https".equalsIgnoreCase(uri.getScheme())) {
       throw new IllegalArgumentException("Superset registry requires TLS for this target");
     }
-    if(!allowedHosts.contains(host) || !allowedPorts.contains(port)) {
-      throw new IllegalArgumentException("Registered Superset target is outside the egress allowlist");
-    }
-    return URI.create(scheme+"://"+host+(uri.getPort()<0?"":":"+port));
+    return uri;
   }
 
-  private static Set<String> split(String values) {
-    return Arrays.stream(values.split(",")).map(String::trim)
-        .map(value->value.toLowerCase(Locale.ROOT)).filter(value->!value.isEmpty())
-        .collect(Collectors.toUnmodifiableSet());
+  public URI resolve(String registeredBaseUrl,boolean tlsRequired,String safePath,String rawQuery) {
+    URI base=validate(registeredBaseUrl,tlsRequired);
+    return resolve(base,safePath,rawQuery);
+  }
+
+  public URI resolve(URI base,String safePath,String rawQuery) {
+    String basePath=base.getRawPath()==null?"":base.getRawPath();
+    if(basePath.endsWith("/")) basePath=basePath.substring(0,basePath.length()-1);
+    String path=safePath.startsWith("/")?safePath:"/"+safePath;
+    return URI.create(base.getScheme()+"://"+base.getRawAuthority()+basePath+path
+        +(rawQuery==null||rawQuery.isBlank()?"":"?"+rawQuery));
   }
 }

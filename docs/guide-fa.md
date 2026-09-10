@@ -54,13 +54,13 @@ flowchart LR
   B --> A[Authorization Service]
   A --> P[(PostgreSQL)]
   A --> F[OpenFGA]
-  N --> PS[Public Superset Assets]
+  B --> OS[Superset خارجی از Registry]
   B --> G[Operation Gateway :80]
-  G --> OS[Operation Superset]
   OS --> D[(DWH)]
 ```
 
-مرورگر هیچ route مستقیمی به Operation Superset یا DWH ندارد. Superset عمومی دیتابیس تحلیلی و dashboard runtime ندارد و فقط فایل‌های static را سرو می‌کند.
+مرورگر هیچ route مستقیمی به Superset خارجی یا DWH ندارد؛ URL مقصد فقط در Registry است و
+BFF آن را با کنترل مجوز و SSRF policy مصرف می‌کند.
 
 ## جریان درخواست
 
@@ -86,16 +86,17 @@ BFF باید مسیر را از registry معتبر انتخاب، path را nor
 
 ```text
 GET /static/*
-Browser -> Public Nginx -> Public Superset asset image
+Browser -> Public Nginx -> BFF same-origin proxy
 
 /reports-runtime/* و endpointهای runtime
 Browser -> Public Nginx -> OperationSupersetProxyController
-        -> Operation Gateway:80 -> Operation Superset -> DWH
+        -> Registry base_url -> External Superset -> DWH
 ```
 
 Superset 5 بعضی endpointها را root-relative تولید می‌کند. Nginx درخواست‌های `/superset/*` و درخواست‌های `/api/v1/*` متعلق به سند `/reports-runtime/*` را به tunnel جاوا هدایت می‌کند. کوکی مستقل `AUREVIA_OPERATION_SUPERSET` نشست داخلی Superset را نگه می‌دارد.
 
-شرح دقیق محل تعریف هر دو محیط، تفاوت route تخصصی Superset با Proxy Routeهای business، ثبت dashboard در درخت OpenFGA و قرارداد نمایش same-origin داخل MFE Reports در [راهنمای Superset routing و embedding](superset-routing-and-embedding-fa.md) آمده است.
+شرح lifecycle مستقل، ثبت URL و امنیت در [راهنمای External Integration](external-integration-superset-fa.md)
+و جزئیات asset-level در [راهنمای Superset routing و embedding](superset-routing-and-embedding-fa.md) آمده است.
 
 ## راه‌اندازی از صفر
 
@@ -137,7 +138,9 @@ Keycloak:  http://localhost:8180/
 Superset runtime: http://localhost:8443/reports-runtime/superset/welcome/
 ```
 
-در محیط محلی، `SUPERSET_LOAD_EXAMPLES=yes` باعث می‌شود init یک‌بارمصرف Superset دیتاست‌ها، chartها و dashboardهای رسمی نمونه را بارگذاری کند. فقط init به شبکه bootstrap egress متصل است؛ Superset عملیاتی همچنان پورت عمومی و egress ندارد. برای محیط غیردمو این گزینه را `no` کنید.
+در محیط محلی ابتدا `npm run superset:up` را مستقل از Core اجرا کنید.
+`SUPERSET_LOAD_EXAMPLES=yes` باعث می‌شود init یک‌بارمصرف Superset دیتاست‌ها، chartها و
+dashboardهای رسمی نمونه را بارگذاری کند. برای محیط غیردمو این گزینه را `no` کنید.
 
 ## قرارداد Manifest برای تیم توسعه
 

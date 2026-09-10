@@ -44,6 +44,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [HR/Finance multi-page OpenFGA access demo (فارسی)](docs/two-page-openfga-demo-fa.md)
 - [HR/Finance ERP and OpenFGA resource-tree demo (فارسی)](docs/hr-finance-erp-openfga-demo-fa.md)
 - [Superset routing, access and in-MFE embedding guide (فارسی)](docs/superset-routing-and-embedding-fa.md)
+- [Superset as an external integration and independent lifecycle (فارسی)](docs/external-integration-superset-fa.md)
 - [Superset SSO and Remote User authentication (فارسی)](docs/superset-routing-and-embedding-fa.md#احراز-هویت-و-sso-بین-super-app-و-superset)
 - [Git governance and repository access (فارسی)](docs/git-governance-fa.md)
 - [Operations and troubleshooting (فارسی)](docs/operations-fa.md)
@@ -122,7 +123,7 @@ On Windows use `mvnw.cmd verify`. No real credentials or external deployment are
 - OpenFGA is the authorization source of truth; Redis only caches check decisions for a short TTL and tuple writes invalidate the matching entry.
 - Access and refresh tokens are encrypted in the Redis-backed server-side Token Vault and never stored in the browser.
 - Missing route/action/session/policy information denies access.
-- Public and Operation Superset are separate; Operation Superset has no direct browser/network route and is reachable only through the authorized BFF tunnel.
+- Superset deployments have an independent lifecycle and are registered by URL; the browser reaches them only through the authorized same-origin BFF tunnel.
 
 ## Manifest developer guide
 
@@ -282,11 +283,12 @@ development servers, and example data must never be promoted to production.
 
 ## Superset demo
 
-`npm run infra:up` enables the `superset` profile. The one-shot init container migrates the
+`npm run infra:up` starts Aurevia Core without Superset. Run `npm run superset:up` only when
+the independent local demo is needed. Its one-shot init container migrates the
 metadata database, creates the local administrator, initializes roles, and loads the official
 Superset example datasets and dashboards when `SUPERSET_LOAD_EXAMPLES=yes`. Only this init
 container receives temporary bootstrap egress because the examples are downloaded; the
-runtime Operation Superset remains on the internal operation network with no published port.
+runtime Operation Superset is exposed on host loopback for the registry-driven BFF.
 
 Open the full Superset UI through the authenticated tunnel:
 
@@ -295,3 +297,5 @@ http://localhost:8443/reports-runtime/superset/welcome/
 ```
 
 Set `SUPERSET_LOAD_EXAMPLES=no` outside local/demo environments.
+Stop it independently with `npm run superset:down`. Production Superset is never deployed by
+the Core Compose; register its HTTPS base URL through the Admin registry.

@@ -26,9 +26,9 @@ aurevia:
     mtls-trust-store: ${GATEWAY_MTLS_TRUSTSTORE}
     mtls-trust-store-password: ${GATEWAY_MTLS_TRUSTSTORE_PASSWORD}
   superset:
-    default-public-instance: ${SUPERSET_DEFAULT_PUBLIC_INSTANCE}
-    allowed-hosts: ${SUPERSET_ALLOWED_HOSTS}
-    allowed-ports: ${SUPERSET_ALLOWED_PORTS:443}
+    network-policy: ${SUPERSET_NETWORK_POLICY:PRODUCTION_INTERNET}
+    development-host: ""
+    allowed-private-cidrs: ${SUPERSET_ALLOWED_PRIVATE_CIDRS:}
     allow-http: false
   legacy:
     allowed-hosts: ${LEGACY_ALLOWED_HOSTS}

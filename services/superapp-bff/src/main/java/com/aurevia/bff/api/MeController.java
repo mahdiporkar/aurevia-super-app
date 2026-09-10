@@ -47,7 +47,10 @@ class MeController {
   @GetMapping("/api/me/context") Mono<ResponseEntity<Map<String,Object>>> context(
       Principal principal) {
     SessionIdentity identity=SessionIdentity.from(principal);
-    return authorization.manifest(identity.issuer(),identity.subject()).map(body->{
+    return Mono.zip(authorization.manifest(identity.issuer(),identity.subject()),
+        authorization.supersetIntegrations(identity.issuer(),identity.subject())).map(tuple->{
+      Map<String,Object> body=tuple.getT1();
+      List<Map> integrations=tuple.getT2();
       Map<String,Object> context=new LinkedHashMap<>(body);
       Map<String,Object> effectiveCatalog=proxyCatalog(body);
       @SuppressWarnings("unchecked")
@@ -59,8 +62,12 @@ class MeController {
       context.put("identity",identityView);
       context.put("tenant",Map.of("id","default"));
       context.put("organizations",List.of());
-      context.put("allowedApplications",modules.stream()
+      List<String> allowedApplications=new java.util.ArrayList<>(modules.stream()
           .map(module->String.valueOf(module.get("moduleKey"))).toList());
+      integrations.stream().map(item->String.valueOf(item.get("key")))
+          .filter(key->!allowedApplications.contains(key)).forEach(allowedApplications::add);
+      context.put("allowedApplications",allowedApplications);
+      context.put("applications",integrations);
       context.put("allowedMicros",modules);
       context.put("dynamicRoutes",modules.stream().flatMap(module->list(module,"routes").stream()
           .map(route->{Map<String,Object> value=new LinkedHashMap<>(route);

@@ -102,7 +102,7 @@ public class BffOpenApiConfiguration {
       if (parameter.getDescription() == null || parameter.getDescription().isBlank()) {
         parameter.setDescription(switch (name) {
           case "id" -> "شناسه UUID پروفایل احراز هویت خروجی یا مقصد سرویس.";
-          case "instance", "publicInstance" -> "کد عمومی Superset؛ قبل از forward به نمونه عملیاتی resolve می‌شود.";
+          case "instance", "publicInstance", "integration" -> "کد Superset ثبت‌شده؛ مقصد فقط از Registry resolve می‌شود.";
           case "panelSlug" -> "slug میکروفرانت که Route فعال آن در رجیستری resolve می‌شود.";
           case "path" -> "ادامه مسیر مقصد؛ BFF آن را normalize کرده و با operation ثبت‌شده تطبیق می‌دهد.";
           default -> "پارامتر «" + name + "» مطابق قرارداد endpoint.";
@@ -158,6 +158,8 @@ public class BffOpenApiConfiguration {
           "code", "CONNECTION_APPROVED");
       case "AdminProxyController#invalidate" -> map("success", true, "code", "CACHE_INVALIDATED");
       case "AdminProxyController#cacheStatus" -> map("cached", true);
+      case "OperationSupersetProxyController#health" -> map("code","superset-public",
+          "status","ACTIVE","upstreamStatus",200,"latencyMs",42);
       default -> null;
     };
     if (example == null) return;
@@ -236,6 +238,8 @@ public class BffOpenApiConfiguration {
     m.put("OperationalProxyController#proxy", "هدایت مجاز درخواست میکروفرانت به سرویس عملیاتی");
     m.put("OperationSupersetProxyController#proxy", "هدایت درخواست به Superset پیش‌فرض");
     m.put("OperationSupersetProxyController#proxyInstance", "هدایت درخواست به Superset عمومی نام‌گذاری‌شده");
+    m.put("OperationSupersetProxyController#proxyIntegration", "هدایت same-origin به Superset ثبت‌شده");
+    m.put("OperationSupersetProxyController#health", "بررسی مستقل سلامت Superset ثبت‌شده");
     return Map.copyOf(m);
   }
 

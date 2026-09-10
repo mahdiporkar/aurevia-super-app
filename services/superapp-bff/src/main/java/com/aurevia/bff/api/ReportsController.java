@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.beans.factory.annotation.Value;
 import reactor.core.publisher.Mono;
 import com.aurevia.bff.security.SessionIdentity;
 
@@ -15,12 +14,9 @@ import com.aurevia.bff.security.SessionIdentity;
 @RequestMapping("/api/v1/reports")
 public class ReportsController {
   private final AuthorizationServiceClient authorization;
-  private final String defaultPublicInstance;
 
-  public ReportsController(AuthorizationServiceClient authorization,
-      @Value("${aurevia.superset.default-public-instance}") String defaultPublicInstance) {
+  public ReportsController(AuthorizationServiceClient authorization) {
     this.authorization = authorization;
-    this.defaultPublicInstance = defaultPublicInstance;
   }
 
   @GetMapping
@@ -28,7 +24,7 @@ public class ReportsController {
       @RequestParam(value="instance",required=false) String requestedInstance) {
     SessionIdentity identity = SessionIdentity.from(principal);
     String publicInstance=requestedInstance==null||requestedInstance.isBlank()
-        ?defaultPublicInstance:requestedInstance;
+        ?null:requestedInstance;
     return authorization.resolveSupersetProxy(publicInstance)
         .flatMap(target->authorization.supersetAssets(identity.issuer(),identity.subject(),
             String.valueOf(target.get("operation_code"))));

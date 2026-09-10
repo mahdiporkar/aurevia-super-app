@@ -75,10 +75,12 @@ aurevia:
     mtls-key-store: ${GATEWAY_MTLS_KEYSTORE:}
     mtls-key-store-password: ${GATEWAY_MTLS_KEYSTORE_PASSWORD:}
   superset:
-    default-public-instance: ${SUPERSET_DEFAULT_PUBLIC_INSTANCE:public-default}
-    allowed-hosts: ${SUPERSET_ALLOWED_HOSTS:operation-superset}
-    allowed-ports: ${SUPERSET_ALLOWED_PORTS:8088}
+    network-policy: ${SUPERSET_NETWORK_POLICY:DEVELOPMENT}
+    development-host: ${SUPERSET_DEVELOPMENT_HOST:}
+    allowed-private-cidrs: ${SUPERSET_ALLOWED_PRIVATE_CIDRS:}
     allow-http: ${SUPERSET_ALLOW_HTTP:true}
+    connect-timeout-ms: ${SUPERSET_CONNECT_TIMEOUT_MS:3000}
+    response-timeout-ms: ${SUPERSET_RESPONSE_TIMEOUT_MS:10000}
   legacy:
     environment: ${LEGACY_ENVIRONMENT:local}
     allowed-hosts: ${LEGACY_ALLOWED_HOSTS:invalid.invalid}

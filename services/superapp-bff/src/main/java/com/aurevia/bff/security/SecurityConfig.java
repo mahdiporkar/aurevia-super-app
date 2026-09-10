@@ -21,6 +21,8 @@ class SecurityConfig {
     var supersetProxy = new PathPatternParserServerWebExchangeMatcher("/api/v1/superset/**");
     var namedSupersetProxy = new PathPatternParserServerWebExchangeMatcher(
         "/api/v1/superset-instances/**");
+    var integrationSupersetProxy = new PathPatternParserServerWebExchangeMatcher(
+        "/api/integrations/superset/**");
     var loginEntryPoint=new RedirectServerAuthenticationEntryPoint(
         "/oauth2/authorization/public-iam");
     return http.authorizeExchange(a -> a
@@ -38,7 +40,7 @@ class SecurityConfig {
         .csrf(csrf -> csrf.requireCsrfProtectionMatcher(new AndServerWebExchangeMatcher(
             CsrfWebFilter.DEFAULT_CSRF_MATCHER,
             new NegatedServerWebExchangeMatcher(new OrServerWebExchangeMatcher(
-                supersetProxy,namedSupersetProxy)))))
+                supersetProxy,namedSupersetProxy,integrationSupersetProxy)))))
         .securityContextRepository(securityContexts)
         .oauth2Login(o -> o.authenticationSuccessHandler(loginSuccess))
         .logout(l -> l.logoutUrl("/auth/logout")

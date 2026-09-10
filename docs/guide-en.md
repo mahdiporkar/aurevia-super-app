@@ -38,13 +38,13 @@ flowchart LR
   B --> A[Authorization Service]
   A --> P[(PostgreSQL)]
   A --> F[OpenFGA]
-  N --> PS[Public Superset Assets]
+  B --> OS[External Superset from Registry]
   B --> G[Operation Gateway :80]
-  G --> OS[Operation Superset]
   OS --> D[(DWH)]
 ```
 
-The browser has no direct route to Operation Superset or the DWH. Public Superset has no analytical database or dashboard runtime; it serves compiled static assets only.
+The browser has no direct route to an external Superset or the DWH. The BFF reads its target
+from the registry and enforces authorization and the outbound network policy.
 
 ## Request flows
 
@@ -70,11 +70,11 @@ The BFF must choose a registered destination, normalize the path, allowlist forw
 
 ```text
 Static assets:
-Browser -> Nginx /static/* -> Public Superset asset image
+Browser -> Nginx /static/* -> BFF same-origin proxy
 
 Dynamic traffic:
 Browser -> Nginx -> OperationSupersetProxyController
-        -> Operation Gateway:80 -> Operation Superset -> DWH
+        -> registry base_url -> External Superset -> DWH
 ```
 
 Superset 5 emits some root-relative endpoints. Nginx recognizes runtime requests from `/reports-runtime/*` and forwards `/superset/*` and the relevant `/api/v1/*` calls through the Java tunnel. `AUREVIA_OPERATION_SUPERSET` is a separate Superset session cookie.

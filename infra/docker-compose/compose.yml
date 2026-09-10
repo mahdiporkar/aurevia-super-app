@@ -58,6 +58,9 @@ services:
       UI_ARTIFACT_NETWORK_POLICY: "DEVELOPMENT"
       UI_ARTIFACT_DEVELOPMENT_HOST: "host.docker.internal"
       UI_ARTIFACT_ALLOW_HTTP: "true"
+      SUPERSET_NETWORK_POLICY: "DEVELOPMENT"
+      SUPERSET_DEVELOPMENT_HOST: "host.docker.internal"
+      SUPERSET_ALLOW_HTTP: "true"
     extra_hosts: ["host.docker.internal:host-gateway"]
     depends_on:
       auth-db: {condition: service_healthy}
@@ -90,6 +93,9 @@ services:
       UI_ARTIFACT_NETWORK_POLICY: "DEVELOPMENT"
       UI_ARTIFACT_DEVELOPMENT_HOST: "host.docker.internal"
       UI_ARTIFACT_ALLOW_HTTP: "true"
+      SUPERSET_NETWORK_POLICY: "DEVELOPMENT"
+      SUPERSET_DEVELOPMENT_HOST: "host.docker.internal"
+      SUPERSET_ALLOW_HTTP: "true"
       OIDC_AUTHORIZATION_URI: "http://localhost:8180/realms/aurevia/protocol/openid-connect/auth"
       OIDC_TOKEN_URI: "http://keycloak:8080/realms/aurevia/protocol/openid-connect/token"
       OIDC_JWK_SET_URI: "http://keycloak:8080/realms/aurevia/protocol/openid-connect/certs"
@@ -173,41 +179,8 @@ services:
       mock-finance: {condition: service_started}
       mock-legacy: {condition: service_started}
       mock-oauth: {condition: service_started}
-      operation-superset: {condition: service_started, required: false}
     networks: [operation-services, bff-egress]
     # Deliberately no host port: only the BFF network can reach this gateway.
-  public-superset:
-    profiles: [superset]
-    image: aurevia/superset-public-assets:5.0.0
-    build: {context: ../.., dockerfile: infra/superset-public/Dockerfile}
-    networks: [public-services]
-    healthcheck: {test: [CMD-SHELL, "wget -qO- http://127.0.0.1:8088/health"], interval: 10s, timeout: 5s, retries: 20}
-  operation-superset-db:
-    profiles: [superset]
-    image: postgres:17.6-alpine
-    environment: {POSTGRES_DB: superset_operation, POSTGRES_USER: superset_operation, POSTGRES_PASSWORD: "${OPERATION_SUPERSET_DB_PASSWORD:-change-me}"}
-    volumes: [operation-superset-db:/var/lib/postgresql/data]
-    networks: [operation-services]
-    healthcheck: {test: [CMD-SHELL, "pg_isready -U superset_operation -d superset_operation"], interval: 5s, timeout: 3s, retries: 20}
-  operation-superset-init:
-    profiles: [superset]
-    image: aurevia/superset:5.0.0-postgres
-    build: {context: ../.., dockerfile: infra/superset/Dockerfile}
-    command: [sh, -c, "superset db upgrade && (superset fab create-admin --username admin --firstname Aurevia --lastname Admin --email admin@aurevia.local --password $${SUPERSET_ADMIN_PASSWORD} || true) && superset init && DASHBOARD_COUNT=$$(python -c \"from sqlalchemy import create_engine,text; import os; e=create_engine(os.environ['SUPERSET_DATABASE_URI']); print(e.connect().execute(text('select count(*) from dashboards')).scalar())\") && if [ \"$${SUPERSET_LOAD_EXAMPLES:-yes}\" = \"yes\" ] && [ \"$${DASHBOARD_COUNT}\" = \"0\" ]; then superset load-examples; else echo \"Superset examples already loaded or disabled (dashboards=$${DASHBOARD_COUNT})\"; fi"]
-    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@operation-superset-db:5432/superset_operation", SUPERSET_ADMIN_PASSWORD: "${OPERATION_SUPERSET_ADMIN_PASSWORD:-local-change-me}", SUPERSET_LOAD_EXAMPLES: "${SUPERSET_LOAD_EXAMPLES:-yes}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
-    volumes: [../superset-operation/superset_config.py:/app/pythonpath/superset_config.py:ro]
-    depends_on: {operation-superset-db: {condition: service_healthy}}
-    networks: [operation-services, superset-bootstrap-egress]
-  operation-superset:
-    profiles: [superset]
-    image: aurevia/superset:5.0.0-postgres
-    build: {context: ../.., dockerfile: infra/superset/Dockerfile}
-    command: [superset, run, -h, 0.0.0.0, -p, "8088", --with-threads]
-    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@operation-superset-db:5432/superset_operation", SUPERSET_REMOTE_USER_ROLE: "${SUPERSET_REMOTE_USER_ROLE:-Gamma}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
-    volumes: [../superset-operation/superset_config.py:/app/pythonpath/superset_config.py:ro]
-    depends_on: {operation-superset-init: {condition: service_completed_successfully}}
-    networks: [operation-services]
-    # No public network and no host port.
   nginx:
     image: nginx:1.29.1-alpine
     volumes:
@@ -222,5 +195,4 @@ networks:
   public-data: {internal: true}
   bff-egress: {internal: true}
   operation-services: {internal: true}
-  superset-bootstrap-egress: {internal: false}
-volumes: {auth-db: {}, openfga-db: {}, redis-data: {}, keycloak-db: {}, operation-superset-db: {}, samba-ad-data: {}}
+volumes: {auth-db: {}, openfga-db: {}, redis-data: {}, keycloak-db: {}, samba-ad-data: {}}

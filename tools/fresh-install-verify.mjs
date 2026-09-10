@@ -8,7 +8,7 @@ const apiUrl = process.env.FGA_API_URL ?? 'http://127.0.0.1:8080';
 const failures = [];
 
 function command(args) {
-  const result = spawnSync('docker', ['compose', '--env-file', '.env', '--profile', 'superset', '-f', 'infra/docker-compose/compose.yml', ...args], {
+  const result = spawnSync('docker', ['compose', '--env-file', '.env', '-f', 'infra/docker-compose/compose.yml', ...args], {
     encoding: 'utf8', shell: false,
   });
   if (result.error) throw result.error;

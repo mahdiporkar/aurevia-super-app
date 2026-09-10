@@ -17,7 +17,7 @@ Rebuild an MFE and hard-refresh after frontend changes. Package the JAR and rest
 ```powershell
 docker compose -f infra/docker-compose/compose.yml ps
 docker logs --tail 100 aurevia-bff
-docker logs --tail 100 aurevia-operation-superset-1
+docker compose -f infra/docker-compose/compose.superset-demo.yml logs --tail 100 superset-operation
 docker logs --tail 100 aurevia-nginx-1
 ```
 

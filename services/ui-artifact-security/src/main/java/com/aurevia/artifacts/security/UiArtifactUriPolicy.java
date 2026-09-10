@@ -10,7 +10,7 @@ import java.util.Set;
 
 /** Shared registration and fetch-time URL policy for executable UI artifacts and manifests. */
 public final class UiArtifactUriPolicy {
-  public enum ArtifactType { REMOTE_ENTRY, JSON_MANIFEST }
+  public enum ArtifactType { REMOTE_ENTRY, JSON_MANIFEST, EXTERNAL_ORIGIN }
   public enum NetworkMode { DEVELOPMENT, INTERNAL_ENTERPRISE, PRODUCTION_INTERNET }
 
   private static final Set<String> METADATA_HOSTS=Set.of(
@@ -40,7 +40,7 @@ public final class UiArtifactUriPolicy {
   public URI validateConfigured(String value,ArtifactType type,String label) {
     URI uri=parse(value,label);
     validateScheme(uri,label);
-    validateAuthorityAndPath(uri,label);
+    validateAuthorityAndPath(uri,label,type==ArtifactType.EXTERNAL_ORIGIN);
     String path=uri.getPath().toLowerCase(Locale.ROOT);
     if(type==ArtifactType.REMOTE_ENTRY&&!path.endsWith(".js")) {
       throw new IllegalArgumentException(label+" must be an absolute JavaScript URL");
@@ -145,11 +145,12 @@ public final class UiArtifactUriPolicy {
     }
   }
 
-  private static void validateAuthorityAndPath(URI uri,String label) {
+  private static void validateAuthorityAndPath(URI uri,String label,boolean allowOriginPath) {
     String rawPath=uri.getRawPath();
     String lower=rawPath==null?"":rawPath.toLowerCase(Locale.ROOT);
     if(!uri.isAbsolute()||uri.isOpaque()||uri.getHost()==null||uri.getUserInfo()!=null
-        ||uri.getQuery()!=null||uri.getFragment()!=null||rawPath==null||rawPath.isBlank()
+        ||uri.getQuery()!=null||uri.getFragment()!=null||rawPath==null
+        ||(!allowOriginPath&&rawPath.isBlank())
         ||rawPath.contains("\\")||lower.contains("%2e")||lower.contains("%2f")
         ||lower.contains("%5c")) {
       throw new IllegalArgumentException(

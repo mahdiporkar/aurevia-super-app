@@ -1,8 +1,13 @@
 package com.aurevia.authz.superset;
 
 import static com.aurevia.authz.api.dto.SupersetInstanceDtos.*;
+import static com.aurevia.artifacts.security.UiArtifactUriPolicy.ArtifactType.EXTERNAL_ORIGIN;
 
+import com.aurevia.artifacts.security.UiArtifactUriPolicy;
+import com.aurevia.authz.identity.SubjectKey;
 import com.aurevia.authz.observability.AuditTrail;
+import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.util.List;
 import java.util.Locale;
@@ -11,6 +16,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,20 +28,51 @@ public class SupersetInstanceService {
   private static final Pattern CONNECTION=Pattern.compile("^connection://[a-zA-Z0-9._/-]+$");
   private static final Set<String> AUTH_MODES=Set.of("REMOTE_USER","OIDC","GUEST_TOKEN");
   private final SupersetInstanceRepository instances;
+  private final SupersetAssetRepository assets;
+  private final RelationshipAuthorizationPort relationships;
   private final AuditTrail audit;
+  private final ObjectMapper json;
+  private final UiArtifactUriPolicy targetPolicy;
 
-  public SupersetInstanceService(SupersetInstanceRepository instances,AuditTrail audit) {
-    this.instances=instances;this.audit=audit;
+  public SupersetInstanceService(SupersetInstanceRepository instances,SupersetAssetRepository assets,
+      RelationshipAuthorizationPort relationships,AuditTrail audit,ObjectMapper json,
+      @Value("${aurevia.superset.network-policy:DEVELOPMENT}") String networkPolicy,
+      @Value("${aurevia.superset.allow-http:true}") boolean allowHttp,
+      @Value("${aurevia.superset.development-host:}") String developmentHost,
+      @Value("${aurevia.superset.allowed-private-cidrs:}") String allowedPrivateCidrs) {
+    this.instances=instances;this.assets=assets;this.relationships=relationships;
+    this.audit=audit;this.json=json;
+    this.targetPolicy=new UiArtifactUriPolicy(networkPolicy,allowHttp,developmentHost,
+        allowedPrivateCidrs);
   }
 
   public List<InstanceView> instances() { return instances.instances(); }
   public List<MappingView> mappings() { return instances.mappings(); }
+  public List<IntegrationView> integrationsForSubject(String issuer,String subject) {
+    String user=new SubjectKey(issuer,subject).openFgaUser();
+    boolean administrator=relationships.check(user,"can_manage","application:aurevia");
+    Map<String,String> mappedTargets=instances.mappings().stream().filter(MappingView::active)
+        .collect(java.util.stream.Collectors.toMap(MappingView::publicCode,
+            MappingView::operationCode,(first,ignored)->first));
+    return instances.activeIntegrations().stream().filter(integration->administrator
+        ||relationships.check(user,"can_view","application:"+integration.key())
+        ||assets.publishedAssets(mappedTargets.getOrDefault(integration.key(),integration.key()))
+            .stream().anyMatch(asset->canView(user,asset))).toList();
+  }
+
+  public boolean canAccess(String issuer,String subject,String integrationCode,String targetCode) {
+    String user=new SubjectKey(issuer,subject).openFgaUser();
+    return relationships.check(user,"can_manage","application:aurevia")
+        ||relationships.check(user,"can_view","application:"+integrationCode)
+        ||assets.publishedAssets(targetCode).stream().anyMatch(asset->canView(user,asset));
+  }
 
   @Transactional
   public VersionResponse create(InstanceRequest request,String actor) {
     String safeActor=actor(actor);
     var value=validate(request,UUID.randomUUID());
     instances.insert(value,safeActor);
+    instances.ensureApplicationResource(value);
     audit.success("SUPERSET","superset.instance.created",null,null,"SUPERSET_INSTANCE",
         value.id().toString(),value.code(),"CREATE",null,Map.of("zone",value.zone()));
     return new VersionResponse(value.id(),0);
@@ -48,6 +85,7 @@ public class SupersetInstanceService {
     if(!instances.update(id,request.version(),value,request.active(),safeActor)) {
       throw new OptimisticLockingFailureException("VERSION_CONFLICT");
     }
+    instances.ensureApplicationResource(value);
     audit.success("SUPERSET","superset.instance.updated",null,null,"SUPERSET_INSTANCE",
         id.toString(),value.code(),"UPDATE",null,Map.of("zone",value.zone()));
     return new VersionResponse(id,request.version()+1);
@@ -66,6 +104,15 @@ public class SupersetInstanceService {
     return new IdResponse(id);
   }
 
+  @Transactional
+  public void updateHealth(String code,String status) {
+    String normalized=status==null?"":status.trim().toUpperCase(Locale.ROOT);
+    if(!Set.of("ACTIVE","UNREACHABLE").contains(normalized)) {
+      throw new IllegalArgumentException("Invalid Superset health status");
+    }
+    instances.updateHealth(code,normalized);
+  }
+
   private void assertZones(UUID publicId,UUID operationId) {
     List<String> zones=instances.activeZones(publicId,operationId);
     if(zones.size()!=2||!zones.contains("PUBLIC")||!zones.contains("OPERATION")) {
@@ -74,7 +121,7 @@ public class SupersetInstanceService {
     }
   }
 
-  private static SupersetInstanceRepository.InstanceValue validate(InstanceRequest request,
+  private SupersetInstanceRepository.InstanceValue validate(InstanceRequest request,
       UUID id) {
     String code=request.code().trim().toLowerCase(Locale.ROOT);
     String zone=request.zone().trim().toUpperCase(Locale.ROOT);
@@ -82,22 +129,35 @@ public class SupersetInstanceService {
     if(!CODE.matcher(code).matches()) throw new IllegalArgumentException("Invalid Superset instance code");
     if(!Set.of("PUBLIC","OPERATION").contains(zone)) throw new IllegalArgumentException("Invalid Superset zone");
     if(!AUTH_MODES.contains(auth)) throw new IllegalArgumentException("Invalid Superset auth mode");
-    if(!CONNECTION.matcher(request.connectionRef()).matches()) throw new IllegalArgumentException("Invalid connection reference");
+    String connection=request.connectionRef()==null||request.connectionRef().isBlank()
+        ?"connection://superset/"+code:request.connectionRef().trim();
+    if(!CONNECTION.matcher(connection).matches()) throw new IllegalArgumentException("Invalid connection reference");
     URI uri;
-    try { uri=URI.create(request.baseUrl().trim()).normalize(); }
+    try { uri=targetPolicy.validateConfigured(request.baseUrl(),EXTERNAL_ORIGIN,"Superset base URL"); }
     catch(RuntimeException invalid) { throw new IllegalArgumentException("Invalid Superset base URL",invalid); }
-    if(!Set.of("http","https").contains(uri.getScheme())||uri.getHost()==null
-        ||uri.getUserInfo()!=null||uri.getQuery()!=null||uri.getFragment()!=null
-        ||!(uri.getPath().isEmpty()||"/".equals(uri.getPath()))) {
-      throw new IllegalArgumentException("Superset URL must be an absolute HTTP(S) origin");
-    }
     if(request.tlsRequired()&&!"https".equals(uri.getScheme())) {
       throw new IllegalArgumentException("TLS-required Superset must use HTTPS");
     }
-    String normalized=uri.getScheme()+"://"+uri.getHost()
-        +(uri.getPort()<0?"":":"+uri.getPort());
+    String normalized=uri.toString();
+    if(normalized.endsWith("/")&&uri.getPath().length()>1) {
+      normalized=normalized.substring(0,normalized.length()-1);
+    }
+    String metadata;
+    try {
+      metadata=json.writeValueAsString(request.metadata()==null?Map.of():request.metadata());
+    } catch(Exception invalid) {
+      throw new IllegalArgumentException("Invalid Superset metadata",invalid);
+    }
+    if(metadata.length()>32768) throw new IllegalArgumentException("Superset metadata is too large");
     return new SupersetInstanceRepository.InstanceValue(id,code,request.name().trim(),zone,
-        normalized,request.connectionRef().trim(),auth,request.tlsRequired(),request.active());
+        normalized,connection,auth,request.tlsRequired(),request.active(),
+        request.proxyMode()==null||request.proxyMode(),metadata);
+  }
+
+  private boolean canView(String user,SupersetAssetModels.AssetView asset) {
+    String object="external_resource:"
+        +asset.resourceKey().replaceFirst("^external_resource:","").replace(':','/');
+    return relationships.check(user,"can_view",object);
   }
 
   private static String validatePath(String value) {

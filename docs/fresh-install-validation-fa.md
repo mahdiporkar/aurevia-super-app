@@ -95,10 +95,10 @@ preflight موارد زیر را کنترل می‌کند:
 - شناسه‌ها placeholder نیستند؛
 - endpoint، Store و Model واقعاً در OpenFGA موجودند.
 
-سپس Compose با profile کامل Superset و `--build` اجرا می‌شود. وضعیت را ببینید:
+سپس Core Compose بدون Superset و با `--build` اجرا می‌شود. وضعیت را ببینید:
 
 ```bash
-docker compose --env-file .env --profile superset \
+docker compose --env-file .env \
   -f infra/docker-compose/compose.yml ps
 ```
 

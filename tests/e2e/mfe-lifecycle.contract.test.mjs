@@ -37,3 +37,24 @@ test('Core uses a policy profile and generic development bridge, not per-MFE lis
   assert.match(core,/UI_ARTIFACT_NETWORK_POLICY: "DEVELOPMENT"/);
   assert.match(core,/UI_ARTIFACT_DEVELOPMENT_HOST: "host[.]docker[.]internal"/);
 });
+
+test('Core starts without Superset and the demo has an independent lifecycle',async()=>{
+  const [core,demo,nginx,gateway,pkg]=await Promise.all([
+    read('infra/docker-compose/compose.yml'),
+    read('infra/docker-compose/compose.superset-demo.yml'),
+    read('infra/nginx/nginx.conf'),
+    read('infra/mock-operation/gateway.conf'),
+    read('package.json').then(JSON.parse),
+  ]);
+  for(const name of ['superset-public','superset-operation','superset-operation-db',
+    'superset-operation-init']) {
+    assert.doesNotMatch(core,new RegExp(`^  ${name}:`,'m'),
+      `${name} must not be a Core service`);
+    assert.match(demo,new RegExp(`^  ${name}:`,'m'),
+      `${name} must have an independent demo service`);
+  }
+  assert.doesNotMatch(`${nginx}\n${gateway}`,/proxy_pass\s+http:\/\/(public|operation)-superset/);
+  assert.doesNotMatch(pkg.scripts['infra:up'],/profile\s+superset|compose[.]superset-demo[.]yml/);
+  assert.match(pkg.scripts['superset:up'],/compose[.]superset-demo[.]yml/);
+  assert.match(pkg.scripts['superset:down'],/compose[.]superset-demo[.]yml/);
+});
