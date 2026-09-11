@@ -4,7 +4,7 @@ import static com.aurevia.authz.api.dto.SupersetInstanceDtos.*;
 import static com.aurevia.artifacts.security.UiArtifactUriPolicy.ArtifactType.EXTERNAL_ORIGIN;
 
 import com.aurevia.artifacts.security.UiArtifactUriPolicy;
-import com.aurevia.authz.identity.SubjectKey;
+import com.aurevia.authz.identity.CanonicalIdentityResolver;
 import com.aurevia.authz.observability.AuditTrail;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,15 +33,17 @@ public class SupersetInstanceService {
   private final AuditTrail audit;
   private final ObjectMapper json;
   private final UiArtifactUriPolicy targetPolicy;
+  private final CanonicalIdentityResolver identities;
 
   public SupersetInstanceService(SupersetInstanceRepository instances,SupersetAssetRepository assets,
       RelationshipAuthorizationPort relationships,AuditTrail audit,ObjectMapper json,
+      CanonicalIdentityResolver identities,
       @Value("${aurevia.superset.network-policy:DEVELOPMENT}") String networkPolicy,
       @Value("${aurevia.superset.allow-http:true}") boolean allowHttp,
       @Value("${aurevia.superset.development-host:}") String developmentHost,
       @Value("${aurevia.superset.allowed-private-cidrs:}") String allowedPrivateCidrs) {
     this.instances=instances;this.assets=assets;this.relationships=relationships;
-    this.audit=audit;this.json=json;
+    this.audit=audit;this.json=json;this.identities=identities;
     this.targetPolicy=new UiArtifactUriPolicy(networkPolicy,allowHttp,developmentHost,
         allowedPrivateCidrs);
   }
@@ -49,7 +51,7 @@ public class SupersetInstanceService {
   public List<InstanceView> instances() { return instances.instances(); }
   public List<MappingView> mappings() { return instances.mappings(); }
   public List<IntegrationView> integrationsForSubject(String issuer,String subject) {
-    String user=new SubjectKey(issuer,subject).openFgaUser();
+    String user=identities.openFgaUser(issuer,subject);
     boolean administrator=relationships.check(user,"can_manage","application:aurevia");
     Map<String,String> mappedTargets=instances.mappings().stream().filter(MappingView::active)
         .collect(java.util.stream.Collectors.toMap(MappingView::publicCode,
@@ -61,7 +63,7 @@ public class SupersetInstanceService {
   }
 
   public boolean canAccess(String issuer,String subject,String integrationCode,String targetCode) {
-    String user=new SubjectKey(issuer,subject).openFgaUser();
+    String user=identities.openFgaUser(issuer,subject);
     return relationships.check(user,"can_manage","application:aurevia")
         ||relationships.check(user,"can_view","application:"+integrationCode)
         ||assets.publishedAssets(targetCode).stream().anyMatch(asset->canView(user,asset));

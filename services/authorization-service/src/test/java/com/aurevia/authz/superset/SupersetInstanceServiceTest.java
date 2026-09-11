@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 
 import com.aurevia.authz.api.dto.SupersetInstanceDtos.InstanceRequest;
 import com.aurevia.authz.observability.AuditTrail;
+import com.aurevia.authz.identity.CanonicalIdentityResolver;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
@@ -20,6 +21,7 @@ class SupersetInstanceServiceTest {
     SupersetInstanceRepository repository=mock(SupersetInstanceRepository.class);
     var service=new SupersetInstanceService(repository,mock(SupersetAssetRepository.class),
         mock(RelationshipAuthorizationPort.class),mock(AuditTrail.class),new ObjectMapper(),
+        mock(CanonicalIdentityResolver.class),
         "PRODUCTION_INTERNET",false,"","");
     var request=new InstanceRequest("superset-public","Public BI","PUBLIC",
         "https://example.com/superset",null,"OIDC",true,true,true,
@@ -39,7 +41,8 @@ class SupersetInstanceServiceTest {
   @Test void rejectsLoopbackAndCloudMetadataInProduction() {
     var service=new SupersetInstanceService(mock(SupersetInstanceRepository.class),
         mock(SupersetAssetRepository.class),mock(RelationshipAuthorizationPort.class),
-        mock(AuditTrail.class),new ObjectMapper(),"PRODUCTION_INTERNET",false,"","");
+        mock(AuditTrail.class),new ObjectMapper(),mock(CanonicalIdentityResolver.class),
+        "PRODUCTION_INTERNET",false,"","");
     for(String url:new String[]{"https://127.0.0.1","https://169.254.169.254/latest"}) {
       var request=new InstanceRequest("superset-public","Public BI","PUBLIC",url,null,
           "OIDC",true,true,true,Map.of(),0);

@@ -12,6 +12,11 @@ server:
 spring.lifecycle.timeout-per-shutdown-phase: 30s
 springdoc.api-docs.enabled: false
 aurevia:
+  identity-providers:
+    allow-http: false
+    allow-private-hosts: false
+    require-host-allowlist: true
+    allowed-hosts: ${IDENTITY_PROVIDER_ALLOWED_HOSTS}
   resource-tree:
     development-mutations-enabled: false
   demo-data:

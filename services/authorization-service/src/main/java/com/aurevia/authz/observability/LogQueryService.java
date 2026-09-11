@@ -2,7 +2,7 @@ package com.aurevia.authz.observability;
 
 import static com.aurevia.authz.api.dto.LogQueryDtos.*;
 
-import com.aurevia.authz.identity.SubjectKey;
+import com.aurevia.authz.identity.CanonicalIdentityResolver;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -20,9 +20,11 @@ public class LogQueryService {
   private static final String LOG_RESOURCE="resource:business_resource/public-zone-logs";
   private final LogQueryRepository logs;
   private final RelationshipAuthorizationPort relationships;
+  private final CanonicalIdentityResolver identities;
 
-  public LogQueryService(LogQueryRepository logs,RelationshipAuthorizationPort relationships) {
-    this.logs=logs;this.relationships=relationships;
+  public LogQueryService(LogQueryRepository logs,RelationshipAuthorizationPort relationships,
+      CanonicalIdentityResolver identities) {
+    this.logs=logs;this.relationships=relationships;this.identities=identities;
   }
 
   public PageResponse api(String issuer,String subject,int page,int size,ApiFilter raw) {
@@ -66,7 +68,7 @@ public class LogQueryService {
   }
   private void require(String issuer,String subject,String relation) {
     if(issuer==null||subject==null||!relationships.check(
-        new SubjectKey(issuer,subject).openFgaUser(),relation,LOG_RESOURCE)) {
+        identities.openFgaUser(issuer,subject),relation,LOG_RESOURCE)) {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Log permission required");
     }
   }

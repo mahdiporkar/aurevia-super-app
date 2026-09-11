@@ -12,7 +12,7 @@ import com.aurevia.authz.api.dto.AuthorizationDtos.CheckRequest;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 import com.aurevia.authz.policy.RuntimePolicyService;
 import com.aurevia.authz.semantics.AuthorizationSemanticsRegistry;
-import com.aurevia.authz.identity.SubjectKey;
+import com.aurevia.authz.identity.CanonicalIdentityResolver;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,18 +22,20 @@ class AuthorizationControllerTest {
   RelationshipAuthorizationPort relationships = mock(RelationshipAuthorizationPort.class);
   RuntimePolicyService policies = mock(RuntimePolicyService.class);
   AuthorizationDecisionAuditor auditor = mock(AuthorizationDecisionAuditor.class);
+  CanonicalIdentityResolver identities=mock(CanonicalIdentityResolver.class);
   AuthorizationController controller;
 
   @BeforeEach void setUp() {
     var service = new AuthorizationDecisionService(relationships,
         mock(AuthorizationQueryRepository.class),
         new AuthorizationSemanticsRegistry(), policies, auditor,
-        new com.fasterxml.jackson.databind.ObjectMapper());
+        new com.fasterxml.jackson.databind.ObjectMapper(),identities);
+    when(identities.openFgaUser("issuer","u1")).thenReturn("user:usr_canonical");
     controller = new AuthorizationController(service);
   }
 
   @Test void openFgaAllowAndPolicyAllowReturnsObligations() {
-    when(relationships.check(new SubjectKey("issuer","u1").openFgaUser(),
+    when(relationships.check("user:usr_canonical",
         "can_view", "resource:hr.employee")).thenReturn(true);
     when(policies.evaluate("issuer","u1", "resource:hr.employee", "view")).thenReturn(
         new RuntimePolicyService.Evaluation(true, "POLICY_ALLOWED",

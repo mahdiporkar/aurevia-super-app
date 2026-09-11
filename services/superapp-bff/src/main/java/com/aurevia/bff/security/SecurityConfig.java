@@ -1,6 +1,5 @@
 package com.aurevia.bff.security;
 
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.csrf.CsrfWebFilter;
@@ -12,6 +11,16 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.web.server.authentication.RedirectServerAuthenticationEntryPoint;
 import org.springframework.security.web.server.authentication.logout.HttpStatusReturningServerLogoutSuccessHandler;
+import org.springframework.context.annotation.Bean;
+import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenValidator;
+import org.springframework.security.oauth2.client.oidc.authentication.ReactiveOidcIdTokenDecoderFactory;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoderFactory;
+import java.util.Collection;
 
 @Configuration
 class SecurityConfig {
@@ -24,9 +33,10 @@ class SecurityConfig {
     var integrationSupersetProxy = new PathPatternParserServerWebExchangeMatcher(
         "/api/integrations/superset/**");
     var loginEntryPoint=new RedirectServerAuthenticationEntryPoint(
-        "/oauth2/authorization/public-iam");
+        "/auth/login");
     return http.authorizeExchange(a -> a
-          .pathMatchers("/actuator/health/**", "/", "/auth/login", "/auth/callback").permitAll()
+          .pathMatchers("/actuator/health/**", "/", "/auth/login", "/auth/providers",
+              "/auth/callback", "/oauth2/authorization/**", "/login/oauth2/code/**").permitAll()
           .anyExchange().authenticated())
         // Fetch/XHR must receive 401; following an OAuth redirect inside fetch becomes a CORS error.
         .exceptionHandling(errors->errors.authenticationEntryPoint((exchange,failure)->{
@@ -47,5 +57,23 @@ class SecurityConfig {
             .logoutHandler(vaultLogout)
             .logoutSuccessHandler(new HttpStatusReturningServerLogoutSuccessHandler(
                 HttpStatus.NO_CONTENT))).build();
+  }
+
+  @Bean ReactiveJwtDecoderFactory<ClientRegistration> oidcIdTokenDecoderFactory(){
+    var factory=new ReactiveOidcIdTokenDecoderFactory();
+    factory.setJwtValidatorFactory(registration->{
+      var oidc=new OidcIdTokenValidator(registration);
+      org.springframework.security.oauth2.core.OAuth2TokenValidator<Jwt> configuredAudience=jwt->{
+        Object raw=registration.getProviderDetails().getConfigurationMetadata()
+            .get(DynamicClientRegistrationRepository.AUDIENCES);
+        if(!(raw instanceof Collection<?> required)||required.isEmpty())
+          return OAuth2TokenValidatorResult.success();
+        boolean accepted=required.stream().map(String::valueOf).anyMatch(jwt.getAudience()::contains);
+        return accepted?OAuth2TokenValidatorResult.success():OAuth2TokenValidatorResult.failure(
+            new OAuth2Error("invalid_token","Configured OIDC audience is missing",null));
+      };
+      return new DelegatingOAuth2TokenValidator<>(oidc,configuredAudience);
+    });
+    return factory;
   }
 }

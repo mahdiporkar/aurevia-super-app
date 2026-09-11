@@ -10,6 +10,9 @@ springdoc:
   api-docs.enabled: false
   swagger-ui.enabled: false
 aurevia:
+  identity-providers:
+    local-secrets.enabled: false
+    file-secrets.root: ${IDENTITY_PROVIDER_SECRET_ROOT}
   mfe-proxy:
     network-policy: ${UI_ARTIFACT_NETWORK_POLICY:PRODUCTION_INTERNET}
     development-host: ""

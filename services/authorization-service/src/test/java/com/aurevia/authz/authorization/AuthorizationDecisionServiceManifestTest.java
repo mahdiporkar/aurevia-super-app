@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.aurevia.authz.audit.AuthorizationDecisionAuditor;
 import com.aurevia.authz.api.dto.AuthorizationDtos.CheckRequest;
+import com.aurevia.authz.identity.CanonicalIdentityResolver;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort.RelationshipCheck;
 import com.aurevia.authz.policy.RuntimePolicyService;
@@ -31,9 +32,11 @@ class AuthorizationDecisionServiceManifestTest {
   private AuthorizationDecisionService service;
 
   @BeforeEach void setUp() {
+    CanonicalIdentityResolver identities=mock(CanonicalIdentityResolver.class);
+    when(identities.openFgaUser(anyString(),anyString())).thenReturn("user:usr_canonical");
     service=new AuthorizationDecisionService(relationships,queries,
         new AuthorizationSemanticsRegistry(),mock(RuntimePolicyService.class),
-        mock(AuthorizationDecisionAuditor.class),new ObjectMapper());
+        mock(AuthorizationDecisionAuditor.class),new ObjectMapper(),identities);
     when(queries.activeResources()).thenReturn(List.of());
     when(queries.menuOverrides(org.mockito.ArgumentMatchers.any())).thenReturn(List.of());
     when(relationships.checkBatch(anyList())).thenReturn(Map.of());

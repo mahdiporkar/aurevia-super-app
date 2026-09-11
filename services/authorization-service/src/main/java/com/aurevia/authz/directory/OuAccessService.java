@@ -100,6 +100,8 @@ public class OuAccessService {
     for(var e:attrs.entrySet())if(allowed.contains(e.getKey())&&e.getValue()!=null){if(json.length()>1)json.append(',');json.append('"').append(e.getKey()).append("\":\"").append(e.getValue().replace("\\","\\\\").replace("\"","\\\"")).append('"');}
     return json.append('}').toString();
   }
-  public record LoginDirectoryIdentity(String issuer,String subject,String username,String displayName,String email,String distinguishedName,String ouExternalId,String directoryExternalId,Map<String,String> attributes) {}
+  public record LoginDirectoryIdentity(String providerCode,String issuer,String subject,String username,
+      String displayName,String email,String distinguishedName,String ouExternalId,
+      String directoryExternalId,Map<String,String> attributes) {}
   public record SyncResult(UUID userId,UUID ouId,int effectiveGroups) {}
 }

@@ -2,7 +2,7 @@ package com.aurevia.bff.security;
 
 import java.time.Duration;
 import java.time.Instant;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -18,21 +18,14 @@ public class TokenRefreshService {
   private final WebClient client;
   private final RefreshCoordinator coordinator;
   private final TokenVaultService vault;
-  private final String tokenUri;
-  private final String clientId;
-  private final String clientSecret;
+  private final ReactiveClientRegistrationRepository registrations;
 
   public TokenRefreshService(WebClient.Builder builder, RefreshCoordinator coordinator,
-      TokenVaultService vault,
-      @Value("${spring.security.oauth2.client.provider.public-iam.token-uri}") String tokenUri,
-      @Value("${spring.security.oauth2.client.registration.public-iam.client-id}") String clientId,
-      @Value("${spring.security.oauth2.client.registration.public-iam.client-secret}") String clientSecret) {
+      TokenVaultService vault,ReactiveClientRegistrationRepository registrations) {
     this.client = builder.build();
     this.coordinator = coordinator;
     this.vault = vault;
-    this.tokenUri = tokenUri;
-    this.clientId = clientId;
-    this.clientSecret = clientSecret;
+    this.registrations=registrations;
   }
 
   public Mono<TokenVaultService.Tokens> ensureFresh(String handle,
@@ -57,17 +50,22 @@ public class TokenRefreshService {
     var form = new LinkedMultiValueMap<String, String>();
     form.add("grant_type", "refresh_token");
     form.add("refresh_token", staleTokens.refreshToken());
-    form.add("client_id", clientId);
-    form.add("client_secret", clientSecret);
-    return client.post().uri(tokenUri)
+    if(staleTokens.providerCode()==null)return Mono.error(new ResponseStatusException(
+        HttpStatus.UNAUTHORIZED,"Identity provider session cannot be refreshed"));
+    return registrations.findByRegistrationId(staleTokens.providerCode())
+        .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+            "Identity provider is no longer enabled"))).flatMap(registration->{
+      form.add("client_id", registration.getClientId());
+      form.add("client_secret", registration.getClientSecret());
+      return client.post().uri(registration.getProviderDetails().getTokenUri())
         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
         .body(BodyInserters.fromFormData(form))
         .retrieve()
         .onStatus(status -> status.is4xxClientError(), response ->
             Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED,
                 "Public IAM refresh rejected")))
-        .bodyToMono(TokenResponse.class)
-        .timeout(Duration.ofSeconds(10))
+        .bodyToMono(TokenResponse.class);
+    }).timeout(Duration.ofSeconds(10))
         .map(response -> {
           if (response.access_token == null || response.access_token.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
@@ -80,7 +78,7 @@ public class TokenRefreshService {
               ? accessExpiry.plus(Duration.ofMinutes(30)) : staleTokens.vaultExpiresAt();
           if (vaultExpiry.isBefore(accessExpiry)) vaultExpiry = accessExpiry;
           return new TokenVaultService.Tokens(response.access_token, refreshToken,
-              accessExpiry, vaultExpiry);
+              accessExpiry, vaultExpiry,staleTokens.providerCode());
         });
   }
 

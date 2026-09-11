@@ -50,11 +50,13 @@ services:
       AUTH_INTERNAL_USER: "${AUTH_INTERNAL_USER:-bff}"
       AUTH_INTERNAL_PASSWORD: "${AUTH_INTERNAL_PASSWORD:-change-me}"
       DIRECTORY_SYNC_ENABLED: "${DIRECTORY_SYNC_ENABLED:-false}"
-      DIRECTORY_LDAP_URL: "ldap://samba-ad:389"
-      DIRECTORY_BASE_DN: "DC=aurevia,DC=test"
-      DIRECTORY_BIND_DN: "CN=Administrator,CN=Users,DC=aurevia,DC=test"
-      DIRECTORY_BIND_PASSWORD: "${SAMBA_ADMIN_PASSWORD:-local-directory-only}"
-      DIRECTORY_ISSUER: "http://localhost:8180/realms/aurevia"
+      DIRECTORY_LDAP_URL: "${DIRECTORY_LDAP_URL:-}"
+      DIRECTORY_BASE_DN: "${DIRECTORY_BASE_DN:-}"
+      DIRECTORY_BIND_DN: "${DIRECTORY_BIND_DN:-}"
+      DIRECTORY_BIND_PASSWORD: "${DIRECTORY_BIND_PASSWORD:-}"
+      DIRECTORY_ISSUER: "${DIRECTORY_ISSUER:-}"
+      IDENTITY_PROVIDER_ALLOW_HTTP: "true"
+      IDENTITY_PROVIDER_ALLOW_PRIVATE_HOSTS: "true"
       UI_ARTIFACT_NETWORK_POLICY: "DEVELOPMENT"
       UI_ARTIFACT_DEVELOPMENT_HOST: "host.docker.internal"
       UI_ARTIFACT_ALLOW_HTTP: "true"
@@ -96,12 +98,8 @@ services:
       SUPERSET_NETWORK_POLICY: "DEVELOPMENT"
       SUPERSET_DEVELOPMENT_HOST: "host.docker.internal"
       SUPERSET_ALLOW_HTTP: "true"
-      OIDC_AUTHORIZATION_URI: "http://localhost:8180/realms/aurevia/protocol/openid-connect/auth"
-      OIDC_TOKEN_URI: "http://keycloak:8080/realms/aurevia/protocol/openid-connect/token"
-      OIDC_JWK_SET_URI: "http://keycloak:8080/realms/aurevia/protocol/openid-connect/certs"
-      OIDC_USER_INFO_URI: "http://keycloak:8080/realms/aurevia/protocol/openid-connect/userinfo"
-      OIDC_CLIENT_ID: "${OIDC_CLIENT_ID:-aurevia-bff}"
-      OIDC_CLIENT_SECRET: "${OIDC_CLIENT_SECRET:-change-me}"
+      IDENTITY_PROVIDER_LOCAL_SECRETS_ENABLED: "true"
+      IDENTITY_PROVIDER_LOCAL_SECRETS_JSON: '{"secret://identity/demo-keycloak":"${OIDC_CLIENT_SECRET:-change-me}"}'
       LEGACY_ALLOWED_HOSTS: "mock-legacy"
       LEGACY_ALLOWED_PORTS: "8080"
       LEGACY_ALLOW_INSECURE_LOCAL: "true"
@@ -113,46 +111,9 @@ services:
       redis: {condition: service_healthy}
       authorization-service: {condition: service_healthy}
       demo-catalog-init: {condition: service_completed_successfully}
-      keycloak: {condition: service_started}
       operation-gateway: {condition: service_started}
     networks: [public-services, public-data, bff-egress]
     healthcheck: {test: [CMD-SHELL, "curl -fsS http://127.0.0.1:8081/actuator/health | grep -q UP"], interval: 10s, timeout: 5s, retries: 30}
-  keycloak-db:
-    image: postgres:17.6-alpine
-    environment: {POSTGRES_DB: keycloak, POSTGRES_USER: keycloak, POSTGRES_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-change-me}"}
-    volumes: [keycloak-db:/var/lib/postgresql/data]
-    networks: [public-data]
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.3.3
-    command: [start-dev, --import-realm]
-    environment: {KC_DB: postgres, KC_DB_URL: "jdbc:postgresql://keycloak-db:5432/keycloak", KC_DB_USERNAME: keycloak, KC_DB_PASSWORD: "${KEYCLOAK_DB_PASSWORD:-change-me}", KC_BOOTSTRAP_ADMIN_USERNAME: "${KEYCLOAK_ADMIN:-admin}", KC_BOOTSTRAP_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-change-me}", KC_HOSTNAME: "http://localhost:8180", KC_HTTP_ENABLED: "true"}
-    volumes: [../keycloak/realm-aurevia.json:/opt/keycloak/data/import/realm-aurevia.json:ro]
-    ports: ["127.0.0.1:8180:8080"]
-    depends_on: [keycloak-db]
-    networks: [public-services, public-data, operation-services]
-  samba-ad:
-    profiles: [directory]
-    build: {context: ../.., dockerfile: infra/samba-ad/Dockerfile}
-    hostname: dc1.aurevia.test
-    environment:
-      SAMBA_ADMIN_PASSWORD: "${SAMBA_ADMIN_PASSWORD:-local-directory-only}"
-      SAMBA_TEST_USER_PASSWORD: "${SAMBA_TEST_USER_PASSWORD:-local-user-only}"
-    volumes: [samba-ad-data:/var/lib/samba, ../samba-ad/move-ali-to-sales.sh:/config/move-ali-to-sales.sh:ro]
-    networks: [public-services, public-data]
-    healthcheck: {test: [CMD-SHELL, "samba-tool domain info 127.0.0.1 >/dev/null"], interval: 10s, timeout: 5s, retries: 30}
-  keycloak-directory-config:
-    profiles: [directory]
-    image: quay.io/keycloak/keycloak:26.3.3
-    entrypoint: [/bin/sh, /config/configure-samba-ldap.sh]
-    environment:
-      KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:-admin}"
-      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-change-me}"
-      SAMBA_ADMIN_PASSWORD: "${SAMBA_ADMIN_PASSWORD:-local-directory-only}"
-    volumes: [../keycloak/configure-samba-ldap.sh:/config/configure-samba-ldap.sh:ro]
-    depends_on:
-      keycloak: {condition: service_started}
-      samba-ad: {condition: service_healthy}
-    networks: [public-services]
   mock-hr:
     image: wiremock/wiremock:3.13.1
     volumes: [../mock-operation:/home/wiremock:ro]
@@ -195,4 +156,4 @@ networks:
   public-data: {internal: true}
   bff-egress: {internal: true}
   operation-services: {internal: true}
-volumes: {auth-db: {}, openfga-db: {}, redis-data: {}, keycloak-db: {}, samba-ad-data: {}}
+volumes: {auth-db: {}, openfga-db: {}, redis-data: {}}

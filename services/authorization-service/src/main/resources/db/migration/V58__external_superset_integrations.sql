@@ -26,7 +26,7 @@ INSERT INTO resource(resource_key,type,parent_id,name_fa,name_en,owner_domain,
   classification,status,source,metadata)
 SELECT 'application:'||instance.code,'APPLICATION',root.id,instance.name,instance.name,
   'reports','EXTERNAL',CASE WHEN instance.active THEN 'ACTIVE'::lifecycle_status
-    ELSE 'INACTIVE'::lifecycle_status END,'EXTERNAL_SYNC',
+    ELSE 'INACTIVE'::lifecycle_status END,'ADMIN',
   jsonb_build_object('provider','SUPERSET','instanceCode',instance.code)
 FROM superset_instance instance
 JOIN resource root ON root.resource_key='application:aurevia'

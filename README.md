@@ -45,6 +45,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [HR/Finance ERP and OpenFGA resource-tree demo (فارسی)](docs/hr-finance-erp-openfga-demo-fa.md)
 - [Superset routing, access and in-MFE embedding guide (فارسی)](docs/superset-routing-and-embedding-fa.md)
 - [Superset as an external integration and independent lifecycle (فارسی)](docs/external-integration-superset-fa.md)
+- [External Identity Provider، Multi-IdP و Canonical Identity (فارسی)](docs/external-identity-provider-fa.md)
 - [Superset SSO and Remote User authentication (فارسی)](docs/superset-routing-and-embedding-fa.md#احراز-هویت-و-sso-بین-super-app-و-superset)
 - [Git governance and repository access (فارسی)](docs/git-governance-fa.md)
 - [Operations and troubleshooting (فارسی)](docs/operations-fa.md)
@@ -81,6 +82,7 @@ npm ci
 npm run build --workspace=@aurevia/shell
 npm run openfga:bootstrap
 npm run infra:up
+npm run identity:up              # optional local Keycloak demo
 npm run mfe:build                 # optional demo MFE lifecycle
 npm run mfe:up
 ./mvnw verify
@@ -94,7 +96,9 @@ then requires Flyway V52+, zero projection drift and the complete ADMIN manifest
 `infra:verify:token-proxy` exercises real OIDC login, the token-free Redis session, Superset,
 Legacy token caching and OAuth2 user-token forwarding end to end.
 
-`npm run infra:up` starts only Aurevia Core and remains healthy with zero MFEs online.
+`npm run infra:up` starts only Aurevia Core and remains healthy with zero MFEs and zero local
+Identity Providers online. The optional Keycloak demo has its own lifecycle (`npm run identity:up`
+and `npm run identity:down`); production Identity Providers are registered by OIDC URL and tenant.
 The optional demo microfrontends are served by their own Compose project (`npm run mfe:up` and
 `npm run mfe:down`). Their default registry URLs are:
 
@@ -157,7 +161,7 @@ export async function fetchManifest(): Promise<EffectiveManifest> {
     },
   });
   if (response.status === 401 || response.status === 302 || response.type === 'opaqueredirect') {
-    window.location.assign('/oauth2/authorization/public-iam');
+    window.location.assign('/auth/login');
     throw new Error('AUTH_REDIRECT');
   }
   if (!response.ok) throw new Error(`Manifest HTTP ${response.status}`);

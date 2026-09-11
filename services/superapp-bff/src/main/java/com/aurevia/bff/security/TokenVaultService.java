@@ -13,14 +13,16 @@ import reactor.core.publisher.Mono;
 @Service
 public class TokenVaultService {
   public record Tokens(String accessToken, String refreshToken, Instant expiresAt,
-      Instant vaultExpiresAt) {
+      Instant vaultExpiresAt,String providerCode) {
     public Tokens(String accessToken, String refreshToken, Instant expiresAt) {
       this(accessToken, refreshToken, expiresAt,
-          refreshToken == null ? expiresAt : expiresAt.plus(Duration.ofMinutes(30)));
+          refreshToken == null ? expiresAt : expiresAt.plus(Duration.ofMinutes(30)),null);
     }
+    public Tokens(String accessToken,String refreshToken,Instant expiresAt,Instant vaultExpiresAt){
+      this(accessToken,refreshToken,expiresAt,vaultExpiresAt,null);}
   }
   private record EncryptedTokens(String accessToken, String refreshToken, Instant expiresAt,
-      Instant vaultExpiresAt) {}
+      Instant vaultExpiresAt,String providerCode) {}
   private final ReactiveStringRedisTemplate redis;
   private final TokenVaultCrypto crypto;
   private final ObjectMapper json;
@@ -46,7 +48,7 @@ public class TokenVaultService {
     try {
       var value=json.writeValueAsString(new EncryptedTokens(crypto.encrypt(tokens.accessToken()),
           tokens.refreshToken()==null?null:crypto.encrypt(tokens.refreshToken()),tokens.expiresAt(),
-          vaultExpiry));
+          vaultExpiry,tokens.providerCode()));
       Duration ttl=Duration.between(Instant.now(),vaultExpiry);
       return redis.opsForValue().set(key(handle),value,ttl).flatMap(ok -> ok?Mono.empty():Mono.error(new IllegalStateException("vault write failed")));
     } catch(Exception e){ return Mono.error(new IllegalStateException("vault serialization failed",e)); }
@@ -63,7 +65,7 @@ public class TokenVaultService {
           }
           return Mono.just(new Tokens(crypto.decrypt(encrypted.accessToken()),
               encrypted.refreshToken()==null?null:crypto.decrypt(encrypted.refreshToken()),
-              encrypted.expiresAt(),vaultExpiry));
+              encrypted.expiresAt(),vaultExpiry,encrypted.providerCode()));
         } catch(TokenExpiredException expired) {
           return Mono.error(expired);
         } catch(Exception invalid) {

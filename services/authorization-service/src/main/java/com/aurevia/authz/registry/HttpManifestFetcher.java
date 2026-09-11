@@ -12,8 +12,7 @@ import org.springframework.stereotype.Component;
 
 /** Bounded manifest HTTP adapter. Redirects are disabled to prevent allowlist bypasses. */
 @Component
-//final class HttpManifestFetcher implements ResourceManifestFetcher
-  final class HttpManifestFetcher implements ManifestFetcher
+final class HttpManifestFetcher implements ManifestFetcher, ResourceManifestFetcher
   {
   private static final int MAX_BYTES=1_048_576;
   private final UiArtifactPolicy policy;

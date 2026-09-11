@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 
 import com.aurevia.authz.access.AccessAdministrationService;
 import com.aurevia.authz.observability.AuditTrail;
+import com.aurevia.authz.identity.CanonicalIdentityResolver;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +17,7 @@ class SupersetAssetServiceAuthorizationTest {
         "superset-operation")).thenReturn(false);
     var service=new SupersetAssetService(mock(SupersetAssetRepository.class),
         mock(RelationshipAuthorizationPort.class),mock(AccessAdministrationService.class),
-        mock(AuditTrail.class),integrations);
+        mock(AuditTrail.class),integrations,mock(CanonicalIdentityResolver.class));
 
     var decision=service.accessForSubject("https://issuer.example","subject-1",
         "superset-operation","superset-operation","/superset/dashboard/42/","GET","",

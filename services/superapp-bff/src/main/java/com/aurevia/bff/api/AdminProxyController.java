@@ -21,19 +21,23 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import com.aurevia.bff.outboundauth.LegacyTokenManager;
 import com.aurevia.bff.security.SessionIdentity;
+import com.aurevia.bff.security.DynamicClientRegistrationRepository;
 
 @RestController
 public class AdminProxyController {
   private final WebClient authorizationClient;
   private final WebClient operationGateway;
   private final LegacyTokenManager legacyTokens;
+  private final DynamicClientRegistrationRepository identityProviders;
 
   public AdminProxyController(
       @Qualifier("authorizationWebClient") WebClient authorizationClient,
-      @Qualifier("operationGatewayClient") WebClient operationGateway,LegacyTokenManager legacyTokens) {
+      @Qualifier("operationGatewayClient") WebClient operationGateway,LegacyTokenManager legacyTokens,
+      DynamicClientRegistrationRepository identityProviders) {
     this.authorizationClient = authorizationClient;
     this.operationGateway = operationGateway;
     this.legacyTokens=legacyTokens;
+    this.identityProviders=identityProviders;
   }
 
   @PostMapping("/api/v1/admin/outbound-auth-profiles/{id}/token-test")
@@ -93,11 +97,18 @@ public class AdminProxyController {
                 .status(response.statusCode())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(bytes)))
-        .flatMap(entity -> entity.getStatusCode().is2xxSuccessful() && mutatesProfile(path,exchange)
-            ? legacyTokens.invalidate(profileId(path)).thenReturn(entity) : Mono.just(entity));
+        .flatMap(entity -> {
+          if(entity.getStatusCode().is2xxSuccessful()&&mutatesIdentityProvider(path,exchange))
+            identityProviders.invalidateAll();
+          return entity.getStatusCode().is2xxSuccessful() && mutatesProfile(path,exchange)
+              ? legacyTokens.invalidate(profileId(path)).thenReturn(entity) : Mono.just(entity);
+        });
   }
   private static boolean mutatesProfile(String path,ServerWebExchange exchange){return path.matches("/outbound-auth-profiles/[0-9a-fA-F-]+(?:/status)?")&&Set.of("PUT","PATCH").contains(exchange.getRequest().getMethod().name());}
   private static String profileId(String path){return path.split("/")[2];}
+  private static boolean mutatesIdentityProvider(String path,ServerWebExchange exchange){return
+      path.startsWith("/identity-providers")&&!Set.of("GET","HEAD").contains(
+          exchange.getRequest().getMethod().name());}
   private static void actorHeaders(org.springframework.http.HttpHeaders headers,
       SessionIdentity identity) {
     headers.set("X-Actor", identity.username());

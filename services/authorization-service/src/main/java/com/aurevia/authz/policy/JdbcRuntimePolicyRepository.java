@@ -33,9 +33,10 @@ class JdbcRuntimePolicyRepository implements RuntimePolicyRepository {
   @Override public Optional<OrgContext> primaryOrganization(String issuer,String subject) {
     return database.sql("""
         select g.external_id as "orgUnit",g.normalized_path branch
-        from app_user u join user_group_membership m on m.user_id=u.id
+        from external_identity e join app_user u on u.id=e.user_id
+        join user_group_membership m on m.user_id=u.id
         join directory_group g on g.id=m.group_id and g.status='ACTIVE'
-        where u.issuer=:issuer and u.external_id=:subject
+        where e.issuer=:issuer and e.subject=:subject
         order by g.normalized_path limit 1
         """).param("issuer",issuer).param("subject",subject)
         .query(OrgContext.class).optional();

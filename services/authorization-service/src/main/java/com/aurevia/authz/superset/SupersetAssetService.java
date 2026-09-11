@@ -5,7 +5,7 @@ import static com.aurevia.authz.superset.SupersetAssetModels.*;
 import com.aurevia.authz.access.AccessAdministrationService;
 import com.aurevia.authz.access.AccessModels.GrantCommand;
 import com.aurevia.authz.access.AccessModels.GrantResult;
-import com.aurevia.authz.identity.SubjectKey;
+import com.aurevia.authz.identity.CanonicalIdentityResolver;
 import com.aurevia.authz.observability.AuditTrail;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 import java.util.List;
@@ -27,15 +27,18 @@ public class SupersetAssetService {
   private final AccessAdministrationService access;
   private final AuditTrail auditTrail;
   private final SupersetInstanceService integrations;
+  private final CanonicalIdentityResolver identities;
 
   public SupersetAssetService(SupersetAssetRepository repository,
       RelationshipAuthorizationPort relationships, AccessAdministrationService access,
-      AuditTrail auditTrail,SupersetInstanceService integrations) {
+      AuditTrail auditTrail,SupersetInstanceService integrations,
+      CanonicalIdentityResolver identities) {
     this.repository = repository;
     this.relationships = relationships;
     this.access = access;
     this.auditTrail = auditTrail;
     this.integrations=integrations;
+    this.identities=identities;
   }
 
   public List<AssetView> assets() { return repository.assets(); }
@@ -59,7 +62,7 @@ public class SupersetAssetService {
 
   public RuntimeAccess accessForSubject(String issuer, String subject, String integration,
       String instance,String path, String method, String query, String assetType, String assetId) {
-    String user = new SubjectKey(issuer, subject).openFgaUser();
+    String user = identities.openFgaUser(issuer, subject);
     if(!integrations.canAccess(issuer,subject,integration,instance)) {
       return new RuntimeAccess("DENY","SUPERSET_INTEGRATION_DENIED");
     }
@@ -131,7 +134,7 @@ public class SupersetAssetService {
   private boolean canView(String issuer, String subject, AssetView asset) {
     String object = "external_resource:"
         + asset.resourceKey().replaceFirst("^external_resource:", "").replace(':', '/');
-    return relationships.check(new SubjectKey(issuer, subject).openFgaUser(), "can_view", object);
+    return relationships.check(identities.openFgaUser(issuer, subject), "can_view", object);
   }
   private static boolean isCommonRuntimePath(String path) {
     return path.equals("/") || path.startsWith("/login") || path.startsWith("/logout")

@@ -1,6 +1,29 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
+INSERT INTO identity_provider(id,code,name,provider_type,issuer_url,authorization_endpoint,
+  token_endpoint,jwks_uri,user_info_endpoint,client_id,client_secret_reference,enabled,
+  tenant_id,domains,scopes,audiences,subject_claim,username_claim,groups_claim,created_by,updated_by)
+VALUES('45000000-0000-0000-0000-000000000100','public-iam','Keycloak Demo','KEYCLOAK',
+  'http://localhost:8180/realms/aurevia',
+  'http://localhost:8180/realms/aurevia/protocol/openid-connect/auth',
+  'http://host.docker.internal:8180/realms/aurevia/protocol/openid-connect/token',
+  'http://host.docker.internal:8180/realms/aurevia/protocol/openid-connect/certs',
+  'http://host.docker.internal:8180/realms/aurevia/protocol/openid-connect/userinfo',
+  'aurevia-bff','secret://identity/demo-keycloak',true,'demo',ARRAY['localhost'],
+  ARRAY['openid','profile','email'],ARRAY[]::varchar[],
+  'sub','preferred_username','groups','demo-bootstrap','demo-bootstrap')
+ON CONFLICT(code) DO UPDATE SET name=excluded.name,provider_type=excluded.provider_type,
+  issuer_url=excluded.issuer_url,authorization_endpoint=excluded.authorization_endpoint,
+  token_endpoint=excluded.token_endpoint,jwks_uri=excluded.jwks_uri,
+  user_info_endpoint=excluded.user_info_endpoint,client_id=excluded.client_id,
+  client_secret_reference=excluded.client_secret_reference,enabled=excluded.enabled,
+  tenant_id=excluded.tenant_id,domains=excluded.domains,scopes=excluded.scopes,
+  audiences=excluded.audiences,subject_claim=excluded.subject_claim,
+  username_claim=excluded.username_claim,groups_claim=excluded.groups_claim,
+  connection_status='UNKNOWN',version=identity_provider.version+1,
+  updated_by='demo-bootstrap',updated_at=now();
+
 -- Development-only catalog. This file is applied by docker-compose after
 -- Flyway finishes; it is never part of the production migration chain.
 -- MFE artifact locations belong only to the panel registry. They are seeded by
@@ -189,7 +212,7 @@ ON CONFLICT(idempotency_key) DO NOTHING;
 
 INSERT INTO outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
 SELECT 'grant',g.id,'GRANT_WRITE',jsonb_build_object(
-  'user','user:'||app_user.subject_key,'relation','viewer',
+  'user','user:'||app_user.canonical_user_id,'relation','viewer',
   'object','resource:'||replace(resource.resource_key,':','/')),
   'demo:administrator-grant:'||g.id
 FROM authorization_grant g
@@ -237,7 +260,7 @@ WHERE source.subject_type='USER' AND source.subject_id=bootstrap_user.id
 
 INSERT INTO outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
 SELECT 'grant',g.id,'GRANT_WRITE',jsonb_build_object(
-  'user','user:'||runtime_user.subject_key,'relation',g.relation,
+  'user','user:'||runtime_user.canonical_user_id,'relation',g.relation,
   'object',case resource.type
     when 'APPLICATION' then 'application:'||regexp_replace(resource.resource_key,'^application:','')
     when 'EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(resource.resource_key,'^external_resource:',''),':','/')

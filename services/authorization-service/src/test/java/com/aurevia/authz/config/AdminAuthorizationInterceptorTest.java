@@ -5,14 +5,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
-import com.aurevia.authz.identity.SubjectKey;
+import com.aurevia.authz.identity.CanonicalIdentityResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 class AdminAuthorizationInterceptorTest {
   private final RelationshipAuthorizationPort relationships=org.mockito.Mockito.mock(RelationshipAuthorizationPort.class);
-  private final AdminAuthorizationInterceptor interceptor=new AdminAuthorizationInterceptor(relationships);
+  private final CanonicalIdentityResolver identities=org.mockito.Mockito.mock(CanonicalIdentityResolver.class);
+  private final AdminAuthorizationInterceptor interceptor=new AdminAuthorizationInterceptor(relationships,identities);
 
   @Test void mapsReadAndMutationToLeastPrivilegePermissions() throws Exception {
     assertAllowed("GET","/internal/v1/registry/proxy-routes","can_view","resource:proxy.route");
@@ -30,7 +31,8 @@ class AdminAuthorizationInterceptorTest {
     request.addHeader("X-Actor","alice");
     request.addHeader("X-Actor-Issuer","https://issuer.example");
     request.addHeader("X-Actor-Subject","subject-1");
-    String canonical=new SubjectKey("https://issuer.example","subject-1").openFgaUser();
+    String canonical="user:usr_canonical";
+    when(identities.openFgaUser("https://issuer.example","subject-1")).thenReturn(canonical);
     when(relationships.check(canonical,permission,object)).thenReturn(true);
     assertTrue(interceptor.preHandle(request,new MockHttpServletResponse(),new Object()));
     verify(relationships).check(canonical,permission,object);

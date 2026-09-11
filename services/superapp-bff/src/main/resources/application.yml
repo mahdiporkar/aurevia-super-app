@@ -17,20 +17,6 @@ spring:
     timeout: 30m
     # v2 invalidates pre-hardening sessions whose OIDC authority could retain an ID token.
     redis.namespace: aurevia:session:v2
-  security.oauth2.client:
-    registration.public-iam:
-      client-id: ${OIDC_CLIENT_ID:aurevia-bff}
-      client-secret: ${OIDC_CLIENT_SECRET:change-me}
-      authorization-grant-type: authorization_code
-      redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-      scope: openid,profile,email
-    provider.public-iam:
-      authorization-uri: ${OIDC_AUTHORIZATION_URI:http://localhost:8180/realms/aurevia/protocol/openid-connect/auth}
-      token-uri: ${OIDC_TOKEN_URI:http://localhost:8180/realms/aurevia/protocol/openid-connect/token}
-      jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/aurevia/protocol/openid-connect/certs}
-      user-info-uri: ${OIDC_USER_INFO_URI:http://localhost:8180/realms/aurevia/protocol/openid-connect/userinfo}
-      # Runtime identity is always issuer + sub. preferred_username is display metadata only.
-      user-name-attribute: sub
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
 springdoc:
   api-docs:
@@ -51,6 +37,14 @@ springdoc:
       - name: 2 - سرویس مجوزدهی
         url: /api/v1/docs/authorization/openapi
 aurevia:
+  identity-providers:
+    cache-ttl: ${IDENTITY_PROVIDER_CACHE_TTL:30s}
+    request-timeout: ${IDENTITY_PROVIDER_REQUEST_TIMEOUT:10s}
+    local-secrets:
+      enabled: ${IDENTITY_PROVIDER_LOCAL_SECRETS_ENABLED:false}
+      json: ${IDENTITY_PROVIDER_LOCAL_SECRETS_JSON:{}}
+    file-secrets:
+      root: ${IDENTITY_PROVIDER_SECRET_ROOT:}
   mfe-proxy:
     network-policy: ${UI_ARTIFACT_NETWORK_POLICY:DEVELOPMENT}
     development-host: ${UI_ARTIFACT_DEVELOPMENT_HOST:}

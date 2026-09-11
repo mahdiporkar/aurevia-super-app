@@ -22,7 +22,7 @@ public class IdentitySyncService {
   @Transactional
   public LoginIdentityResponse sync(LoginIdentityRequest request) {
     var directoryResult=ouAccess.syncLogin(new OuAccessService.LoginDirectoryIdentity(
-        request.issuer(),request.subject(),request.username(),request.displayName(),request.email(),
+        request.providerCode(),request.issuer(),request.subject(),request.username(),request.displayName(),request.email(),
         request.distinguishedName(),request.ouExternalId(),request.directoryExternalId(),
         request.attributes()));
     UUID userId=directoryResult.userId();
@@ -52,7 +52,7 @@ public class IdentitySyncService {
           identities.directoryGroupExternalId(removed),"GROUP_MEMBERSHIP_DELETE",version);
       identities.removeMembership(userId,removed);
     }
-    return new LoginIdentityResponse(userId,request.groups().size(),directoryResult.ouId(),
+    return new LoginIdentityResponse(userId,subjectKey,request.groups().size(),directoryResult.ouId(),
         directoryResult.effectiveGroups());
   }
 

@@ -46,7 +46,7 @@ try {
     (select max(version::integer) from flyway_schema_history where success) || '|' ||
     (select count(*) from outbox_event where dead_lettered_at is not null) || '|' ||
     (select count(*) from outbox_event where processed_at is null and dead_lettered_at is null) || '|' ||
-    coalesce((select subject_key from app_user where issuer='http://localhost:8180/realms/aurevia' and username='administrator' and status='ACTIVE' order by case when external_id=username then 1 else 0 end,updated_at desc limit 1),'') || '|' ||
+    coalesce((select canonical_user_id from app_user where issuer='http://localhost:8180/realms/aurevia' and username='administrator' and status='ACTIVE' order by case when external_id=username then 1 else 0 end,updated_at desc limit 1),'') || '|' ||
     coalesce((select a.artifact_version from panel p join ui_module_artifact a on a.id=p.active_artifact_id where p.code='ADMIN'),'') || '|' ||
     coalesce((select a.contract_version from panel p join ui_module_artifact a on a.id=p.active_artifact_id where p.code='ADMIN'),'') || '|' ||
     coalesce((select jsonb_array_length(a.manifest_snapshot->'routes') from panel p join ui_module_artifact a on a.id=p.active_artifact_id where p.code='ADMIN'),0) || '|' ||

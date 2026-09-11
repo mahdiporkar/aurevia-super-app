@@ -9,7 +9,7 @@ import java.util.UUID;
 public final class IdentitySyncDtos {
   private IdentitySyncDtos() {}
 
-  public record LoginIdentityRequest(@NotBlank String issuer,@NotBlank String subject,
+  public record LoginIdentityRequest(@NotBlank String providerCode,@NotBlank String issuer,@NotBlank String subject,
       @NotBlank String username,String displayName,String email,
       List<@Valid DirectoryGroupRequest> groups,String distinguishedName,String ouExternalId,
       String directoryExternalId,Map<String,String> attributes) {
@@ -20,5 +20,6 @@ public final class IdentitySyncDtos {
   }
   public record DirectoryGroupRequest(@NotBlank String externalId,@NotBlank String path,
       @NotBlank String displayName) {}
-  public record LoginIdentityResponse(UUID userId,int groups,UUID ouId,int effectiveGroups) {}
+  public record LoginIdentityResponse(UUID userId,String canonicalUserId,int groups,UUID ouId,
+      int effectiveGroups) {}
 }

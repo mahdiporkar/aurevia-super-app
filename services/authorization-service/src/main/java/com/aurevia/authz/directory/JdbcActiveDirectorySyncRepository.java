@@ -52,16 +52,19 @@ class JdbcActiveDirectorySyncRepository implements ActiveDirectorySyncRepository
       where issuer=:issuer and active and external_id<>all(cast(:ids as text[]))
       """).param("issuer",issuer).param("ids",array(ids)).update(); }
   @Override public List<UUID> linkedUsers(String issuer,String external) { return database.sql("""
-      select id from app_user where issuer=:issuer and directory_external_id=:external
+      select distinct u.id from app_user u join external_identity e on e.user_id=u.id
+      where e.issuer=:issuer and u.directory_external_id=:external
       """).param("issuer",issuer).param("external",external).query(UUID.class).list(); }
   @Override public RemovalStats userRemovalStats(String issuer,Set<String> ids) {
     int active=database.sql("""
       select count(distinct a.user_id) from user_ou_assignment a join app_user u on u.id=a.user_id
-      where a.active and u.issuer=:issuer and u.directory_external_id is not null
+      join external_identity e on e.user_id=u.id and e.issuer=:issuer
+      where a.active and u.directory_external_id is not null
       """).param("issuer",issuer).query(Integer.class).single();
     int missing=database.sql("""
       select count(distinct a.user_id) from user_ou_assignment a join app_user u on u.id=a.user_id
-      where a.active and u.issuer=:issuer and u.directory_external_id is not null
+      join external_identity e on e.user_id=u.id and e.issuer=:issuer
+      where a.active and u.directory_external_id is not null
         and u.directory_external_id<>all(cast(:ids as text[]))
       """).param("issuer",issuer).param("ids",array(ids)).query(Integer.class).single();
     return new RemovalStats(active,missing);
@@ -69,12 +72,14 @@ class JdbcActiveDirectorySyncRepository implements ActiveDirectorySyncRepository
   @Override public List<UUID> deactivateMissingUserAssignments(String issuer,Set<String> ids) {
     List<UUID> removed=database.sql("""
       select distinct a.user_id from user_ou_assignment a join app_user u on u.id=a.user_id
-      where a.active and u.issuer=:issuer and u.directory_external_id is not null
+      join external_identity e on e.user_id=u.id and e.issuer=:issuer
+      where a.active and u.directory_external_id is not null
         and u.directory_external_id<>all(cast(:ids as text[]))
       """).param("issuer",issuer).param("ids",array(ids)).query(UUID.class).list();
     if(!removed.isEmpty()) database.sql("""
       update user_ou_assignment a set active=false,removed_at=now(),updated_at=now()
-      from app_user u where u.id=a.user_id and a.active and u.issuer=:issuer
+      from app_user u where u.id=a.user_id and a.active
+        and exists(select 1 from external_identity e where e.user_id=u.id and e.issuer=:issuer)
         and u.directory_external_id is not null
         and u.directory_external_id<>all(cast(:ids as text[]))
       """).param("issuer",issuer).param("ids",array(ids)).update();

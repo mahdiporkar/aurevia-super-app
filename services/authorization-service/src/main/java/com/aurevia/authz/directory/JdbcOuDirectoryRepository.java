@@ -14,19 +14,40 @@ class JdbcOuDirectoryRepository implements OuDirectoryRepository {
   JdbcOuDirectoryRepository(JdbcClient database) { this.database=database; }
 
   @Override public UUID upsertUser(OuAccessService.LoginDirectoryIdentity value,String attrs) {
-    return database.sql("""
+    UUID provider=database.sql("""
+      select id from identity_provider where code=:code and issuer_url=:issuer and enabled
+        and connection_status<>'INVALID'
+      """).param("code",value.providerCode()).param("issuer",value.issuer()).query(UUID.class)
+      .optional().orElseThrow(()->new IllegalArgumentException(
+          "Login issuer is not registered for this identity provider"));
+    Optional<UUID> linked=database.sql("""
+      select user_id from external_identity where issuer=:issuer and subject=:subject
+      """).param("issuer",value.issuer()).param("subject",value.subject()).query(UUID.class).optional();
+    UUID user=linked.orElseGet(()->database.sql("""
       insert into app_user(issuer,external_id,username,display_name,email,directory_attributes,
         directory_external_id)
       values(:issuer,:subject,:username,:display,:email,cast(:attrs as jsonb),:directoryExternal)
-      on conflict(issuer,external_id) do update set username=excluded.username,
-        display_name=excluded.display_name,email=excluded.email,status='ACTIVE',
-        directory_attributes=excluded.directory_attributes,
-        directory_external_id=coalesce(excluded.directory_external_id,app_user.directory_external_id),
-        updated_at=now() returning id
+      returning id
       """).param("issuer",value.issuer()).param("subject",value.subject())
       .param("username",value.username()).param("display",value.displayName())
       .param("email",value.email()).param("attrs",attrs)
-      .param("directoryExternal",value.directoryExternalId()).query(UUID.class).single();
+      .param("directoryExternal",value.directoryExternalId()).query(UUID.class).single());
+    database.sql("""
+      update app_user set username=:username,display_name=:display,email=:email,status='ACTIVE',
+        directory_attributes=cast(:attrs as jsonb),
+        directory_external_id=coalesce(:directoryExternal,directory_external_id),updated_at=now()
+      where id=:id
+      """).param("username",value.username()).param("display",value.displayName())
+      .param("email",value.email()).param("attrs",attrs)
+      .param("directoryExternal",value.directoryExternalId()).param("id",user).update();
+    database.sql("""
+      insert into external_identity(user_id,identity_provider_id,issuer,subject,last_login_at,created_by)
+      values(:user,:provider,:issuer,:subject,now(),'LOGIN_SYNC')
+      on conflict(issuer,subject) do update set identity_provider_id=excluded.identity_provider_id,
+        last_login_at=now(),updated_at=now()
+      """).param("user",user).param("provider",provider).param("issuer",value.issuer())
+      .param("subject",value.subject()).update();
+    return user;
   }
   @Override public Optional<String> ouExternalIdByDn(String issuer,String dn) {
     return database.sql("""
@@ -69,7 +90,7 @@ class JdbcOuDirectoryRepository implements OuDirectoryRepository {
       where user_id=:user and active
       """).param("user",user).update(); }
   @Override public String subjectKey(UUID user) { return database.sql(
-      "select subject_key from app_user where id=:id").param("id",user)
+      "select canonical_user_id from app_user where id=:id").param("id",user)
       .query(String.class).single(); }
   @Override public Optional<String> activeUserDn(UUID user) { return database.sql("""
       select o.external_dn from user_ou_assignment a join directory_ou o on o.id=a.ou_id

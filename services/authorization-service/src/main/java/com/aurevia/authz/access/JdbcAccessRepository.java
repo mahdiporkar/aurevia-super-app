@@ -70,7 +70,7 @@ public class JdbcAccessRepository implements AccessRepository {
   @Override
   public List<UserView> users() {
     return database.sql("""
-        select u.id,u.issuer,u.external_id,u.subject_key,u.username,u.display_name,u.email,
+        select u.id,u.issuer,u.external_id,u.canonical_user_id subject_key,u.username,u.display_name,u.email,
           u.status::text status,u.version,u.membership_version,
           coalesce(array_agg(distinct o.external_path order by o.external_path)
             filter(where a.active and o.active),array[]::varchar[]) organizational_units
@@ -219,6 +219,10 @@ public class JdbcAccessRepository implements AccessRepository {
         """).param("id", id).param("issuer", c.issuer()).param("external", c.externalId())
         .param("username", c.username()).param("display", c.displayName())
         .param("email", c.email()).update();
+    database.sql("""
+        insert into external_identity(user_id,issuer,subject,created_by)
+        values(:id,:issuer,:subject,'ADMIN')
+        """).param("id",id).param("issuer",c.issuer()).param("subject",c.externalId()).update();
   }
 
   @Override public Optional<GrantTarget> grantTarget(UUID resourceId, UUID actionId) {
@@ -269,7 +273,7 @@ public class JdbcAccessRepository implements AccessRepository {
         insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
         select 'grant',g.id,:event,
           jsonb_build_object(
-            'user',case g.subject_type when 'USER' then 'user:'||u.subject_key when 'GROUP' then 'group:'||dg.external_id||'#member' when 'ACCESS_GROUP' then 'group:'||lower(ag.code)||'#member' when 'ROLE' then 'role:'||ar.role_key||'#assignee' end,
+            'user',case g.subject_type when 'USER' then 'user:'||u.canonical_user_id when 'GROUP' then 'group:'||dg.external_id||'#member' when 'ACCESS_GROUP' then 'group:'||lower(ag.code)||'#member' when 'ROLE' then 'role:'||ar.role_key||'#assignee' end,
             'relation',g.relation,
             'object',case when r.type='APPLICATION' then 'application:'||regexp_replace(r.resource_key,'^application:','') when r.type='EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(r.resource_key,'^external_resource:',''),':','/') else 'resource:'||replace(r.resource_key,':','/') end),
           :event||':'||g.id||':'||cast(:version as text)

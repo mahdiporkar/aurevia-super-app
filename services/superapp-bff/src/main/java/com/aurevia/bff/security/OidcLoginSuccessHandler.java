@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.web.server.ServerOAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.web.server.WebFilterExchange;
 import org.springframework.security.web.server.authentication.ServerAuthenticationSuccessHandler;
 import org.springframework.security.web.server.authentication.RedirectServerAuthenticationSuccessHandler;
@@ -53,8 +54,10 @@ public class OidcLoginSuccessHandler implements ServerAuthenticationSuccessHandl
           String refreshToken = client.getRefreshToken() == null
               ? null : client.getRefreshToken().getTokenValue();
           var tokens = new TokenVaultService.Tokens(
-              client.getAccessToken().getTokenValue(), refreshToken, accessExpiry);
-          return authorization.syncLogin(identity(oauth))
+              client.getAccessToken().getTokenValue(), refreshToken, accessExpiry,
+              refreshToken==null?accessExpiry:accessExpiry.plusSeconds(1800),
+              oauth.getAuthorizedClientRegistrationId());
+          return authorization.syncLogin(identity(oauth,client.getClientRegistration()))
               .then(exchange.getSession())
               .flatMap(session -> {
                 Object previous = session.getAttribute(VaultLogoutHandler.HANDLE);
@@ -72,15 +75,22 @@ public class OidcLoginSuccessHandler implements ServerAuthenticationSuccessHandl
         .then(redirect.onAuthenticationSuccess(webFilterExchange, authentication));
   }
 
-  private static Map<String, Object> identity(OAuth2AuthenticationToken authentication) {
+  private static Map<String, Object> identity(OAuth2AuthenticationToken authentication,
+      ClientRegistration registration) {
     Map<String, Object> claims = authentication.getPrincipal().getAttributes();
-    String subject = string(claims.get("sub"), authentication.getName());
+    Map<String,Object> metadata=registration.getProviderDetails().getConfigurationMetadata();
+    String subjectClaim=string(metadata.get(DynamicClientRegistrationRepository.SUBJECT_CLAIM),"sub");
+    String usernameClaim=string(metadata.get(DynamicClientRegistrationRepository.USERNAME_CLAIM),"preferred_username");
+    String groupsClaim=string(metadata.get(DynamicClientRegistrationRepository.GROUPS_CLAIM),"groups");
+    String subject = string(claims.get(subjectClaim), authentication.getName());
     String issuer = authentication.getPrincipal() instanceof OidcUser oidc
         && oidc.getIdToken().getIssuer() != null
         ? oidc.getIdToken().getIssuer().toString()
         : string(claims.get("iss"), "unknown-issuer");
     List<Map<String, String>> groups = new ArrayList<>();
-    Object claimGroups = claims.get("groups");
+    String expectedIssuer=registration.getProviderDetails().getIssuerUri();
+    if(!issuer.equals(expectedIssuer))throw new IllegalStateException("Validated issuer does not match registration");
+    Object claimGroups = claims.get(groupsClaim);
     if (claimGroups instanceof Iterable<?> values) {
       for (Object value : values) {
         String path = String.valueOf(value);
@@ -89,13 +99,14 @@ public class OidcLoginSuccessHandler implements ServerAuthenticationSuccessHandl
       }
     }
     Map<String, Object> identity = new LinkedHashMap<>();
+    identity.put("providerCode",registration.getRegistrationId());
     identity.put("issuer", issuer);
     identity.put("subject", subject);
-    identity.put("username", string(claims.get("preferred_username"), subject));
+    identity.put("username", string(claims.get(usernameClaim), subject));
     identity.put("displayName", string(claims.get("name"), subject));
     identity.put("email", claims.get("email"));
     identity.put("groups", groups);
-    // These values originate only from the validated Keycloak principal. Browser input is never used.
+    // These values originate only from the validated OIDC principal. Browser input is never used.
     identity.put("distinguishedName", firstClaim(claims,"distinguished_name","distinguishedName","ldap_dn"));
     identity.put("ouExternalId", firstClaim(claims,"ou_object_guid","ouObjectGuid"));
     identity.put("directoryExternalId", firstClaim(claims,"ldap_user_id","LDAP_ID","objectGUID"));

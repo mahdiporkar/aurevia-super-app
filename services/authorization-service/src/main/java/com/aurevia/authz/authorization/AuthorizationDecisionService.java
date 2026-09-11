@@ -3,7 +3,7 @@ package com.aurevia.authz.authorization;
 import static com.aurevia.authz.api.dto.AuthorizationDtos.*;
 
 import com.aurevia.authz.audit.AuthorizationDecisionAuditor;
-import com.aurevia.authz.identity.SubjectKey;
+import com.aurevia.authz.identity.CanonicalIdentityResolver;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort.RelationshipCheck;
 import com.aurevia.authz.policy.RuntimePolicyService;
@@ -36,12 +36,14 @@ public class AuthorizationDecisionService {
   private final RuntimePolicyService policies;
   private final AuthorizationDecisionAuditor auditor;
   private final ObjectMapper json;
+  private final CanonicalIdentityResolver identities;
 
   public AuthorizationDecisionService(RelationshipAuthorizationPort relationships,
       AuthorizationQueryRepository queries,AuthorizationSemanticsRegistry semantics,
-      RuntimePolicyService policies,AuthorizationDecisionAuditor auditor,ObjectMapper json) {
+      RuntimePolicyService policies,AuthorizationDecisionAuditor auditor,ObjectMapper json,
+      CanonicalIdentityResolver identities) {
     this.relationships=relationships;this.queries=queries;this.semantics=semantics;
-    this.policies=policies;this.auditor=auditor;this.json=json;
+    this.policies=policies;this.auditor=auditor;this.json=json;this.identities=identities;
   }
 
   public CheckEvaluation check(CheckRequest request) {
@@ -58,9 +60,9 @@ public class AuthorizationDecisionService {
       return new CheckEvaluation(new Decision("DENY",reason,"configured-model",decisionId,
           Map.of()),permission,0);
     }
-    SubjectKey subject=new SubjectKey(request.issuer(),request.subjectId());
+    String subject=identities.openFgaUser(request.issuer(),request.subjectId());
     long openFgaStarted=System.nanoTime();
-    boolean relationshipAllowed=relationships.check(subject.openFgaUser(),permission,
+    boolean relationshipAllowed=relationships.check(subject,permission,
         request.resource());
     long openFgaDuration=(System.nanoTime()-openFgaStarted)/1_000_000;
     RuntimePolicyService.Evaluation policy=relationshipAllowed
@@ -78,14 +80,14 @@ public class AuthorizationDecisionService {
   }
 
   public Manifest manifest(String subjectId,String issuer) {
-    SubjectKey subject=new SubjectKey(issuer,subjectId);
+    String subject=identities.openFgaUser(issuer,subjectId);
     List<AuthorizationQueryRepository.PanelRecord> panels=queries.activePanels().stream()
-        .filter(panel->relationships.check(subject.openFgaUser(),"can_view",
+        .filter(panel->relationships.check(subject,"can_view",
             "application:aurevia/"+panel.slug())).toList();
     List<AuthorizationQueryRepository.PermissionCandidate> candidates=
         queries.permissionCandidates();
     List<RelationshipCheck> checks=candidates.stream().map(candidate->new RelationshipCheck(
-        subject.openFgaUser(),semantics.resolve(candidate.resourceType(),candidate.actionKey())
+        subject,semantics.resolve(candidate.resourceType(),candidate.actionKey())
             .permission(),ResourceObjectKey.from(candidate.resourceType(),candidate.resourceKey())))
         .toList();
     Map<RelationshipCheck,Boolean> decisions=relationships.checkBatch(checks);

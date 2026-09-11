@@ -28,6 +28,12 @@ logging:
     audit-days: ${AUDIT_LOG_RETENTION_DAYS:365}
     cron: ${LOG_RETENTION_CRON:0 17 2 * * *}
 aurevia:
+  identity-providers:
+    allow-http: ${IDENTITY_PROVIDER_ALLOW_HTTP:true}
+    allow-private-hosts: ${IDENTITY_PROVIDER_ALLOW_PRIVATE_HOSTS:true}
+    require-host-allowlist: ${IDENTITY_PROVIDER_REQUIRE_HOST_ALLOWLIST:false}
+    allowed-hosts: ${IDENTITY_PROVIDER_ALLOWED_HOSTS:localhost,host.docker.internal}
+    health-timeout: ${IDENTITY_PROVIDER_HEALTH_TIMEOUT:5s}
   resource-tree:
     development-mutations-enabled: ${RESOURCE_TREE_DEVELOPMENT_MUTATIONS_ENABLED:false}
   demo-data:

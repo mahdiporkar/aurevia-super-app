@@ -2,6 +2,8 @@ package com.aurevia.bff.api;
 
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.core.ParameterizedTypeReference;
@@ -35,6 +37,35 @@ public class AuthorizationServiceClient {
         .retrieve()
         .bodyToMono(Void.class);
   }
+
+  public Mono<IdentityProviderRuntime> identityProvider(String code) {
+    return client.get().uri("/internal/v1/identity-providers/{code}",code).retrieve()
+        .bodyToMono(IdentityProviderRuntime.class);
+  }
+
+  public Mono<List<IdentityProviderSummary>> identityProviders(String tenant,String domain) {
+    return client.get().uri(builder->{var uri=builder.path("/internal/v1/identity-providers");
+      if(tenant!=null&&!tenant.isBlank())uri.queryParam("tenant",tenant);
+      if(domain!=null&&!domain.isBlank())uri.queryParam("domain",domain);return uri.build();})
+        .retrieve().bodyToFlux(IdentityProviderSummary.class).collectList();
+  }
+
+  public Mono<IdentityProviderSummary> routeIdentityProvider(String code,String tenant,String domain) {
+    return client.get().uri(builder->{var uri=builder.path("/internal/v1/identity-providers/route");
+      if(code!=null&&!code.isBlank())uri.queryParam("code",code);
+      if(tenant!=null&&!tenant.isBlank())uri.queryParam("tenant",tenant);
+      if(domain!=null&&!domain.isBlank())uri.queryParam("domain",domain);return uri.build();})
+        .retrieve().bodyToMono(IdentityProviderSummary.class);
+  }
+
+  @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+  public record IdentityProviderRuntime(String code,String name,String issuerUrl,
+      String authorizationEndpoint,String tokenEndpoint,String jwksUri,String userInfoEndpoint,
+      String clientId,String clientSecretReference,List<String> scopes,List<String> audiences,
+      String subjectClaim,String usernameClaim,String groupsClaim) {}
+  @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+  public record IdentityProviderSummary(String code,String name,String type,String issuerUrl,
+      String tenantId,List<String> domains,String connectionStatus) {}
 
   public Mono<RouteResolution> resolveRoute(String path, String method) {
     return client.get()

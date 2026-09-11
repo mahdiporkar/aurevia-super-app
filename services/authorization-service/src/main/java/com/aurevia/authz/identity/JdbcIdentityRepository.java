@@ -161,7 +161,7 @@ public class JdbcIdentityRepository implements IdentityRepository {
         insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
         select 'role-assignment',r.id,:event,
           jsonb_build_object(
-            'user',case :type when 'USER' then 'user:'||u.subject_key
+            'user',case :type when 'USER' then 'user:'||u.canonical_user_id
               when 'DIRECTORY_GROUP' then 'group:'||dg.external_id||'#member'
               else 'group:'||lower(ag.code)||'#member' end,
             'relation','assignee','object','role:'||r.role_key),

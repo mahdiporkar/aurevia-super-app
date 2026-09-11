@@ -33,7 +33,7 @@ class JdbcIdentitySyncRepository implements IdentitySyncRepository {
         .param("id",userId).query(Long.class).single();
   }
   @Override public String subjectKey(UUID userId) {
-    return database.sql("select subject_key from app_user where id=:id")
+    return database.sql("select canonical_user_id from app_user where id=:id")
         .param("id",userId).query(String.class).single();
   }
   @Override public UUID upsertDirectoryGroup(String issuer,String externalId,String path,

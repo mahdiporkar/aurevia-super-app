@@ -13,7 +13,7 @@ class JdbcOpenFgaReconciliationRepository implements OpenFgaReconciliationReposi
   @Override public Set<ReconciliationTuple> expectedTuples() {
     Set<ReconciliationTuple> tuples=new LinkedHashSet<>();
     tuples.addAll(database.sql("""
-      select case g.subject_type when 'USER' then 'user:'||u.subject_key
+      select case g.subject_type when 'USER' then 'user:'||u.canonical_user_id
         when 'GROUP' then 'group:'||dg.external_id||'#member'
         when 'ROLE' then 'role:'||ar.role_key||'#assignee' end "user",
         g.relation,
@@ -36,12 +36,12 @@ class JdbcOpenFgaReconciliationRepository implements OpenFgaReconciliationReposi
       from resource c join resource p on p.id=c.parent_id where c.status='ACTIVE'
       """).query(ReconciliationTuple.class).list());
     tuples.addAll(database.sql("""
-      select 'user:'||u.subject_key "user",'member' relation,'group:'||g.external_id object
+      select 'user:'||u.canonical_user_id "user",'member' relation,'group:'||g.external_id object
       from user_group_membership m join app_user u on u.id=m.user_id
       join directory_group g on g.id=m.group_id
       """).query(ReconciliationTuple.class).list());
     tuples.addAll(database.sql("""
-      select distinct 'user:'||u.subject_key "user",'member' relation,'group:'||lower(g.code) object
+      select distinct 'user:'||u.canonical_user_id "user",'member' relation,'group:'||lower(g.code) object
       from effective_group_membership m join app_user u on u.id=m.user_id
       join access_group g on g.id=m.access_group_id where m.active and g.active
       """).query(ReconciliationTuple.class).list());
@@ -53,7 +53,7 @@ class JdbcOpenFgaReconciliationRepository implements OpenFgaReconciliationReposi
       where g.revoked_at is null and a.active and p.active
       """).query(ReconciliationTuple.class).list());
     tuples.addAll(database.sql("""
-      select 'user:'||u.subject_key "user",'assignee' relation,'role:'||r.role_key object
+      select 'user:'||u.canonical_user_id "user",'assignee' relation,'role:'||r.role_key object
       from user_role_assignment x join app_user u on u.id=x.user_id
       join application_role r on r.id=x.role_id where x.expires_at is null or x.expires_at>now()
       union all

@@ -6,14 +6,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
-import com.aurevia.authz.identity.SubjectKey;
+import com.aurevia.authz.identity.CanonicalIdentityResolver;
 
 @Component
 class AdminAuthorizationInterceptor implements HandlerInterceptor {
   private final RelationshipAuthorizationPort relationships;
+  private final CanonicalIdentityResolver identities;
 
-  AdminAuthorizationInterceptor(RelationshipAuthorizationPort relationships) {
+  AdminAuthorizationInterceptor(RelationshipAuthorizationPort relationships,
+      CanonicalIdentityResolver identities) {
     this.relationships = relationships;
+    this.identities = identities;
   }
 
   @Override
@@ -23,8 +26,12 @@ class AdminAuthorizationInterceptor implements HandlerInterceptor {
     String subject = request.getHeader("X-Actor-Subject");
     String object=resourceFor(request.getRequestURI());
     String permission=permissionFor(request);
-    boolean allowed = issuer != null && subject != null && relationships.check(
-        new SubjectKey(issuer, subject).openFgaUser(), permission, object);
+    boolean allowed = false;
+    if(issuer != null && subject != null) try {
+      allowed=relationships.check(identities.openFgaUser(issuer,subject),permission,object);
+    } catch(org.springframework.web.server.ResponseStatusException unknown) {
+      allowed=false;
+    }
     if (!allowed) {
       response.sendError(HttpStatus.FORBIDDEN.value(),
           "Administrative permission required: " + permission);
@@ -48,6 +55,7 @@ class AdminAuthorizationInterceptor implements HandlerInterceptor {
 
   private static boolean isPrivilegedOperation(String uri) {
     return uri.endsWith("/token-test") || uri.endsWith("/connection-test")
+        || uri.endsWith("/health-check")
         || uri.endsWith("/invalidate-token") || uri.endsWith("/health")
         || uri.endsWith("/activate") || uri.endsWith("/deactivate")
         || uri.endsWith("/validate") || uri.endsWith("/preview")
