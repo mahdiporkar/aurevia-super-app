@@ -72,7 +72,10 @@ public class AuthorizationServiceClient {
         .uri(builder -> builder.path("/internal/v1/routes/resolve")
             .queryParam("path", path).queryParam("method", method).build())
         .retrieve()
-        .bodyToMono(RouteResolution.class);
+        .bodyToMono(RouteResolution.class)
+        .onErrorMap(org.springframework.web.reactive.function.client.WebClientResponseException.class,
+            failure -> new org.springframework.web.server.ResponseStatusException(
+                failure.getStatusCode(), "Proxy route resolution rejected"));
   }
 
   public Mono<Map> outboundAuthProfile(String id) {

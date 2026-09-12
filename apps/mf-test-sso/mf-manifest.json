@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "microfrontend": {
+    "key": "test-sso",
+    "name": "SSO Test",
+    "version": "0.1.0"
+  },
+  "runtime": {
+    "remoteEntry": "http://localhost:3011/remoteEntry.js",
+    "remoteName": "aurevia_test_sso",
+    "exposedModule": "./plugin",
+    "contractVersion": "1.0",
+    "apiBasePath": "/api/proxy/test-sso"
+  },
+  "defaultRouteKey": "home",
+  "routes": [
+    {
+      "key": "home",
+      "path": "home",
+      "requiredResource": "page:test-sso.home",
+      "requiredAction": "view",
+      "title": "SSO Test"
+    }
+  ],
+  "navigation": [
+    {
+      "key": "test-sso.home",
+      "type": "PAGE",
+      "routeKey": "home",
+      "title": "SSO Test",
+      "order": 110
+    }
+  ]
+}

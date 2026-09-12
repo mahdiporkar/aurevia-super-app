@@ -1,0 +1,16 @@
+server:
+  port: ${PORT:8091}
+  error:
+    include-message: never
+    include-stacktrace: never
+spring:
+  application:
+    name: test-sso-service
+logging:
+  level:
+    org.springframework.security: WARN
+    org.springframework.web: WARN
+test-sso:
+  issuer: ${TEST_SSO_ISSUER:http://localhost:8180/realms/aurevia}
+  jwks-uri: ${TEST_SSO_JWKS_URI:http://localhost:8180/realms/aurevia/protocol/openid-connect/certs}
+  audience: ${TEST_SSO_AUDIENCE:account}

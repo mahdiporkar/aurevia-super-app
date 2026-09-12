@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "microfrontend": {
+    "key": "test-legacy",
+    "name": "Legacy Test",
+    "version": "0.1.0"
+  },
+  "runtime": {
+    "remoteEntry": "http://localhost:3012/remoteEntry.js",
+    "remoteName": "aurevia_test_legacy",
+    "exposedModule": "./plugin",
+    "contractVersion": "1.0",
+    "apiBasePath": "/api/proxy/test-legacy"
+  },
+  "defaultRouteKey": "home",
+  "routes": [
+    {
+      "key": "home",
+      "path": "home",
+      "requiredResource": "page:test-legacy.home",
+      "requiredAction": "view",
+      "title": "Legacy Test"
+    }
+  ],
+  "navigation": [
+    {
+      "key": "test-legacy.home",
+      "type": "PAGE",
+      "routeKey": "home",
+      "title": "Legacy Test",
+      "order": 110
+    }
+  ]
+}

@@ -7,7 +7,7 @@ import {isDeepStrictEqual} from 'node:util';
 
 const delay=milliseconds=>new Promise(resolveDelay=>setTimeout(resolveDelay,milliseconds));
 
-function installedChrome() {
+export function installedChrome() {
   const candidates=[process.env.AUREVIA_CHROME_PATH,
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
@@ -26,7 +26,7 @@ async function freePort() {
   return port;
 }
 
-async function launchChrome(executable,profile) {
+export async function launchChrome(executable,profile) {
   const port=await freePort();
   const processHandle=spawn(executable,[
     '--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check',
@@ -49,7 +49,7 @@ async function launchChrome(executable,profile) {
   return {processHandle,websocketUrl};
 }
 
-async function connectCdp(websocketUrl) {
+export async function connectCdp(websocketUrl) {
   const socket=new WebSocket(websocketUrl);
   await new Promise((resolveOpen,reject)=>{
     socket.addEventListener('open',resolveOpen,{once:true});
@@ -78,7 +78,7 @@ async function connectCdp(websocketUrl) {
   return {socket,call,events};
 }
 
-async function evaluate(call,sessionId,expression) {
+export async function evaluate(call,sessionId,expression) {
   const result=await call('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true},sessionId);
   if(result.exceptionDetails)throw new Error(`Browser evaluation failed: ${result.exceptionDetails.text}`);
   return result.result?.value;

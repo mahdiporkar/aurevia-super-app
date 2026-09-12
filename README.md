@@ -38,6 +38,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [Legacy service self-service and authentication guide (فارسی)](docs/legacy-service-authentication-fa.md#تعریف-یک-micro-app-از-نوع-legacy-بدون-انتشار-نسخه)
 - [Operational token forwarding: Keycloak, Gateway, Legacy and Superset (فارسی)](docs/operational-token-forwarding-fa.md)
 - [Legacy and OAuth2 end-to-end verification (فارسی)](docs/legacy-oauth2-end-to-end-demo-fa.md)
+- [گزارش پیاده‌سازی و آزمون واقعی دو برنامهٔ مستقل SSO و Legacy (فارسی)](docs/e2e-sso-legacy-proxy-test-fa.md)
 - [Browser session vs. Keycloak token (فارسی)](docs/operational-token-forwarding-fa.md#تفاوت-session-مرورگر-با-توکن-keycloak)
 - [Resource Catalog and Manifest architecture (فارسی)](docs/resource-catalog-manifest-architecture-fa.md)
 - [Shell runtime and Micro Frontend loading (فارسی)](docs/shell-runtime-and-mfe-loading-fa.md)
@@ -284,6 +285,32 @@ identity/mTLS, configure TLS and secure cookies, move secrets to a secret manage
 and PostgreSQL HA/backups, use a production Superset WSGI deployment, configure CSP and a
 shared rate-limit backend, and add outbox/OpenFGA drift monitoring. Local `change-me` values,
 development servers, and example data must never be promoted to production.
+
+## آزمون سرتاسری مستقل SSO و Legacy
+
+پس از آماده‌سازی Core و اجرای Keycloak محلی، دو برنامهٔ آزمایشی مستقل را بسازید و اجرا کنید.
+ثبت مایکروفرانت‌اندها، Manifestها، مسیر proxy، مقصد و روش احراز هویت از APIهای موجود مدیریت
+انجام می‌شود. Runner مجوزهای واقعی OpenFGA را تنظیم و چهار حالت دسترسی کاربر را در API و
+مرورگر آزمون می‌کند. گزارش فارسی شامل کارهای انجام‌شده، علت اشکال‌ها، اصلاحات و نتایج واقعی است.
+
+```powershell
+.\mvnw.cmd -P e2e-sso-legacy package
+npm run e2e:auth:build
+npm run e2e:auth:prepare
+npm run identity:up
+npm run e2e:auth:core:up
+npm run e2e:auth:up
+npm run e2e:auth:verify
+npm run e2e:auth:report
+```
+
+Imageهای Core باید از قبل با `npm run infra:up` ساخته شده باشند؛ overlay اختیاری JARهای
+تازهٔ Java را mount می‌کند. نتایج و تصویرهای مرورگر در `target/e2e-auth` و رمزهای تصادفی
+محلی در `.tmp/e2e-auth` ذخیره می‌شوند؛ این مسیرها در Git ثبت نمی‌شوند. خروجی امن و قابل
+نگهداری آزمون در `docs/evidence/e2e-sso-legacy-proxy-results.json` قرار دارد.
+برای توسعهٔ مستقل از `dev:mf-test-sso` و `dev:mf-test-legacy` و برای توقف چهار جزء آزمایشی
+از `e2e:auth:down` استفاده کنید. فرمان‌های نصب تازه، بازگشت محیط، جزئیات امنیت و
+نتایج واقعی در [گزارش فارسی آزمون](docs/e2e-sso-legacy-proxy-test-fa.md) آمده‌اند.
 
 ## Superset demo
 

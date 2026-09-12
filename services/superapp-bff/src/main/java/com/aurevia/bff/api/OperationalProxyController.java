@@ -28,6 +28,7 @@ import reactor.core.publisher.Mono;
 /** Registry-driven operational proxy. The Public IAM bearer is forwarded unchanged. */
 @RestController
 public class OperationalProxyController {
+  private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(OperationalProxyController.class);
   private final AuthorizationServiceClient authorization;
   private final TokenVaultService vault;
   private final TokenRefreshService tokenRefresh;
@@ -56,7 +57,11 @@ public class OperationalProxyController {
     String path = RouteNormalizer.normalizePath(exchange.getRequest().getPath().value());
     String method = exchange.getRequest().getMethod().name();
     return authorization.resolveRoute(path, method)
-        .flatMap(route -> authorize(route, identity, exchange).thenReturn(route))
+        .flatMap(route -> authorize(route, identity, exchange)
+            .doOnSuccess(ignoredDecision -> trace(route, identity, exchange, "ALLOW", 0))
+            .doOnError(error -> trace(route, identity, exchange, "DENY",
+                error instanceof ResponseStatusException status ? status.getStatusCode().value() : 500))
+            .thenReturn(route))
         .flatMap(route -> exchange.getSession().flatMap(session -> {
           String handle = session.getAttribute(VaultLogoutHandler.HANDLE);
           if (handle == null) return Mono.error(new ResponseStatusException(
@@ -64,7 +69,11 @@ public class OperationalProxyController {
           return vault.read(handle)
               .flatMap(tokens -> tokenRefresh.ensureFresh(handle, tokens))
               .flatMap(tokens -> forward(route, handle, tokens, exchange,
-                  identity.subject(), identity.issuer()));
+                  identity.subject(), identity.issuer()))
+              .doOnSuccess(ignoredResponse -> trace(route, identity, exchange, "ALLOW",
+                  exchange.getResponse().getStatusCode() == null ? 200 : exchange.getResponse().getStatusCode().value()))
+              .doOnError(error -> trace(route, identity, exchange, "ALLOW",
+                  error instanceof ResponseStatusException status ? status.getStatusCode().value() : 500));
         }));
   }
 
@@ -178,6 +187,16 @@ public class OperationalProxyController {
 
   private static void copy(HttpHeaders source, HttpHeaders target, String name) {
     if (source.containsKey(name)) target.put(name, source.get(name));
+  }
+  private static void trace(RouteResolution route, SessionIdentity identity,
+      ServerWebExchange exchange, String decision, int status) {
+    exchange.getAttributes().put("proxy.authorizationResult", decision);
+    exchange.getAttributes().put("proxy.resourceId", route.resourceKey());
+    exchange.getAttributes().put("proxy.businessAction", route.actionKey());
+    LOG.info("PROXY_AUDIT subject={} application={} route={} path={} decision={} target={} authMode={} status={} correlation={} time={}",
+        identity.subject(), route.panelSlug(), route.routeId(),
+        RouteNormalizer.normalizePath(exchange.getRequest().getPath().value()), decision,
+        route.targetKey(), route.authMode(), status, correlationId(exchange), java.time.Instant.now());
   }
   private static String upstreamPath(RouteResolution route,String incoming) {
     String path=incoming;

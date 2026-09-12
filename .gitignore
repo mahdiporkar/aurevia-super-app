@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-types/
 target/
 .env
 !.env.example
@@ -9,6 +10,7 @@ playwright-report/
 test-results/
 **/*.test.d.ts
 *.log
+.tmp/e2e-auth/
 
 # Docker images
 *.tar.gz

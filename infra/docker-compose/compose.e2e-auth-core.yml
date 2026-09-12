@@ -1,0 +1,18 @@
+# Optional Core overlay. Compile jars on the host first; the base Core images supply the same Java 21 runtime.
+services:
+  aurevia-bff:
+    environment:
+      LEGACY_ALLOWED_HOSTS: "mock-legacy,test-legacy-service"
+      LEGACY_ALLOWED_PORTS: "8080,8092"
+      LEGACY_LOCAL_SECRETS_ENABLED: "false"
+      AUREVIA_LEGACY_FILE_SECRETS_ENABLED: "true"
+      AUREVIA_LEGACY_FILE_SECRETS_ROOT: "/run/e2e-secrets"
+    volumes:
+      - ../../services/superapp-bff/target/superapp-bff-0.1.0.jar:/app/app.jar:ro
+      - ../../.tmp/e2e-auth/secrets:/run/e2e-secrets:ro
+  authorization-service:
+    volumes:
+      - ../../services/authorization-service/target/authorization-service-0.1.0.jar:/app/app.jar:ro
+  operation-gateway:
+    volumes:
+      - ../e2e-auth/gateway-routes.conf:/etc/nginx/e2e-routes/test.conf:ro
