@@ -5,18 +5,21 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Claims outbox rows transactionally, then performs OpenFGA network I/O
- * outside database transactions.
+ * Projects relational authorization changes to OpenFGA through the transactional outbox.
  *
- * Startup reconciliation and the scheduled worker may both invoke this
- * component. reconcileBatch() is synchronized to prevent concurrent
- * processing inside the same JVM. Database-level locking continues to
- * protect multiple application instances.
+ * <p>Rows are claimed transactionally by {@link OutboxRepository}. Network I/O is intentionally
+ * performed after the claim transaction has completed.</p>
+ *
+ * <p>When startup reconciliation is enabled, the normal scheduled worker remains disabled until
+ * startup drain + full OpenFGA repair + verification have completed successfully. This avoids
+ * startup/scheduler races inside the same JVM. Database locking continues to protect concurrent
+ * application instances.</p>
  */
 @Component
 public final class OutboxReconciler {
@@ -47,12 +50,19 @@ public final class OutboxReconciler {
   private final int claimTimeoutSeconds;
   private final Timer projectionLatency;
 
+  /**
+   * False while startup reconciliation owns the outbox.
+   * AtomicBoolean makes the transition safely visible to scheduler threads.
+   */
+  private final AtomicBoolean scheduledReconciliationEnabled;
+
   public OutboxReconciler(
       OutboxRepository outbox,
       RelationshipAuthorizationPort relationships,
       @Value("${aurevia.outbox.max-attempts:12}") int maxAttempts,
       @Value("${aurevia.outbox.claim-timeout-seconds:120}") int claimTimeoutSeconds,
-      MeterRegistry metrics
+      MeterRegistry metrics,
+      @Value("${aurevia.openfga.reconcile-on-startup:false}") boolean reconcileOnStartup
   ) {
     this.outbox = outbox;
     this.relationships = relationships;
@@ -60,23 +70,34 @@ public final class OutboxReconciler {
     this.claimTimeoutSeconds = claimTimeoutSeconds;
     this.projectionLatency =
         metrics.timer("aurevia.openfga.projection.latency");
+
+    this.scheduledReconciliationEnabled =
+        new AtomicBoolean(!reconcileOnStartup);
   }
 
   /**
-   * Normal background worker.
+   * Normal background projection worker.
+   *
+   * <p>If startup reconciliation is enabled, this method deliberately does nothing until
+   * {@link OpenFgaStartupReconciler} completes successfully.</p>
    */
   @Scheduled(fixedDelayString = "${aurevia.outbox.interval-ms:5000}")
   public void reconcile() {
+
+    if (!scheduledReconciliationEnabled.get()) {
+      return;
+    }
+
     reconcileBatch();
   }
 
   /**
-   * Processes one outbox batch and returns the number of rows claimed.
+   * Processes one claimable batch.
    *
-   * synchronized prevents the scheduled worker and startup reconciler
-   * from competing inside the same application instance.
+   * <p>synchronized is defense-in-depth for calls inside a single JVM. PostgreSQL locking in the
+   * repository remains responsible for coordination between different application instances.</p>
    *
-   * PostgreSQL FOR UPDATE SKIP LOCKED still protects multiple instances.
+   * @return number of rows claimed in this batch
    */
   public synchronized int reconcileBatch() {
 
@@ -92,13 +113,20 @@ public final class OutboxReconciler {
     return events.size();
   }
 
+  /**
+   * Enables the normal scheduled worker after startup reconciliation has completed successfully.
+   */
+  void markStartupReconciliationComplete() {
+    scheduledReconciliationEnabled.set(true);
+  }
+
   private void process(
       OutboxRepository.Event event,
       UUID owner
   ) {
 
     /*
-     * PANEL events do not require OpenFGA projection.
+     * PANEL events intentionally have no OpenFGA projection.
      */
     if (event.eventType().startsWith("PANEL_")) {
       markApplied(event.id(), owner);
@@ -144,6 +172,10 @@ public final class OutboxReconciler {
 
     } catch (RuntimeException failure) {
 
+      /*
+       * OpenFGA / projection failure:
+       * preserve the event and let the outbox retry policy handle it.
+       */
       retry(
           event.id(),
           owner,
@@ -154,10 +186,11 @@ public final class OutboxReconciler {
     }
 
     /*
-     * Keep markApplied outside the OpenFGA exception handler.
+     * Keep markApplied outside the projection exception handler.
      *
-     * If ownership of the claim was lost, it is an outbox coordination
-     * problem and must not be incorrectly converted into an OpenFGA retry.
+     * Losing ownership of an outbox claim is a coordination/integrity problem,
+     * not an OpenFGA projection failure and must not be silently converted into
+     * another retry.
      */
     markApplied(event.id(), owner);
   }
@@ -176,6 +209,7 @@ public final class OutboxReconciler {
       UUID owner,
       String error
   ) {
+
     outbox.markRetry(
         id,
         owner,
