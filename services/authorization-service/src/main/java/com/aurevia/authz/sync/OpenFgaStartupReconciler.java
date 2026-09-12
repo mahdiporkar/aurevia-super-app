@@ -1,74 +1,114 @@
 package com.aurevia.authz.sync;
 
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Repairs projection drift when an environment explicitly declares the
- * relational database as the startup source of truth.
+ * Repairs OpenFGA projection drift when an environment explicitly declares the relational database
+ * as the startup source of truth.
  *
- * Disabled by default so production operators keep full control of
- * reconciliation timing; the local Compose stack enables it for
- * deterministic fresh installs.
+ * <p>The component is disabled by default. Local deterministic environments may enable it, while
+ * production requires an explicit safety opt-in guarded by
+ * ProductionOpenFgaConfigurationGuard.</p>
+ *
+ * <p>ApplicationRunner is intentionally used instead of ApplicationReadyEvent so Spring does not
+ * declare the application ready before authorization projection verification has completed.</p>
  */
 @Component
 @ConditionalOnProperty(
     name = "aurevia.openfga.reconcile-on-startup",
     havingValue = "true"
 )
-public final class OpenFgaStartupReconciler {
+public final class OpenFgaStartupReconciler implements ApplicationRunner {
 
   private static final Logger log =
       LoggerFactory.getLogger(OpenFgaStartupReconciler.class);
 
-  private static final long EMPTY_BATCH_SLEEP_MS = 50L;
+  private static final Duration EMPTY_BATCH_SLEEP =
+      Duration.ofMillis(50);
 
   private final OpenFgaReconciliationService reconciliation;
   private final OutboxReconciler outbox;
   private final OutboxMetricsRepository metrics;
-  private final long startupOutboxTimeoutMs;
+  private final Duration startupOutboxTimeout;
 
   public OpenFgaStartupReconciler(
       OpenFgaReconciliationService reconciliation,
       OutboxReconciler outbox,
       OutboxMetricsRepository metrics,
-      @Value("${aurevia.openfga.startup-outbox-timeout-ms:60000}")
-          long startupOutboxTimeoutMs
+      @Value("${aurevia.openfga.startup-outbox-timeout:180s}")
+          Duration startupOutboxTimeout,
+      @Value("${aurevia.outbox.claim-timeout-seconds:120}")
+          int claimTimeoutSeconds
   ) {
+
+    if (startupOutboxTimeout == null
+        || startupOutboxTimeout.isZero()
+        || startupOutboxTimeout.isNegative()) {
+
+      throw new IllegalArgumentException(
+          "aurevia.openfga.startup-outbox-timeout must be positive"
+      );
+    }
+
+    if (claimTimeoutSeconds < 0) {
+      throw new IllegalArgumentException(
+          "aurevia.outbox.claim-timeout-seconds must not be negative"
+      );
+    }
+
+    /*
+     * A previous process may die after claiming an event.
+     * Startup must remain alive long enough for that stale claim to expire.
+     */
+    Duration claimTimeout =
+        Duration.ofSeconds(claimTimeoutSeconds);
+
+    if (startupOutboxTimeout.compareTo(claimTimeout) <= 0) {
+
+      throw new IllegalArgumentException(
+          "aurevia.openfga.startup-outbox-timeout must be greater than "
+              + "aurevia.outbox.claim-timeout-seconds"
+      );
+    }
 
     this.reconciliation = reconciliation;
     this.outbox = outbox;
     this.metrics = metrics;
-    this.startupOutboxTimeoutMs =
-        startupOutboxTimeoutMs;
+    this.startupOutboxTimeout = startupOutboxTimeout;
   }
 
-  @EventListener(ApplicationReadyEvent.class)
-  public void repairAndVerify() {
+  @Override
+  public void run(ApplicationArguments args) {
+    repairAndVerify();
+  }
+
+  void repairAndVerify() {
 
     /*
-     * A fresh database may contain historical bootstrap events.
+     * Drain historical/bootstrap events first.
      *
-     * Drain them before treating relational tables as the source of
-     * truth. Using a time-based deadline avoids the old fixed
-     * "100 loops" behavior that could fail while another worker was
-     * legitimately progressing.
+     * This prevents an old outbox event from being replayed after the full
+     * relational DB -> OpenFGA repair.
      */
     drainStartupOutbox();
 
     /*
-     * Database -> OpenFGA repair pass.
+     * Repair:
+     * relational authorization state is treated as the desired projection.
      */
     var repair =
         reconciliation.reconcile(true);
 
     /*
-     * Verification pass must not modify OpenFGA.
+     * Verify:
+     * second pass must observe zero remaining drift.
      */
     var verification =
         reconciliation.reconcile(false);
@@ -85,6 +125,11 @@ public final class OpenFgaStartupReconciler {
       );
     }
 
+    /*
+     * Only after a clean verification can the periodic outbox worker start.
+     */
+    outbox.markStartupReconciliationComplete();
+
     log.info(
         "OpenFGA startup reconciliation completed: "
             + "expected={}, actual={}, repaired={}",
@@ -96,16 +141,18 @@ public final class OpenFgaStartupReconciler {
 
   private void drainStartupOutbox() {
 
-    long deadline =
-        System.currentTimeMillis()
-            + startupOutboxTimeoutMs;
+    long timeoutNanos =
+        startupOutboxTimeout.toNanos();
+
+    long started =
+        System.nanoTime();
 
     int batches = 0;
     long claimedEvents = 0;
 
     while (metrics.pending() > 0
         && metrics.deadLettered() == 0
-        && System.currentTimeMillis() < deadline) {
+        && System.nanoTime() - started < timeoutNanos) {
 
       int claimed =
           outbox.reconcileBatch();
@@ -114,9 +161,11 @@ public final class OpenFgaStartupReconciler {
       claimedEvents += claimed;
 
       /*
-       * If another thread/instance temporarily owns an earlier event,
-       * avoid spinning through the loop hundreds of times in a few
-       * milliseconds.
+       * Empty does not necessarily mean stuck.
+       *
+       * Another process may temporarily own the earliest event of an aggregate,
+       * so avoid a CPU spin-loop and give stale claims / concurrent workers time
+       * to make progress.
        */
       if (claimed == 0) {
         sleepBriefly();
@@ -141,8 +190,8 @@ public final class OpenFgaStartupReconciler {
               + batches
               + ", claimedEvents="
               + claimedEvents
-              + ", timeoutMs="
-              + startupOutboxTimeoutMs
+              + ", timeout="
+              + startupOutboxTimeout
       );
     }
 
@@ -159,7 +208,7 @@ public final class OpenFgaStartupReconciler {
     try {
 
       Thread.sleep(
-          EMPTY_BATCH_SLEEP_MS
+          EMPTY_BATCH_SLEEP.toMillis()
       );
 
     } catch (InterruptedException interrupted) {
