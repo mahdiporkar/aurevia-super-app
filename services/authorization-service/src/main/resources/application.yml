@@ -16,6 +16,7 @@ spring:
     password: ${REDIS_PASSWORD:change-me}
     ssl.enabled: ${REDIS_TLS:false}
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
+management.endpoint.health.probes.enabled: true
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -28,6 +29,10 @@ logging:
     audit-days: ${AUDIT_LOG_RETENTION_DAYS:365}
     cron: ${LOG_RETENTION_CRON:0 17 2 * * *}
 aurevia:
+  outbox:
+    max-attempts: ${OUTBOX_MAX_ATTEMPTS:12}
+    claim-timeout-seconds: ${OUTBOX_CLAIM_TIMEOUT_SECONDS:120}
+    interval-ms: ${OUTBOX_INTERVAL_MS:5000}
   identity-providers:
     allow-http: ${IDENTITY_PROVIDER_ALLOW_HTTP:true}
     allow-private-hosts: ${IDENTITY_PROVIDER_ALLOW_PRIVATE_HOSTS:true}
@@ -46,6 +51,8 @@ aurevia:
     store-id: ${OPENFGA_STORE_ID:bootstrap-required}
     model-id: ${OPENFGA_MODEL_ID:}
     reconcile-on-startup: ${OPENFGA_RECONCILE_ON_STARTUP:false}
+    startup-outbox-timeout: ${OPENFGA_STARTUP_OUTBOX_TIMEOUT:180s}
+    allow-destructive-reconcile-on-startup: ${OPENFGA_ALLOW_DESTRUCTIVE_RECONCILE_ON_STARTUP:false}
     cache:
       namespace: ${OPENFGA_CACHE_NAMESPACE:aurevia:openfga:check}
       ttl: ${OPENFGA_CACHE_TTL:5s}
