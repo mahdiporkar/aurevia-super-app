@@ -1,0 +1,22 @@
+# Optional BFF connector for native Superset. It starts no Superset container.
+services:
+  aurevia-bff:
+    environment:
+      SUPERSET_NETWORK_POLICY: INTERNAL_ENTERPRISE
+      SUPERSET_DEVELOPMENT_HOST: ""
+      SUPERSET_ALLOWED_PRIVATE_CIDRS: "${AUREVIA_SUPERSET_HOST:?Set the native Superset LAN IPv4 address}/32"
+      SUPERSET_ALLOW_HTTP: "false"
+      SUPERSET_TLS_REQUIRE_MTLS: "true"
+      SUPERSET_TLS_CA_CERT_FILE: /run/superset-native-tls/ca.pem
+      SUPERSET_TLS_CLIENT_CERT_FILE: /run/superset-native-tls/client.pem
+      SUPERSET_TLS_CLIENT_KEY_FILE: /run/superset-native-tls/client-key.pem
+    volumes:
+      - ../../.tmp/superset-native/tls/ca.pem:/run/superset-native-tls/ca.pem:ro
+      - ../../.tmp/superset-native/tls/client.pem:/run/superset-native-tls/client.pem:ro
+      - ../../.tmp/superset-native/tls/client-key.pem:/run/superset-native-tls/client-key.pem:ro
+  authorization-service:
+    environment:
+      SUPERSET_NETWORK_POLICY: INTERNAL_ENTERPRISE
+      SUPERSET_DEVELOPMENT_HOST: ""
+      SUPERSET_ALLOWED_PRIVATE_CIDRS: "${AUREVIA_SUPERSET_HOST:?Set the native Superset LAN IPv4 address}/32"
+      SUPERSET_ALLOW_HTTP: "false"

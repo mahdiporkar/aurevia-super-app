@@ -30,7 +30,7 @@ final class ApiSchemaDocumentation {
       Map.entry("externalsystem", "نام سامانه خارجی مالک شناسه منبع."),
       Map.entry("externaltype", "نوع منبع در سامانه خارجی."),
       Map.entry("externalid", "شناسه پایدار صادرشده توسط Directory یا سامانه خارجی؛ عنوان نمایشی نیست."),
-      Map.entry("source", "منشأ ثبت داده؛ برای CRUD راهبری یکی از APPLICATION_MANIFEST، ADMIN، EXTERNAL_SYNC یا SYSTEM."),
+      Map.entry("source", "منشأ ثبت داده؛ مطابق قرارداد فعلی Resource Catalog یکی از MANIFEST یا ADMIN."),
       Map.entry("metadata", "metadata توسعه‌پذیر و غیرحساس؛ برای منطق امنیتی اصلی به آن اتکا نشود."),
       Map.entry("actionkey", "عمل کسب‌وکاری ثبت‌شده برای منبع، مانند view، create، approve یا manage."),
       Map.entry("userid", "شناسه داخلی کاربر در دیتابیس authorization-service."),
@@ -38,6 +38,24 @@ final class ApiSchemaDocumentation {
       Map.entry("subjectid", "شناسه subject در نوع انتخاب‌شده؛ برای هویت runtime همراه issuer تفسیر می‌شود."),
       Map.entry("subject", "شناسه تغییرناپذیر `sub` صادرشده توسط Identity Provider."),
       Map.entry("issuer", "issuer دقیق Identity Provider؛ بخشی از کلید یکتای هویت و حساس به تفاوت رشته است."),
+      Map.entry("issuerurl", "issuer دقیق سرویس هویت OIDC؛ باید با claim iss توکن یکسان باشد."),
+      Map.entry("authorizationendpoint", "آدرس HTTPS آغاز ورود OIDC از سرویس هویت تأییدشده."),
+      Map.entry("tokenendpoint", "آدرس endpoint تبادل code و refresh فقط برای ارتباط سمت سرور."),
+      Map.entry("jwksuri", "آدرس JWKS برای دریافت کلیدهای عمومی اعتبارسنجی امضا."),
+      Map.entry("userinfoendpoint", "آدرس اختیاری دریافت claimهای کاربر از سرویس هویت."),
+      Map.entry("clientid", "شناسه ثبت‌شده client مربوط به BFF؛ مقدار client secret نیست."),
+      Map.entry("clientsecretreference", "reference با پیشوند secret://؛ مقدار client secret در payload پذیرفته نمی‌شود."),
+      Map.entry("enabled", "فعال‌بودن سرویس هویت برای انتخاب و ورود کاربران."),
+      Map.entry("tenantid", "شناسه اختیاری tenant برای انتخاب سرویس هویت."),
+      Map.entry("tenant", "فیلتر اختیاری tenant در کشف و انتخاب سرویس هویت."),
+      Map.entry("domain", "دامنه اختیاری برای انتخاب سرویس هویت ثبت‌شده."),
+      Map.entry("domains", "دامنه‌های DNS مجاز برای routing ورود؛ URL یا credential نیستند."),
+      Map.entry("scopes", "scopeهای OIDC؛ openid الزامی است."),
+      Map.entry("audiences", "audienceهای مجاز اعتبارسنجی OIDC طبق تنظیم سرویس هویت."),
+      Map.entry("subjectclaim", "claim شناسه تغییرناپذیر کاربر؛ پیش‌فرض sub."),
+      Map.entry("usernameclaim", "claim نام نمایشی؛ پیش‌فرض preferred_username و مبنای یکتایی نیست."),
+      Map.entry("groupsclaim", "claim گروه‌های معتبر کاربر؛ پیش‌فرض groups."),
+      Map.entry("providercode", "کد سرویس هویت ثبت‌شده برای اتصال صریح subject خارجی به کاربر."),
       Map.entry("username", "نام کاربری نمایشی/جست‌وجویی؛ مبنای یکتایی و تصمیم دسترسی نیست."),
       Map.entry("displayname", "نام کامل قابل نمایش کاربر یا گروه."),
       Map.entry("email", "ایمیل همگام‌شده؛ می‌تواند خالی باشد و کلید هویت محسوب نمی‌شود."),
@@ -158,6 +176,11 @@ final class ApiSchemaDocumentation {
   static void documentParameters(Operation operation) {
     if (operation.getParameters() == null) return;
     for (Parameter parameter : operation.getParameters()) {
+      if ("header".equals(parameter.getIn()) && List.of("xactor", "xactorissuer", "xactorsubject")
+          .contains(normalize(parameter.getName()))) {
+        parameter.setRequired(false);
+        parameter.setDescription("در پرتال Swagger، BFF این هدر را از نشست معتبر می‌سازد و مقدار ارسالی caller را جایگزین می‌کند. در فراخوانی مستقیم داخلی قرارداد کنترلر اعمال می‌شود.");
+      }
       if (parameter.getDescription() == null || parameter.getDescription().isBlank()) {
         parameter.setDescription(parameterDescription(parameter.getName()));
       }
@@ -212,7 +235,11 @@ final class ApiSchemaDocumentation {
   @SuppressWarnings({"rawtypes", "unchecked"})
   private static void applyEnums(String schemaName, String propertyName, Schema field) {
     String property = normalize(propertyName);
-    if (property.equals("rulecombiner")) field.setEnum(List.of("ANY_OF", "ALL_OF"));
+    if (property.equals("type") && schemaName.contains("Provider")) {
+      field.setEnum(List.of("OIDC", "KEYCLOAK", "AZURE_AD", "OKTA", "AUTH0", "GOOGLE_WORKSPACE"));
+      field.setDescription("نوع سرویس هویت OIDC از انواع پشتیبانی‌شده؛ اعتبارسنجی توکن در BFF طبق issuer، امضا و audience انجام می‌شود.");
+    }
+    else if (property.equals("rulecombiner")) field.setEnum(List.of("ANY_OF", "ALL_OF"));
     else if (property.equals("matchmode")) field.setEnum(List.of("EXACT", "SUBTREE"));
     else if (property.equals("zone")) field.setEnum(List.of("PUBLIC", "OPERATION"));
     else if (property.equals("assettype")) field.setEnum(List.of("DASHBOARD", "CHART"));
@@ -226,7 +253,7 @@ final class ApiSchemaDocumentation {
             "APPLICATION", "MODULE", "PAGE", "UI_COMPONENT", "FIELD", "BUSINESS_RESOURCE",
             "EXTERNAL_RESOURCE", "API_RESOURCE", "DATA_RESOURCE", "DATA_GOVERNANCE_RESOURCE"));
     else if (property.equals("source") && schemaName.contains("ResourceRequest"))
-      field.setEnum(List.of("APPLICATION_MANIFEST", "ADMIN", "EXTERNAL_SYNC", "SYSTEM"));
+      field.setEnum(List.of("MANIFEST", "ADMIN"));
     else if (property.equals("requestformat")) field.setEnum(List.of(
         "FORM_URLENCODED", "JSON", "HTTP_BASIC", "OAUTH_CLIENT_CREDENTIALS"));
     else if (property.equals("credentialtransport")) field.setEnum(List.of(

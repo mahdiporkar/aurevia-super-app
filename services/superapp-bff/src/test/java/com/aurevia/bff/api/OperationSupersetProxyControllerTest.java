@@ -31,7 +31,7 @@ class OperationSupersetProxyControllerTest {
         eq("superset-operation"),eq("superset-operation"),anyString(),eq("GET"),
         isNull(),anyString(),anyString()))
         .thenReturn(Mono.just(Map.of("result","DENY","reasonCode","NO_RELATIONSHIP")));
-    var controller=new OperationSupersetProxyController(3000,10000,authorization,
+    var controller=new OperationSupersetProxyController(org.springframework.web.reactive.function.client.WebClient.create(),authorization,
         mock(SupersetTargetPolicy.class),new SupersetRequestInspector(new ObjectMapper()));
     ServerWebExchange exchange=mock(ServerWebExchange.class);
     WebSession session=mock(WebSession.class);

@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springdoc.core.customizers.OperationCustomizer;
+import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -23,6 +24,7 @@ import org.springframework.context.annotation.Configuration;
 public class BffOpenApiConfiguration {
   private static final Map<String, String> TAGS = Map.of(
       "CsrfController", "01 - نشست و CSRF",
+      "IdentityProviderLoginController", "00 - ورود و انتخاب سرویس هویت",
       "MeController", "02 - کاربر جاری و Manifest",
       "ReportsController", "03 - گزارش‌های قابل مشاهده",
       "AdminProxyController", "04 - راهبری و آزمون اتصال",
@@ -80,6 +82,14 @@ public class BffOpenApiConfiguration {
       operation.setDescription(description(key, summary));
       documentParameters(operation);
       addRequestExample(operation,key);
+      if (controller.equals("IdentityProviderLoginController")) {
+        operation.setSecurity(List.of());
+        if (method.equals("login")) {
+          operation.getResponses().remove("200");
+          operation.getResponses().addApiResponse("302", new ApiResponse()
+              .description("هدایت به مسیر ثابت ورود OIDC سرویس هویت انتخاب‌شده"));
+        }
+      }
       if (isMutation(handlerMethod.getMethod())) {
         operation.setSecurity(List.of(new SecurityRequirement()
             .addList("browserSession").addList("csrfToken")));
@@ -92,6 +102,26 @@ public class BffOpenApiConfiguration {
         addResponseExample(operation, key);
       }
       return operation;
+    };
+  }
+
+  @Bean
+  OpenApiCustomizer bffRequestSecurityDocumentation() {
+    return openApi -> {
+      if (openApi.getPaths() == null) return;
+      openApi.getPaths().forEach((path, item) -> item.readOperationsMap().forEach((method, operation) -> {
+        // @RequestMapping catch-alls serve several HTTP methods; reflection alone
+        // cannot determine the CSRF requirements of each generated operation.
+        boolean mutation = switch (method) {
+          case POST, PUT, PATCH, DELETE -> true;
+          default -> false;
+        };
+        boolean superset = path.startsWith("/api/v1/superset/")
+            || path.startsWith("/api/v1/superset-instances/")
+            || path.startsWith("/api/integrations/superset/");
+        if (mutation && !superset) operation.setSecurity(List.of(new SecurityRequirement()
+            .addList("browserSession").addList("csrfToken")));
+      }));
     };
   }
 
@@ -113,7 +143,7 @@ public class BffOpenApiConfiguration {
           case "id" -> "95dc9e52-7ca5-4ad9-858d-a2d78ae1e5bd";
           case "instance", "publicInstance" -> "public-default";
           case "panelSlug" -> "finance-micro";
-          case "path" -> "/api/payments/42";
+          case "path" -> "api/payments/42";
           default -> null;
         });
       }
@@ -195,6 +225,9 @@ public class BffOpenApiConfiguration {
   }
 
   private static String description(String key, String summary) {
+    if (key.startsWith("IdentityProviderLoginController#")) {
+      return summary + ". مسیر عمومی پیش از ورود؛ provider، tenant و domain فقط از رجیستری معتبر انتخاب می‌شوند. redirect URI و credential از caller پذیرفته نمی‌شوند.";
+    }
     if (key.startsWith("OperationalProxyController#")) {
       return summary + ". BFF پس از resolve مسیر و check مجوز، توکن مناسب را فقط سمت سرور از Redis می‌خواند؛ headerهای امنیتی ورودی پاک‌سازی و پاسخ مقصد بدون افشای token بازگردانده می‌شود.";
     }
@@ -210,6 +243,7 @@ public class BffOpenApiConfiguration {
   private static String tagDescription(String controller) {
     return switch (controller) {
       case "CsrfController" -> "دریافت token ضد-CSRF مرتبط با نشست جاری؛ این مقدار access token نیست.";
+      case "IdentityProviderLoginController" -> "کشف سرویس‌های هویت فعال و آغاز ورود امن OIDC؛ نیاز به نشست قبلی ندارد.";
       case "MeController" -> "هویت حداقلی نشست و Manifest مجوزهای قابل مصرف در Shell و میکروفرانت.";
       case "ReportsController" -> "فهرست فیلترشده گزارش‌ها و داشبوردهای Superset برای کاربر جاری.";
       case "AdminProxyController" -> "درگاه راهبری و آزمون امن connection/token بدون نمایش مقدار credential یا token.";
@@ -221,6 +255,8 @@ public class BffOpenApiConfiguration {
   private static Map<String, String> summaries() {
     Map<String, String> m = new LinkedHashMap<>();
     m.put("CsrfController#csrf", "دریافت CSRF token نشست جاری");
+    m.put("IdentityProviderLoginController#providers", "فهرست سرویس‌های هویت فعال برای ورود");
+    m.put("IdentityProviderLoginController#login", "آغاز ورود با سرویس هویت انتخاب‌شده");
     m.put("MeController#me", "دریافت هویت کاربر جاری");
     m.put("MeController#manifest", "دریافت Manifest دسترسی کاربر جاری");
     m.put("MeController#uiCatalog", "دریافت کاتالوگ مؤثر Micro Frontend و Navigation");

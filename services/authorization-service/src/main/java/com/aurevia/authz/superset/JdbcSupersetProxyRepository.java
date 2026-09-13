@@ -16,7 +16,8 @@ class JdbcSupersetProxyRepository implements SupersetProxyRepository {
     String selection=publicInstanceCode==null||publicInstanceCode.isBlank()
         ?"and m.is_default":"and p.code=:code";
     var query=database.sql("""
-        select p.code public_code,m.public_path,o.code operation_code,o.base_url,
+        select p.code public_code,p.base_url public_base_url,p.tls_required public_tls_required,
+               m.public_path,o.code operation_code,o.base_url,
                o.connection_ref,o.auth_mode,o.tls_required,o.proxy_mode,o.health_status,
                m.version mapping_version,o.version instance_version
         from superset_proxy_mapping m

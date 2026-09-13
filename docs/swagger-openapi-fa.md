@@ -17,7 +17,7 @@ http://localhost:8443/swagger-ui.html
 | `1 - BFF عمومی سوپر اپ` | قرارداد مرورگر، session، manifest، admin proxy، route proxy و Superset | `/v3/api-docs` |
 | `2 - سرویس مجوزدهی` | کاربران، OU، گروه، نقش، منبع، route، Legacy، Superset، log و OpenFGA | `/api/v1/docs/authorization/openapi` |
 
-authorization-service مستقیماً به اینترنت منتشر نمی‌شود. BFF در محیط غیر production، JSON قرارداد و اجرای Try it out آن را با WebClient داخلی ارائه می‌کند؛ Basic password یا گواهی mTLS سرویس داخلی هرگز به browser یا Swagger UI داده نمی‌شود. اجرای endpointهای این قرارداد علاوه بر نشست و CSRF به مجوز `manage` روی `application:aurevia/admin` نیاز دارد.
+authorization-service مستقیماً به اینترنت منتشر نمی‌شود. BFF در محیط غیر production، JSON قرارداد و اجرای Try it out آن را با WebClient داخلی ارائه می‌کند؛ Basic password یا گواهی mTLS سرویس داخلی هرگز به browser یا Swagger UI داده نمی‌شود. اجرای endpointهای این قرارداد به نشست معتبر و دسترسی `admin` روی `application:aurevia` نیاز دارد؛ این action در semantics فعلی به مجوز `can_manage` نگاشت می‌شود. عملیات تغییردهنده علاوه بر آن به CSRF معتبر نیاز دارند. خود سرویس مجوزدهی نیز مجوز اختصاصی هر endpoint را بررسی می‌کند.
 
 سند Authorization Service بزرگ‌تر از سقف پیش‌فرض ۲۵۶KB WebClient است. فقط façade توسعه مستندات
 سقف bounded مستقل `aurevia.documentation.max-openapi-bytes` (پیش‌فرض ۲MB، بازه مجاز ۲۵۶KB تا
@@ -79,8 +79,8 @@ X-Correlation-ID: 5e4ddf32-1e7e-4e20-a9f3-64de1c938f97
 ```json
 {
   "result": "ALLOW",
-  "reasonCode": "OPENFGA_ALLOW",
-  "modelVersion": "01H...",
+  "reasonCode": "NO_APPLICABLE_POLICY",
+  "modelVersion": "configured-model",
   "decisionId": "d4ae6f4d-ef30-4ba0-826a-20d98d1c4a8f",
   "obligations": {}
 }
@@ -111,47 +111,34 @@ API حاکمیتی Manifest هیچ‌گاه با Import، کاتالوگ فعا�
 {
   "schemaVersion": "1.0",
   "module": {
-    "key": "hr-payroll",
-    "name": "Payroll",
-    "nameFa": "حقوق و دستمزد",
-    "nameEn": "Payroll",
+    "key": "hr",
+    "name": "Human Resources",
+    "nameFa": "منابع انسانی",
+    "nameEn": "Human Resources",
     "version": "1.4.2"
   },
-  "routes": [
-    {
-      "key": "employee-list",
-      "path": "employees",
-      "component": "EmployeeListPage",
-      "resourceKey": "page:hr.employees",
-      "action": "view",
-      "title": "کارکنان"
-    }
-  ],
   "resources": [
     {
       "key": "page:hr.employees",
       "type": "PAGE",
-      "parentKey": "module:hr-payroll",
+      "name": "Employees",
       "nameFa": "کارکنان",
       "nameEn": "Employees",
       "classification": "INTERNAL",
       "actions": ["view"]
     }
-  ],
-  "navigation": [
-    {
-      "key": "hr.nav.employees",
-      "type": "PAGE",
-      "pageKey": "employee-list",
-      "title": "کارکنان",
-      "icon": "team",
-      "order": 10
-    }
   ]
 }
 ```
 
-هدر `X-Actor` برای Fetch/Import/Publish الزامی است. نبود Resource در نسخه جدید به حذف فیزیکی
+نمونهٔ بالا فقط Resource Manifest است. route، component و navigation در MF Manifest مستقل
+تعریف می‌شوند و با `frontend-manifests/sync` ثبت می‌شوند؛ واردکردن آن‌ها در Resource Manifest
+با قرارداد جاری سازگار نیست.
+مقدار `module.key` باید دقیقاً با slug پنل ثبت‌شده یکسان باشد و نسخهٔ module باید SemVer باشد.
+
+هدر `X-Actor` در API داخلی برای Fetch/Import/Publish الزامی است؛ هنگام اجرای Swagger از BFF،
+این هدر و issuer/subject عامل از نشست ساخته می‌شوند و نیازی به ورود دستی آن‌ها نیست.
+نبود Resource در نسخه جدید به حذف فیزیکی
 منجر نمی‌شود و در Diff با `DEPRECATE` نمایش داده می‌شود. جزئیات قرارداد در
 [سند Resource Catalog](resource-catalog-manifest-architecture-fa.md) قرار دارد.
 
@@ -236,6 +223,7 @@ API حاکمیتی Manifest هیچ‌گاه با Import، کاتالوگ فعا�
 
 ```json
 {
+  "providerCode": "keycloak",
   "issuer": "http://localhost:8180/realms/aurevia",
   "subject": "8e3a7fd6-demo-user",
   "username": "ali.rezaei",
@@ -265,7 +253,7 @@ API حاکمیتی Manifest هیچ‌گاه با Import، کاتالوگ فعا�
   "baseUrl": "https://bi.example.com/superset",
   "connectionRef": "connection://superset/operation-default",
   "authMode": "REMOTE_USER",
-  "tlsRequired": false,
+  "tlsRequired": true,
   "active": true,
   "proxyMode": true,
   "metadata": {"owner": "BI"},
@@ -294,6 +282,8 @@ API حاکمیتی Manifest هیچ‌گاه با Import، کاتالوگ فعا�
 
 - منبع حقیقت endpointها annotationهای Spring MVC/WebFlux و DTOهای واقعی‌اند.
 - metadata فارسی و مثال‌ها در packageهای `authz.docs` و `bff.docs` نگهداری می‌شوند تا controller و service آلوده به منطق مستندسازی نشوند.
+- `springdoc.use-fqn=true` در هر دو سرویس نام کامل کلاس schema را تولید می‌کند تا DTOهای هم‌نام مانند `GrantRequest` با هم ادغام نشوند؛ ساختار JSON API تغییر نمی‌کند.
+- فیلتر اولیهٔ Swagger تنظیم نشده است؛ مقدار رشته‌ای `"true"` فیلتر جست‌وجو محسوب می‌شود و همهٔ عملیات را پنهان می‌کند.
 - تست پوشش، اضافه‌شدن endpoint بدون summary فارسی یا request body بدون example را رد می‌کند.
 - snapshot دستی YAML نگهداری نمی‌شود تا قرارداد دوم و قدیمی شکل نگیرد. برای هر release، JSON runtime را از Swagger دانلود و به artifact همان build پیوست کنید.
 - پس از هر تغییر API، تست‌ها و دریافت `/v3/api-docs` باید در CI انجام شود.
@@ -304,7 +294,25 @@ API حاکمیتی Manifest هیچ‌گاه با Import، کاتالوگ فعا�
 - `/swagger-ui.html`، `/swagger-ui/**` و `/v3/api-docs` در production پاسخ مستندات نمی‌دهند.
 - authorization-service مستقیماً در ingress منتشر نشده است.
 - مسیر توسعه‌ای `/api/v1/docs/authorization/execute/**` به علت `@Profile("!prod")` وجود ندارد.
+- تنظیم `springdoc.api-docs.enabled=false` در محیط غیر تولید نیز façade مستندات و اجرای داخلی را حذف می‌کند.
 - هیچ example شامل credential یا token واقعی نیست.
 - JSON هر دو قرارداد بدون operation فاقد summary، schema یا پاسخ امنیتی است.
 - `npm run infra:verify:token-proxy` هر دو JSON runtime را می‌خواند و OpenAPI 3، متن فارسی،
   حداقل inventory عملیات‌ها و وجود sample درخواست را کنترل می‌کند.
+
+## آزمون مستقل Swagger و نتیجهٔ بازبینی
+
+پس از آماده شدن Core و Keycloak محلی:
+
+```powershell
+npm run swagger:verify
+```
+
+این فرمان با ورود واقعی، HTML و فایل‌های Swagger، JSON هر دو قرارداد، شناسهٔ یکتای operation،
+پارامترهای مسیر، referenceها، نمونه‌های درخواست، CSRF، رد اجرای کاربر فاقد مجوز مدیریت و
+Execute در Chrome/Edge را بررسی می‌کند. نتیجهٔ امن در `target/swagger/results.json` و تصویر
+محلی در `target/swagger/swagger-execute.png` نوشته می‌شود. نبود مرورگر یا کاربر آزمایشی
+مورد مربوط را `BLOCKED` می‌کند و فرمان برای FAIL یا BLOCKED کد خروج غیرصفر دارد.
+
+[گزارش فارسی بازبینی، علت خطاها و نتایج واقعی](swagger-openapi-review-2026-09-12-fa.md)
+شامل فهرست فایل‌های تغییرکرده و محدودیت‌های قرارداد است.

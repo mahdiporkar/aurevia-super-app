@@ -1,321 +1,127 @@
-# راهنمای کامل Superset عمومی، عملیاتی، Route و نمایش در MFE Reports
+# راهنمای Superset عمومی، عملیاتی، Route و MFE Reports
 
-این سند مرجع فنی تعریف دو محیط Superset، مالکیت routeها، ثبت داشبورد، کنترل OpenFGA و نمایش گزارش داخل Micro Frontend گزارشات است.
+Superset یک External Integration با lifecycle مستقل از Core است. BFF پس از کنترل مجوز و سیاست شبکه، مستقیماً به URL ثبت‌شده وصل می‌شود. Operation Gateway در مسیر Superset نیست. راه‌اندازی دو instance خارج از containerهای پروژه در [دموی شبکه‌ای Native](superset-native-network-demo-fa.md) و قرارداد رجیستری در [External Integration](external-integration-superset-fa.md) شرح داده شده است.
 
-> **به‌روزرسانی معماری:** Superset اکنون External Integration است و عضو Core Compose یا
-> Operation Gateway نیست. مرجع lifecycle، ثبت URL، SSRF policy و endpoint جدید در
-> [external-integration-superset-fa.md](external-integration-superset-fa.md) است. بخش‌های
-> asset-level authorization این سند همچنان معتبرند؛ topology قدیمی Gateway معتبر نیست.
+## دو مسئولیت مستقل
 
-## اصل معماری
-
-Aurevia دو جزء جداگانه با مسئولیت‌های متفاوت دارد:
-
-| جزء | مسئولیت | داده و داشبورد | دسترسی مستقیم مرورگر |
+| جزء | مسئولیت | داده تحلیلی | مقصد درخواست BFF |
 |---|---|---|---|
-| Public Superset | فقط ارائه JS، CSS، font و image کامپایل‌شده Superset | ندارد | فقط از `/static/*` |
-| Operation Superset | ساخت و اجرای dashboard/chart و اتصال به منبع تحلیلی | دارد | ندارد؛ فقط از BFF و Operation Gateway |
+| PUBLIC | JS، CSS، font و image همان نسخه Superset | ندارد | `/static/*` از `public_base_url` mapping |
+| OPERATION | dashboard، chart، query و اتصال به منبع داده | دارد | سایر مسیرها از `base_url` عملیاتی mapping |
 
-داشبوردهای تست، عملیاتی و Production همگی در **Operation Superset** ساخته می‌شوند. Public Superset نباید database تحلیلی، dashboard runtime یا credential منبع داده داشته باشد.
+در دموی Docker قدیمی، جزء عمومی یک static server است. در دموی Native هر دو جزء فرایند واقعی Apache Superset هستند؛ middleware عمومی تنها `/static/*` و `/health` را باز می‌گذارد. هیچ dashboard یا API تحلیلی عمومی نمی‌شود. Public و Operation از نسخه یکسان فایل‌های frontend استفاده می‌کنند.
 
-## محل تعریف هر بخش
-
-### سرویس‌ها و تنظیمات محیط
-
-- `infra/docker-compose/compose.superset-demo.yml`: Supersetهای اختیاری و مستقل demo.
-- `.env`: secret و تنظیمات local مانند `OPERATION_SUPERSET_SECRET_KEY` و `SUPERSET_LOAD_EXAMPLES`.
-- `infra/superset-operation/superset_config.py`: authentication از نوع Remote User، session cookie و تنظیمات runtime.
-- `infra/superset-public/Dockerfile`: ساخت image عمومی فقط برای static assetها.
-
-`infra/docker-compose/compose.yml` فقط Core را اجرا می‌کند. در Production هر Superset روی
-Kubernetes/VM یا Compose مستقل خود است و فقط URL رجیستری به Aurevia معرفی می‌شود.
-
-### Route فایل‌های عمومی
-
-در `infra/nginx/nginx.conf` فایل‌های absolute نیز به BFF same-origin می‌روند:
-
-```text
-/static/* -> Java BFF -> Registry base_url
-```
-
-هیچ مسیر dashboard یا API نباید به Public Superset اضافه شود.
-
-### Route امن runtime عملیاتی
-
-مرز عمومی در `infra/nginx/nginx.conf` است:
-
-```text
-/reports-runtime/* -> /api/v1/superset/* در Java BFF
-/superset/*        -> /api/v1/superset/superset/* در Java BFF
-```
-
-مرز Java در `OperationSupersetProxyController` است:
-
-```text
-/api/integrations/superset/{code}/** -> OpenFGA check -> Registry base_url
-```
-
-جریان نهایی:
-
-```text
-Browser
-  -> Public Nginx
-  -> Java BFF / OperationSupersetProxyController
-  -> Authorization Service / OpenFGA
-  -> SSRF/network policy
-  -> External Superset
-  -> DWH
-```
-
-header هویت `X-Aurevia-Subject` فقط در BFF تولید می‌شود. مقصد `REMOTE_USER` در Production
-باید آن را فقط از ingress احرازشده BFF (ترجیحاً mTLS) بپذیرد و نسخه ورودی اینترنتی را حذف کند.
-
-## احراز هویت و SSO بین Super App و Superset
-
-کاربر «بدون احراز هویت» گزارش را مشاهده نمی‌کند؛ او یک‌بار با Authorization Code
-Flow در Keycloak/Public IAM وارد Super App شده است. چیزی که حذف شده، فرم Login
-دوم Superset است. پیاده‌سازی فعلی از username/password پیش‌فرض Superset برای
-کاربران عادی استفاده نمی‌کند و Superset نیز مستقیماً OAuth/OIDC Flow جداگانه‌ای
-با Keycloak اجرا نمی‌کند.
-
-روش فعلی یک SSO مبتنی بر Trusted Header و `AUTH_REMOTE_USER` است:
+## مسیر درخواست
 
 ```mermaid
 sequenceDiagram
   participant U as Browser
-  participant K as Keycloak / Public IAM
   participant B as Java BFF
-  participant A as Authorization/OpenFGA
-  participant G as Operation Gateway
+  participant A as Authorization / OpenFGA
+  participant P as Public Superset
   participant S as Operation Superset
-  U->>K: یک‌بار Authorization Code login
-  K-->>B: access/refresh token برای Token Vault
-  B-->>U: AUREVIA_SESSION opaque cookie
-  U->>B: GET /superset/dashboard/1/
-  B->>A: OpenFGA asset check
+  U->>B: URL گزارش با cookie نشست
+  B->>A: کنترل integration و asset
   A-->>B: ALLOW
-  B->>G: X-Aurevia-Subject + Superset cookie
-  G->>S: trusted identity header
-  S-->>U: AUREVIA_OPERATION_SUPERSET + dashboard
+  B->>S: runtime و هویت معتبر سمت سرور
+  S-->>U: HTML / نتیجه query از BFF
+  U->>B: /static/... از HTML
+  B->>A: کنترل دسترسی
+  B->>P: فایل ثابت بدون هویت کاربر
+  P-->>U: JS / CSS از BFF
 ```
 
-### انتقال هویت
+قرارداد اصلی `/api/integrations/superset/{publicCode}/**` است. BFF mapping را resolve می‌کند، مجوز را می‌سنجد، سپس برای `/static/*` مقصد PUBLIC و برای runtime مقصد OPERATION را انتخاب می‌کند. هر مقصد با SSRF/network policy بررسی می‌شود. در integration عملیاتی بدون mapping، فایل‌های ثابت نیز از همان instance عملیاتی دریافت می‌شوند.
 
-`OperationSupersetProxyController` پس از `ALLOW` شدن OpenFGA check، هویت
-احراز‌شده Spring Security را در header زیر قرار می‌دهد:
+Nginx مسیرهای سازگار `/superset/*`، `/reports-runtime/*`، `/static/*` و APIهای root-relative گزارش را به BFF می‌فرستد. مقصد خارجی از روی URL دلخواه مرورگر انتخاب نمی‌شود. Superset در جدول‌های business proxy مانند `service_target` و `proxy_route` تعریف نمی‌شود؛ برای آن مسیر عمومی موازی ایجاد نکنید.
 
-```http
-X-Aurevia-Subject: <stable-keycloak-subject-or-username>
+## احراز هویت و SSO بین Super App و Superset
+
+کاربر یک‌بار از مسیر Authorization Code در Keycloak وارد Super App می‌شود. access/refresh token در vault BFF می‌ماند. در `REMOTE_USER`، BFF پس از کنترل دسترسی، `X-Aurevia-Subject` و `X-Aurevia-Issuer` را از Principal معتبر خودش تولید می‌کند؛ header مشابه مرورگر جایگزین آن نمی‌شود.
+
+Ingress عملیاتی فقط workload مجاز BFF را می‌پذیرد. در دموی Native این شرط با mTLS، CA اختصاصی و بررسی نام client certificate اعمال می‌شود. Ingress به backend loopback یک secret مستقل می‌فرستد و middleware پس از تأیید آن، subject را به `REMOTE_USER` تبدیل می‌کند. Superset با `AUTH_REMOTE_USER` و نقش اولیه `Gamma` نشست خود را ایجاد می‌کند. دموی فعلی یک realm دارد؛ نام کاربر Superset از subject ساخته می‌شود و namespace مستقل برای چند issuer در این middleware پیاده نشده است.
+
+redirect `/login/?next=...` برای ایجاد نشست Superset طبیعی است؛ در حالت Remote User فرم رمز عبور دوم نمایش داده نمی‌شود. account محلی `administrator` برای bootstrap وجود دارد و رمز تصادفی آن در تنظیمات خصوصی میزبان می‌ماند.
+
+نشست BFF با cookie اصلی `AUREVIA_SESSION` از نشست Superset مستقل است. cookie خارجی هنگام عبور از BFF prefix مخصوص instance می‌گیرد؛ نام داخلی Native با دموی Docker قدیمی یکسان نیست. HttpOnly cookie به معنی access token قابل خواندن در JavaScript نیست. در حالت `OIDC` مقصد به client مستقل IdP نیاز دارد؛ Aurevia برای Superset token exchange یا guest token ایجاد نمی‌کند. `authMode` رجیستری به‌تنهایی مقصد خارجی را پیکربندی نمی‌کند.
+
+## ثبت گزارش و دسترسی
+
+1. مدیر dashboard/chart را در instance عملیاتی ایجاد و publish می‌کند.
+2. instanceهای PUBLIC و OPERATION در «محیط‌های Superset» ثبت و mapping می‌شوند.
+3. asset با `instanceCode` عملیاتی در «گزارش‌ها و داشبوردها» ثبت می‌شود.
+4. سطح VIEW، EDIT یا MANAGE به USER، GROUP یا ROLE داده می‌شود.
+5. Authorization Service منبع، action و outbox را ثبت و رابطه مجوز را به OpenFGA منتقل می‌کند.
+6. `GET /api/v1/reports` فقط assetهای منتشرشده و قابل مشاهده را با URL same-origin برمی‌گرداند.
+7. هر navigation و API runtime دوباره در BFF بررسی می‌شود؛ دانستن ID جای grant را نمی‌گیرد.
+
+نمونه metadata معتبر:
+
+```json
+{
+  "externalId": "1",
+  "assetType": "DASHBOARD",
+  "title": "Aurevia Native BI Demo",
+  "urlPath": "/superset/dashboard/1/",
+  "ownerExternalId": null,
+  "published": true,
+  "instanceCode": "superset-native-operation"
+}
 ```
 
-در این مسیر Access Token و Refresh Token Keycloak، password کاربر و password
-حساب bootstrap Superset ارسال نمی‌شوند. Operation Gateway این header را روی شبکه
-خصوصی به Superset منتقل می‌کند.
+`externalId` باید با ID واقعی Superset منطبق باشد؛ `dashboard:1` با validator فعلی سازگار نیست. نوع در `assetType` ذخیره می‌شود. resource key توسط سرویس با instance/type/id ساخته می‌شود. منبع والد سازگار `external_resource:superset-public` را با SQL دستی تغییر ندهید.
 
-Middleware موجود در `superset_config.py` مقدار header را به متغیر WSGI تبدیل
-می‌کند:
+مجوز Aurevia جای permissions داخلی Superset، datasource access یا RLS را نمی‌گیرد. در دمو Gamma فقط به dataset ساختگی دسترسی می‌گیرد. dashboard و دو chart آن هر سه به viewer داده می‌شوند؛ POST chart data با ID chart بررسی می‌شود.
 
-```python
-subject = environ.get("HTTP_X_AUREVIA_SUBJECT")
-if subject:
-    environ["REMOTE_USER"] = subject
-```
+خواندن وابستگی‌های `/api/v1/dashboard/{id}/charts` و `/datasets` نیز به grant همان
+dashboard وابسته است. مجوز آن‌ها به dashboard دیگر، mutation یا سایر زیرمسیرها گسترش
+نمی‌یابد. انتشار grant/revoke از طریق outbox است؛ آزمون باید تغییر واقعی پاسخ BFF را پس
+از همگام‌شدن OpenFGA بررسی کند، نه بلافاصله پس از transaction دیتابیس.
 
-Superset نیز با تنظیمات زیر آن هویت را می‌پذیرد:
+API خواندن favorite status، query از نوع فهرست Rison مانند `q=!(1)` می‌گیرد. مجوز همه
+IDهای آن فهرست با نوع Dashboard/Chart کنترل می‌شود؛ قرارگرفتن ID غیرمجاز کنار ID مجاز
+درخواست را رد می‌کند. mutation favorite با VIEW در این proxy مجاز نمی‌شود.
 
-```python
-AUTH_TYPE = AUTH_REMOTE_USER
-AUTH_REMOTE_USER_ENV_VAR = "REMOTE_USER"
-AUTH_USER_REGISTRATION = True
-AUTH_USER_REGISTRATION_ROLE = "Gamma"
-```
+## URL و نمایش داخل MFE Reports
 
-بنابراین در اولین مراجعه، اگر حساب متناظر در Superset وجود نداشته باشد، Superset
-آن را خودکار با نقش اولیه تنظیم‌شده ایجاد می‌کند. `Gamma` صرفاً نقش bootstrap
-داخلی Superset است؛ مجوز نهایی launch و دسترسی به asset همچنان باید در BFF با
-OpenFGA کنترل شود.
-
-### چرا در اولین درخواست مسیر login دیده می‌شود؟
-
-Superset برای ساخت نشست داخلی ممکن است ابتدا redirect زیر را برگرداند:
-
-```text
-/login/?next=/superset/dashboard/1/
-```
-
-این redirect به معنی نمایش فرم username/password نیست. endpoint Login با
-`REMOTE_USER` کاربر را authenticate، نشست Superset را ایجاد و سپس او را به مقدار
-canonical پارامتر `next` برمی‌گرداند. Java BFF مسیر root-level Login را از tunnel
-`/reports-runtime` عبور می‌دهد، ولی مقصد نهایی باید `/superset/dashboard/...`
-باقی بماند.
-
-### دو Session مستقل
-
-| Cookie | مالک | کاربرد |
-|---|---|---|
-| `AUREVIA_SESSION` | Java BFF | نشست اصلی Super App و هویت Keycloak |
-| `AUREVIA_OPERATION_SUPERSET` | Operation Superset | نشست داخلی UI گزارش |
-
-هیچ‌کدام خود Access Token Keycloak نیستند. Login موفق Super App، نشست Superset
-متعلق به هویت قبلی را منقضی می‌کند تا roleهای کاربر قبلی reuse نشوند. Logout نیز
-Token Vault، نشست BFF و cookie نشست Superset را invalidate می‌کند.
-
-جزئیات تفاوت Session و توکن در [ارسال امن توکن به محیط عملیاتی](operational-token-forwarding-fa.md#تفاوت-session-مرورگر-با-توکن-keycloak)
-آمده است.
-
-### حساب admin پیش‌فرض Superset
-
-مرحله init در Compose با `superset fab create-admin` یک حساب مدیریتی محلی ایجاد
-می‌کند. این حساب فقط برای bootstrap، مدیریت اضطراری یا عملیات مستقیم کنترل‌شده
-Superset است و در جریان عادی مشاهده داشبورد توسط Super App استفاده نمی‌شود.
-password آن نباید در Frontend، Manifest، Route، دیتابیس Authorization Service یا
-log قرار گیرد و در Production باید از Secret Store تزریق و rotate شود.
-
-### مرز اعتماد Production
-
-Trusted Header فقط وقتی SSO امن محسوب می‌شود که Operation Superset هیچ ingress
-عمومی نداشته باشد و Gateway، `X-Aurevia-Subject` دریافتی از اینترنت یا clientهای
-ناشناخته را حذف کند. ارتباط BFF به Gateway باید با mTLS/Workload Identity انجام
-شود و Gateway فقط هویت workload مجاز BFF را بپذیرد. در غیر این صورت مهاجم می‌تواند
-با جعل header خود را به‌جای کاربر دیگری معرفی کند.
-
-## تفاوت Proxy Route و Superset Route
-
-بخش «راهبری Proxy» پنل ادمین برای APIهای HR، Finance و سرویس‌های business/legacy است. route تخصصی Superset در حال حاضر از `OperationSupersetProxyController` عبور می‌کند و در جدول‌های `service_target`، `proxy_route` و `route_operation` ساخته نمی‌شود.
-
-برای Superset route عمومی دیگری نسازید؛ route موازی ممکن است check اختصاصی دارایی Superset را دور بزند یا با endpointهای root-relative نسخه ۵ تداخل پیدا کند.
-
-## URL استاندارد گزارش
-
-URL ذخیره‌شده در catalog باید relative و same-origin باشد:
+مسیر metadata relative و same-origin است:
 
 ```text
 Dashboard: /superset/dashboard/{dashboardId}/
 Chart:     /explore/?slice_id={chartId}
 ```
 
-نمونه:
+URL نهایی BFF ممکن است prefix `/api/integrations/superset/{code}` داشته باشد. UI باید همان `url_path` معتبر برگشتی BFF را مصرف کند، نه URL مستقیم میزبان عملیاتی.
 
-```text
-/superset/dashboard/1/
-```
-
-این URLها ممنوع‌اند:
-
-```text
-https://bi.company.com/...
-http://localhost:8088/...
-http://<operation-host>/...
-```
-
-زیرا BFF، audit و OpenFGA را دور می‌زنند و نام داخلی شبکه را افشا می‌کنند.
-
-## ثبت dashboard و تخصیص دسترسی
-
-1. مدیر گزارش dashboard را در Operation Superset ایجاد و publish می‌کند.
-2. در Super App وارد `مرکز مدیریت Aurevia` می‌شود.
-3. تب `گزارش‌ها و داشبوردها` را باز می‌کند.
-4. `دریافت مجدد از API` فهرست زنده Operation Superset را دریافت می‌کند.
-5. با `افزودن به درخت`، asset در registry ثبت می‌شود.
-6. Authorization Service در یک transaction رکورد `superset_asset`، resource خارجی، actionهای مجاز و outbox event والد را می‌سازد.
-7. از `سطوح دسترسی`، سطح مشاهده/ویرایش/مدیریت به USER، GROUP یا ROLE داده می‌شود.
-8. outbox relation متناظر را در OpenFGA می‌نویسد.
-9. `GET /api/v1/reports` فقط assetهای publish‌شده‌ای را برمی‌گرداند که OpenFGA برای کاربر `can_view` داده است.
-10. هر درخواست runtime نیز جداگانه با endpoint `superset-access` کنترل می‌شود؛ مخفی‌کردن کارت در UI کنترل امنیتی محسوب نمی‌شود.
-
-نمونه metadata یک dashboard:
-
-```json
-{
-  "externalId": "dashboard:1",
-  "assetType": "DASHBOARD",
-  "title": "World Bank Dashboard",
-  "urlPath": "/superset/dashboard/1/",
-  "ownerExternalId": null,
-  "published": true
-}
-```
-
-نکته: کلید والد فعلی `external_resource:superset-public` نام دارد، ولی runtime واقعاً در Operation اجرا می‌شود. تغییر آن به `superset-operation` نیازمند migration هم‌زمان PostgreSQL، outbox و tupleهای OpenFGA است و نباید با update دستی انجام شود.
-
-## نمایش داخل MFE Reports
-
-پیاده‌سازی فعلی `apps/mfe-reports/src/bootstrap.tsx` گزارش را با `target="_blank"` باز می‌کند. طراحی هدف برای نمایش داخل خود میکرو، یک حالت catalog/viewer است:
-
-```text
-ReportsCatalog
-  -> انتخاب کارت مجاز
-  -> ReportsViewer
-       -> iframe same-origin
-       -> بازگشت، refresh و تمام‌صفحه
-```
-
-نمونه قرارداد viewer:
+پیاده‌سازی فعلی `apps/mfe-reports/src/bootstrap.tsx` گزارش را با `target="_blank"` باز می‌کند. iframe هنوز طراحی هدف است؛ نمونه توسعه آینده:
 
 ```tsx
-<iframe
-  src={report.url_path}
-  title={report.title}
-  style={{ width: '100%', height: 'calc(100vh - 180px)', border: 0 }}
-/>
+<iframe src={report.url_path} title={report.title}
+  style={{ width: '100%', height: 'calc(100vh - 180px)', border: 0 }} />
 ```
 
-قواعد الزامی:
+برای viewer، origin و prefix URL محدود، CSP و frame policy هماهنگ و کنترل BFF/OpenFGA حفظ شود. مخفی‌کردن کارت یا iframe کنترل مجوز نیست.
 
-- `src` فقط از `url_path` برگشتی BFF و با prefix مجاز `/superset/` یا `/reports-runtime/` ساخته شود.
-- URL از query string دلخواه کاربر یا host خارجی ساخته نشود.
-- iframe و requestهای آن same-origin و دارای cookie نشست باشند.
-- BFF برای navigation، APIهای chart/dashboard، log و queryهای runtime همچنان `superset-access` را check کند.
-- CSP محیط باید `frame-src 'self'` و Superset باید embedding همان origin را مجاز کند.
-- fallback «بازکردن در صفحه جدید» برای accessibility و عیب‌یابی حفظ شود.
-- unmount کردن MFE باید viewer را نیز حذف کند و listener سراسری باقی نگذارد.
+## APIهای root-relative و CSRF
 
-نمایش iframe به‌تنهایی authorization نیست. کاربر حتی با دانستن URL باید در BFF/OpenFGA DENY شود.
+Superset 5 درخواست‌هایی به `/api/v1/*`، `/superset/*` و `/static/*` می‌فرستد. Nginx و context نشست BFF آن‌ها را به tunnel Superset هدایت می‌کنند. `APPLICATION_ROOT=/` در مقصد حفظ می‌شود؛ prefix خارجی در BFF مدیریت می‌شود.
 
-## endpointهای root-relative در Superset 5
-
-Superset 5 بخشی از درخواست‌ها را به `/api/v1/*` و `/superset/*` می‌فرستد. Nginx با referrer همان‌origin تشخیص می‌دهد کدام `/api/v1` متعلق به Superset است. cookie مستقل `AUREVIA_OPERATION_SUPERSET` نیز باید path `/` داشته باشد.
-
-به همین علت `APPLICATION_ROOT` در Operation Superset برابر `/` است و prefix عمومی در Nginx/BFF مدیریت می‌شود. قرار دادن مستقیم Superset 5 زیر `APPLICATION_ROOT=/reports-runtime` می‌تواند router SPA را مختل کند.
-
-## تنظیم یک محیط واقعی
-
-برای جایگزینی containerهای local با سرویس واقعی:
-
-1. Public asset host را به image/version دقیق همان Superset عملیاتی pin کنید.
-2. Operation Gateway را به DNS خصوصی Operation Superset متصل کنید.
-3. هیچ route عمومی مستقیم برای Operation Superset ایجاد نکنید.
-4. ارتباط BFF→Gateway را با mTLS و trust store صریح فعال کنید.
-5. headerهای هویت ورودی اینترنت را در Gateway حذف و فقط هویت workload تأییدشده BFF را بپذیرید.
-6. secret، database URL و credentialها را از Vault/KMS تزریق کنید.
-7. CSP را با originهای واقعی محیط تولید کنید؛ مقادیر localhost متعلق به local هستند.
-8. health، login، catalog، dashboard مجاز، dashboard غیرمجاز و revoke را در smoke/E2E آزمایش کنید.
-
-## چک‌لیست تست
-
-```text
-[ ] /static/* از Public Superset پاسخ 200 می‌دهد.
-[ ] Public Superset هیچ dashboard/API runtime عمومی ندارد.
-[ ] Operation Superset host port عمومی ندارد.
-[ ] /superset/dashboard/{id}/ برای کاربر مجاز نمایش داده می‌شود.
-[ ] همان URL برای کاربر بدون grant پاسخ 403 می‌دهد.
-[ ] مدیر application به dashboard دسترسی مدیریتی دارد.
-[ ] revoke پس از invalidation کش OpenFGA اعمال می‌شود.
-[ ] iframe هیچ URL مستقیم Operation را مصرف نمی‌کند.
-[ ] /api/v1/me/، chart data و /superset/log/ از tunnel عبور می‌کنند.
-[ ] token، cookie و header داخلی در log ثبت نمی‌شوند.
-```
+APIهای مدیریتی Aurevia از CSRF BFF استفاده می‌کنند. درخواست‌های Superset تابع سیاست CSRF خود مقصد هستند: دریافت token از `/api/v1/security/csrf_token/` و ارسال header `X-CSRFToken`. استثنای Spring CSRF برای tunnel، سیاست CSRF مقصد را غیرفعال نمی‌کند. Superset 5 به‌طور پیش‌فرض chart-data POST را معاف می‌کند؛ config دموی Native این معافیت را حذف کرده و آزمون آن query بدون token را رد می‌کند.
 
 ## فایل‌های مرجع
 
 | مسئولیت | فایل |
 |---|---|
-| تعریف سرویس‌های local | `infra/docker-compose/compose.yml` |
-| ingress و rewrite عمومی | `infra/nginx/nginx.conf` |
-| route خصوصی Gateway | `infra/mock-operation/gateway.conf` |
-| پیکربندی Operation Superset | `infra/superset-operation/superset_config.py` |
-| tunnel و check runtime | `services/superapp-bff/.../OperationSupersetProxyController.java` |
-| فهرست گزارش کاربر | `services/superapp-bff/.../ReportsController.java` |
-| registry و OpenFGA check | `services/authorization-service/.../SupersetAssetController.java` |
-| UX مدیریت asset/grant | `apps/mfe-admin/src/SupersetAssets.tsx` |
-| catalog و viewer گزارش | `apps/mfe-reports/src/bootstrap.tsx` |
+| ingress و rewrite | `infra/nginx/nginx.conf` |
+| دو فرایند Native | `infra/superset-native/manage.py` |
+| middleware و تنظیمات | `infra/superset-native/superset_config.py` |
+| HTTPS/mTLS میزبان | `tools/superset-native-ingress.mjs` |
+| TLS تخصصی BFF | `services/superapp-bff/.../api/SupersetWebClientConfiguration.java` |
+| proxy و کنترل runtime | `services/superapp-bff/.../api/OperationSupersetProxyController.java` |
+| mapping | `services/authorization-service/.../superset/JdbcSupersetProxyRepository.java` |
+| کنترل asset | `services/authorization-service/.../superset/SupersetAssetService.java` |
+| catalog گزارش | `services/superapp-bff/.../api/ReportsController.java` |
+| مدیریت asset/grant | `apps/mfe-admin/src/SupersetAssets.tsx` |
+| MFE گزارش | `apps/mfe-reports/src/bootstrap.tsx` |
+
+فرمان‌ها، نتایج Chrome، آزمون منع دسترسی و توقف/بازگردانی در [مستند Native](superset-native-network-demo-fa.md) آمده‌اند.

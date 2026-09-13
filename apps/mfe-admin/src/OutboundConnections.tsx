@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Card, Checkbox, Form, Input, Modal, Space, Table, Tag, message } from 'antd';
+import {serviceUrlRule} from './service-url-validation';
 
 type AdminApi = (path: string, init?: RequestInit) => Promise<any>;
 type ConnectionRow = {
@@ -104,7 +105,7 @@ export function OutboundConnections({ api }: { api: AdminApi }) {
         <Form.Item name="connectionRef" label="Reference پایدار" rules={required}>
           <Input disabled={Boolean(editing)} placeholder="connection://legacy/payroll" />
         </Form.Item>
-        <Form.Item name="baseUrl" label="Origin سرویس توکن" rules={[...required, { type: 'url' }]}>
+        <Form.Item name="baseUrl" label="Origin سرویس توکن" rules={[...required, serviceUrlRule(true)]}>
           <Input placeholder="https://identity.legacy.example:443" />
         </Form.Item>
         <Space>

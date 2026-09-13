@@ -21,6 +21,7 @@
 13. [انتشار Demo روی سرور Linux](deployment-demo-linux-fa.md)
 14. [انتشار Production روی Linux](deployment-production-linux-fa.md)
 15. [Superset به‌عنوان External Integration](external-integration-superset-fa.md)
+    — [دموی دو Superset خارج از Docker و ارسال query از BFF](superset-native-network-demo-fa.md)
 16. [جزئیات سازگار Superset، Route و نمایش داخل MFE](superset-routing-and-embedding-fa.md)
 17. [ارسال امن توکن به Gateway و سرویس‌های عملیاتی](operational-token-forwarding-fa.md)
 18. [تست سرتاسری Legacy و OAuth2](legacy-oauth2-end-to-end-demo-fa.md)
@@ -33,6 +34,7 @@
 25. [نمودار پایگاه داده](er-diagram.md)
 26. [تصمیم‌های معماری](adr/)
 27. [Swagger و OpenAPI فارسی همه سرویس‌های Backend](swagger-openapi-fa.md)
+    — [گزارش بازبینی و رفع اشکال Swagger در ۲۰۲۶-۰۹-۱۲](swagger-openapi-review-2026-09-12-fa.md)
 28. [سیاست تولید و خروجی قرارداد OpenAPI](openapi/)
 29. [قرارداد مؤثر UI Catalog و مسیریابی واقعی Admin MFE](effective-ui-catalog-and-admin-routing-fa.md)
 30. [راهنما و گزارش آزمون End-to-End تمام صفحات راهبری](admin-governance-e2e-test-guide-fa.md)
@@ -66,6 +68,7 @@
 | branch، review، CI و دسترسی Git چگونه مدیریت می‌شود؟ | [git-governance-fa.md](git-governance-fa.md) |
 | دسترسی یک گزارش Superset چگونه داده می‌شود؟ | [access-control-fa.md](access-control-fa.md#انتصاب-گزارش-یا-داشبورد-به-کاربر) |
 | دو Superset کجا تعریف می‌شوند و route یا iframe گزارش چگونه کار می‌کند؟ | [superset-routing-and-embedding-fa.md](superset-routing-and-embedding-fa.md) |
+| دو Superset خارج از Docker با IP شبکه، mTLS و query واقعی چگونه اجرا و تست می‌شوند؟ | [superset-native-network-demo-fa.md](superset-native-network-demo-fa.md) |
 | چرا Superset بدون فرم Login دوم باز می‌شود و آیا از SSO یا password استفاده می‌کند؟ | [superset-routing-and-embedding-fa.md#احراز-هویت-و-sso-بین-super-app-و-superset](superset-routing-and-embedding-fa.md#احراز-هویت-و-sso-بین-super-app-و-superset) |
 | ادمین چگونه بدون انتشار نسخه یک میکرو و backend Legacy تعریف می‌کند؟ | [legacy-service-authentication-fa.md](legacy-service-authentication-fa.md#تعریف-یک-micro-app-از-نوع-legacy-بدون-انتشار-نسخه) |
 | سناریوی واقعی Legacy و OAuth2 را چگونه با اثبات نبود توکن در Session اجرا کنیم؟ | [legacy-oauth2-end-to-end-demo-fa.md](legacy-oauth2-end-to-end-demo-fa.md) |

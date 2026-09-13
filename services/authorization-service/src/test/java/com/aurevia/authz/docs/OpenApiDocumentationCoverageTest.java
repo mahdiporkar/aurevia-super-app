@@ -5,7 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Method;
-import java.util.List;
+import io.swagger.v3.oas.annotations.Hidden;
+import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
+import org.springframework.core.type.filter.AnnotationTypeFilter;
+import org.springframework.web.bind.annotation.RestController;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.annotation.AnnotatedElementUtils;
@@ -13,22 +16,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 class OpenApiDocumentationCoverageTest {
-  private static final List<String> CONTROLLERS = List.of(
-      "AccessAdminController", "AuthorizationController", "IdentityAdminController",
-      "IdentitySyncController", "LogIngestionController", "LogQueryController",
-      "OperationsController", "OuAccessAdminController", "OutboundAuthProfileController",
-      "OutboundConnectionController", "ProxyRouteAdminController", "RegistryController",
-      "ResourceManifestController", "RouteResolutionController", "SupersetAssetController",
-      "SupersetInstanceController", "SupersetProxyResolutionController",
-      "UiPluginRegistryController");
-
   @Test
   void everyMappedEndpointHasPersianSummaryAndEveryBodyHasExample() throws Exception {
     AtomicInteger endpoints = new AtomicInteger();
-    for (String simpleName : CONTROLLERS) {
-      Class<?> controller = Class.forName("com.aurevia.authz.api." + simpleName);
+    var scanner = new ClassPathScanningCandidateComponentProvider(false);
+    scanner.addIncludeFilter(new AnnotationTypeFilter(RestController.class));
+    for (var candidate : scanner.findCandidateComponents("com.aurevia.authz.api")) {
+      Class<?> controller = Class.forName(candidate.getBeanClassName());
+      if (AnnotatedElementUtils.hasAnnotation(controller, Hidden.class)) continue;
+      String simpleName = controller.getSimpleName();
       for (Method method : controller.getDeclaredMethods()) {
-        if (!AnnotatedElementUtils.hasAnnotation(method, RequestMapping.class)) continue;
+        if (!AnnotatedElementUtils.hasAnnotation(method, RequestMapping.class)
+            || AnnotatedElementUtils.hasAnnotation(method, Hidden.class)) continue;
         endpoints.incrementAndGet();
         String key = simpleName + "#" + method.getName();
         assertDoesNotThrow(() -> ApiDocumentationCatalog.summary(key),

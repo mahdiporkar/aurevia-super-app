@@ -26,6 +26,19 @@ final class ApiDocumentationExamples {
   static Object forType(Class<?> type) {
     String owner = type.getEnclosingClass() == null ? "" : type.getEnclosingClass().getSimpleName() + ".";
     return switch (owner + type.getSimpleName()) {
+      case "IdentityProviderDtos.ProviderRequest" -> map(
+          "code", "corporate-oidc", "name", "ورود سازمانی", "type", "OIDC",
+          "issuerUrl", "https://identity.example.test/realms/corporate",
+          "authorizationEndpoint", "https://identity.example.test/realms/corporate/protocol/openid-connect/auth",
+          "tokenEndpoint", "https://identity.example.test/realms/corporate/protocol/openid-connect/token",
+          "jwksUri", "https://identity.example.test/realms/corporate/protocol/openid-connect/certs",
+          "userInfoEndpoint", "https://identity.example.test/realms/corporate/protocol/openid-connect/userinfo",
+          "clientId", "aurevia-bff", "clientSecretReference", "secret://identity/corporate-oidc",
+          "enabled", true, "domains", List.of("example.test"), "scopes", List.of("openid", "profile"),
+          "audiences", List.of("aurevia-bff"), "subjectClaim", "sub", "usernameClaim", "preferred_username",
+          "groupsClaim", "groups");
+      case "IdentityProviderDtos.EnabledRequest" -> map("enabled", true);
+      case "ExternalIdentityAdminController.LinkRequest" -> map("providerCode", "corporate-oidc", "subject", "external-subject-example");
       case "AccessAdminDtos.ResourceRequest" -> map(
           "resourceKey", "page:finance.payments", "type", "PAGE",
           "parentId", "15484e5a-4872-4bf2-a1fa-37a0c264bf9d",
@@ -51,7 +64,7 @@ final class ApiDocumentationExamples {
       case "IdentityAdminDtos.StatusRequest", "ProxyRouteDtos.StatusRequest",
           "OutboundRegistryDtos.StatusRequest" -> map("active", true);
       case "IdentitySyncDtos.LoginIdentityRequest" -> map(
-          "issuer", "http://localhost:8180/realms/aurevia", "subject", "8e3a7fd6-demo-user",
+          "providerCode", "keycloak", "issuer", "http://localhost:8180/realms/aurevia", "subject", "8e3a7fd6-demo-user",
           "username", "ali.rezaei", "displayName", "علی رضایی", "email", "ali.rezaei@example.test",
           "distinguishedName", "CN=Ali Rezaei,OU=Sales,DC=aurevia,DC=local",
           "ouExternalId", "OU=Sales,DC=aurevia,DC=local", "directoryExternalId", "object-guid-demo",

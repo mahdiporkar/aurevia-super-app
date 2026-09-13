@@ -4,10 +4,9 @@ import com.aurevia.bff.proxy.RouteNormalizer;
 import com.aurevia.bff.proxy.SupersetTargetPolicy;
 import java.net.URI;
 import java.security.Principal;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.core.io.buffer.DataBufferUtils;
@@ -19,14 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClient.RequestBodySpec;
 import org.springframework.web.reactive.function.client.WebClient.RequestHeadersSpec;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
-import reactor.netty.http.client.HttpClient;
 import reactor.core.publisher.Mono;
 import com.aurevia.bff.security.SessionIdentity;
-import io.netty.channel.ChannelOption;
 import org.springframework.web.bind.annotation.GetMapping;
 
 @RestController
@@ -56,19 +52,13 @@ public class OperationSupersetProxyController {
   private static final String SELECTED_INSTANCE = "aurevia.superset.public-instance";
 
   public OperationSupersetProxyController(
-      @Value("${aurevia.superset.connect-timeout-ms:3000}") int connectTimeoutMs,
-      @Value("${aurevia.superset.response-timeout-ms:10000}") long responseTimeoutMs,
+      @Qualifier("supersetWebClient") WebClient supersetClient,
       AuthorizationServiceClient authorization,
       SupersetTargetPolicy targetPolicy,SupersetRequestInspector requestInspector) {
     this.authorization = authorization;
     this.targetPolicy = targetPolicy;
     this.requestInspector=requestInspector;
-    HttpClient httpClient = HttpClient.create().followRedirect(false)
-        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS,connectTimeoutMs)
-        .responseTimeout(Duration.ofMillis(responseTimeoutMs));
-    this.supersetClient = WebClient.builder()
-        .clientConnector(new ReactorClientHttpConnector(httpClient))
-        .build();
+    this.supersetClient = supersetClient;
   }
 
   @RequestMapping("/api/v1/superset/{*path}")
@@ -164,11 +154,21 @@ public class OperationSupersetProxyController {
               integrationCode,String.valueOf(target.get("operation_code")),safePath,
               exchange.getRequest().getMethod().name(),rawQuery,hint.type(),hint.id())
             .flatMap(decision -> "ALLOW".equals(decision.get("result"))
-                ? forward(exchange,identity,target,safePath,rawQuery,body,integrationCode)
+                ? forward(exchange,identity,selectAssetTarget(target,safePath),safePath,rawQuery,body,integrationCode)
                 : Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN,
                     String.valueOf(decision.get("reasonCode")))));
       });
     });
+  }
+
+  private static Map selectAssetTarget(Map target,String path) {
+    if (!path.startsWith("/static/") || target.get("public_base_url") == null) return target;
+    var selected = new java.util.HashMap<String,Object>(target);
+    selected.put("base_url", target.get("public_base_url"));
+    selected.put("tls_required", target.get("public_tls_required"));
+    // Static hosting needs no user identity. Runtime authorization is checked before selection.
+    selected.put("auth_mode", "STATIC_ASSETS");
+    return selected;
   }
 
   private Mono<Void> forward(ServerWebExchange exchange, SessionIdentity identity,
@@ -191,7 +191,9 @@ public class OperationSupersetProxyController {
         .uri(origin)
         .headers(headers -> {
           REQUEST_HEADERS.forEach(name -> copyHeader(exchange.getRequest().getHeaders(), headers, name));
-          copyNamespacedCookies(exchange,headers,publicInstance);
+          if(!"STATIC_ASSETS".equals(String.valueOf(target.get("auth_mode")))) {
+            copyNamespacedCookies(exchange,headers,publicInstance);
+          }
           if("REMOTE_USER".equals(String.valueOf(target.get("auth_mode")))) {
             headers.set("X-Aurevia-Subject", identity.subject());
             headers.set("X-Aurevia-Issuer", identity.issuer());

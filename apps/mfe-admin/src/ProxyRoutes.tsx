@@ -3,6 +3,7 @@ import {
   Alert, Button, Card, Checkbox, Form, Input, InputNumber, Modal, Popconfirm, Select,
   Space, Table, Tag, Typography, message,
 } from 'antd';
+import {serviceUrlRule} from './service-url-validation';
 
 type Row = Record<string, any>;
 export type AdminApi = <T>(path: string, init?: RequestInit) => Promise<T>;
@@ -246,7 +247,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
           <Form.Item name="name" label="نام" rules={required}><Input /></Form.Item>
           <Form.Item name="environment" label="محیط" rules={required}><Select style={{ width: 180 }} options={['OPERATION', 'STAGING'].map(value => ({ value, label: value }))} /></Form.Item>
           <Form.Item name="outboundAuthProfileId" label="Outbound Auth Profile" rules={required}><Select style={{ width: 300 }} options={authProfiles.filter(profile => profile.active).map(profile => ({ value: profile.id, label: `${profile.name} (${profile.auth_mode})` }))} /></Form.Item>
-          <Form.Item name="gatewayBaseUrl" label="آدرس کامل Gateway" rules={[...required, { type: 'url' }]}><Input style={{ width: 360 }} placeholder="http://operation-gateway:80" /></Form.Item>
+          <Form.Item name="gatewayBaseUrl" label="آدرس کامل Gateway" rules={[...required, serviceUrlRule()]}><Input style={{ width: 360 }} placeholder="http://operation-gateway:80" /></Form.Item>
           <Form.Item name="upstreamBasePath" label="Upstream Base Path" rules={required}><Input /></Form.Item>
           <Form.Item name="healthCheckPath" label="Health Path" rules={required}><Input /></Form.Item>
           <Form.Item name="tlsProfileRef" label="TLS Profile Ref"><Input placeholder="tls://gateway-client" /></Form.Item>

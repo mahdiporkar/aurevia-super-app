@@ -25,7 +25,9 @@ final class ApiDocumentationCatalog {
       Map.entry("SupersetAssetController", "15 - گزارش، داشبورد و سطح دسترسی"),
       Map.entry("LogIngestionController", "16 - دریافت لاگ فنی"),
       Map.entry("LogQueryController", "17 - جست‌وجوی لاگ و Audit"),
-      Map.entry("OperationsController", "18 - عملیات نگهداشت"));
+      Map.entry("OperationsController", "18 - عملیات نگهداشت"),
+      Map.entry("IdentityProviderController", "19 - سرویس‌های هویت و ورود چندگانه"),
+      Map.entry("ExternalIdentityAdminController", "20 - اتصال هویت خارجی کاربران"));
 
   private static final Map<String, String> SUMMARIES = summaries();
 
@@ -40,6 +42,12 @@ final class ApiDocumentationCatalog {
   }
 
   static String description(String key, String summary) {
+    if (key.startsWith("IdentityProviderController#")) {
+      return summary + ". تنظیمات ورود OIDC و reference راز client در رجیستری نگهداری می‌شوند؛ مقدار راز در API یا مستندات پذیرفته نمی‌شود. مسیرهای registry به مجوز مدیریت و کنترل version نیاز دارند.";
+    }
+    if (key.startsWith("ExternalIdentityAdminController#")) {
+      return summary + ". اتصال صریح provider + subject به شناسه canonical کاربر با کنترل مجوز و ثبت Audit انجام می‌شود؛ تطبیق username یا email به‌تنهایی اتصال هویت نمی‌سازد.";
+    }
     if (key.startsWith("AuthorizationController#")) {
       return summary + ". نتیجه بر پایه issuer + subject، کلید منبع و action محاسبه می‌شود و correlationId برای رهگیری الزامی است.";
     }
@@ -74,6 +82,8 @@ final class ApiDocumentationCatalog {
     Map<String, String> m = new LinkedHashMap<>();
     put(m, "AuthorizationController", "check", "بررسی یک مجوز", "checkBatch", "بررسی دسته‌ای مجوزها", "manifest", "دریافت Manifest کامل دسترسی کاربر");
     put(m, "IdentitySyncController", "loginSync", "همگام‌سازی هویت، گروه Directory و OU پس از ورود");
+    put(m, "IdentityProviderController", "available", "فهرست سرویس‌های هویت فعال", "route", "انتخاب سرویس هویت برای ورود", "runtime", "دریافت تنظیمات runtime ورود بدون مقدار راز", "list", "فهرست سرویس‌های هویت ثبت‌شده", "create", "ثبت سرویس هویت OIDC", "update", "ویرایش سرویس هویت با کنترل نسخه", "enabled", "فعال یا غیرفعال کردن سرویس هویت", "health", "آزمون سلامت سرویس هویت");
+    put(m, "ExternalIdentityAdminController", "list", "فهرست هویت‌های خارجی متصل به کاربر", "link", "اتصال هویت خارجی به کاربر canonical", "unlink", "لغو اتصال هویت خارجی کاربر");
     put(m, "AccessAdminController", "resourceTypes", "فهرست انواع مجاز منبع", "resourceTreeCapabilities", "دریافت قابلیت‌های توسعه‌ای درخت منابع", "resources", "فهرست درختی منابع", "createResource", "ایجاد منبع", "updateResource", "ویرایش منبع با کنترل نسخه", "deprecateResource", "منسوخ‌کردن امن منبع ادمین", "actions", "فهرست Actionها", "createAction", "ایجاد Action", "attachAction", "اتصال Action به منبع", "detachAction", "حذف اتصال Action از منبع", "users", "فهرست کاربران همگام‌شده", "createUser", "ایجاد کاربر راهبری", "userGrants", "فهرست مجوزهای مستقیم کاربر", "subjectGrants", "فهرست مجوزهای یک subject", "grant", "اعطای مجوز منبع", "revoke", "لغو Grant");
     put(m, "IdentityAdminController", "directoryGroups", "فهرست گروه‌های همگام‌شده Directory", "roles", "فهرست نقش‌ها", "roleAssignments", "فهرست انتساب نقش‌ها", "createRole", "تعریف نقش", "updateRole", "ویرایش نقش با کنترل نسخه", "updateRoleStatus", "فعال یا غیرفعال‌کردن نقش", "assignRole", "انتساب نقش به فرد یا گروه", "revokeRole", "لغو انتساب نقش");
     put(m, "OuAccessAdminController", "ous", "فهرست OUهای کشف‌شده از LDAP", "groups", "فهرست گروه‌های دسترسی", "rules", "قواعد OU یک گروه دسترسی", "members", "اعضای مؤثر گروه دسترسی", "jobs", "سوابق محاسبه عضویت", "createGroup", "ایجاد گروه دسترسی", "updateGroup", "ویرایش گروه دسترسی", "addRule", "افزودن شرط OU به گروه", "removeRule", "حذف شرط OU از گروه", "preview", "پیش‌نمایش اعضای حاصل از قواعد OU", "grants", "فهرست اتصال میکروها به گروه‌ها", "grant", "اعطای میکرو به گروه دسترسی", "revoke", "لغو دسترسی میکرو از گروه", "explain", "توضیح علت دسترسی‌های یک کاربر");

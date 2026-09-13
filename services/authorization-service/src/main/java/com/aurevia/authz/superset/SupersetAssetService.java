@@ -75,10 +75,16 @@ public class SupersetAssetService {
     boolean matched = allowed.stream().anyMatch(asset -> matches(asset, path, query, assetType, assetId));
     boolean read = Set.of("GET", "HEAD", "OPTIONS").contains(method.toUpperCase(Locale.ROOT));
     boolean common = read && isCommonRuntimePath(path);
+    boolean favoriteStatus = read && canReadFavoriteStatus(allowed,path,query);
     boolean telemetry = "POST".equalsIgnoreCase(method) && path.startsWith("/superset/log");
     boolean dataQuery = "POST".equalsIgnoreCase(method) && path.startsWith("/api/v1/chart/data");
+    // Explore stores transient form state before fetching a saved chart. This is
+    // a cache operation, not a chart update, and still needs that chart's grant.
+    boolean exploreForm = "POST".equalsIgnoreCase(method)
+        && path.matches("/api/v1/explore/form_data/?")
+        && "CHART".equalsIgnoreCase(assetType) && hinted && matched;
     boolean granted = !allowed.isEmpty()
-        && ((read && matched) || common || telemetry || (dataQuery && hinted && matched));
+        && ((read && matched) || favoriteStatus || common || telemetry || exploreForm || (dataQuery && hinted && matched));
     return new RuntimeAccess(granted ? "ALLOW" : "DENY",
         granted ? "SUPERSET_ASSET_ALLOWED" : "SUPERSET_ASSET_DENIED");
   }
@@ -142,6 +148,22 @@ public class SupersetAssetService {
         || path.startsWith("/api/v1/security/csrf_token")
         || path.startsWith("/api/v1/menu/") || path.endsWith("/_info");
   }
+  private static boolean canReadFavoriteStatus(List<AssetView> allowed,String path,String query) {
+    if (!path.matches("/api/v1/(dashboard|chart)/favorite_status/?") || blank(query)) return false;
+    String type=path.contains("/dashboard/")?"DASHBOARD":"CHART";
+    List<String> parameters=java.util.Arrays.stream(query.split("&"))
+        .filter(parameter->parameter.startsWith("q=")).toList();
+    if(parameters.size()!=1) return false;
+    try {
+      String rison=java.net.URLDecoder.decode(parameters.getFirst().substring(2),java.nio.charset.StandardCharsets.UTF_8);
+      var ids=java.util.regex.Pattern.compile("^!\\((\\d{1,20}(?:,\\d{1,20})*)\\)$").matcher(rison);
+      if(!ids.matches()) return false;
+      return java.util.Arrays.stream(ids.group(1).split(",")).allMatch(id->allowed.stream()
+          .anyMatch(asset->type.equals(asset.assetType())&&id.equals(asset.externalId())));
+    } catch(IllegalArgumentException malformed) {
+      return false;
+    }
+  }
   private static boolean matches(AssetView asset, String path, String query,
       String hintedType, String hintedId) {
     if (normalize(path).equals(normalize(asset.urlPath()))) return true;
@@ -150,7 +172,10 @@ public class SupersetAssetService {
         && (blank(hintedType) || asset.assetType().equalsIgnoreCase(hintedType))) return true;
     String kind = "DASHBOARD".equalsIgnoreCase(asset.assetType()) ? "dashboard" : "chart";
     String queryKey = "DASHBOARD".equalsIgnoreCase(asset.assetType()) ? "dashboard_id" : "slice_id";
-    return path.matches(".*/" + kind + "/" + java.util.regex.Pattern.quote(id) + "/?$")
+    boolean dashboardDependencies = "DASHBOARD".equalsIgnoreCase(asset.assetType())
+        && path.matches("/api/v1/dashboard/" + java.util.regex.Pattern.quote(id) + "/(?:charts|datasets)/?");
+    return dashboardDependencies
+        || path.matches(".*/" + kind + "/" + java.util.regex.Pattern.quote(id) + "/?$")
         || query.matches("(?:^|.*&)" + queryKey + "=" + java.util.regex.Pattern.quote(id) + "(?:&.*)?");
   }
   private static String validateAssetType(String value) {

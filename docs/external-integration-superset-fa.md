@@ -39,6 +39,19 @@ npm run superset:down
 است. migration نسخه 58 فقط fixtureهای دقیق قدیمی را از نام شبکه Docker به این URLها تبدیل
 می‌کند و رکوردهای سفارشی/Production را تغییر نمی‌دهد.
 
+برای دو instance واقعی Apache Superset خارج از containerها، با آدرس LAN، HTTPS و اتصال
+mTLS از BFF، [دموی شبکه‌ای Native](superset-native-network-demo-fa.md) را ببینید:
+
+```bash
+npm run superset:native:up
+npm run superset:native:register
+npm run superset:native:verify
+```
+
+بین فرمان `up` و `register` باید overlay اختیاری TLS/شبکه BFF مطابق همان سند اعمال شود.
+این overlay هیچ سرویس Superset ایجاد نمی‌کند. دموهای Native و Docker را هم‌زمان روی
+پورت‌های 8088/8089 اجرا نکنید.
+
 نام volume دیتابیس demo عمداً `aurevia_operation-superset-db` باقی مانده تا نصب‌های قبلی
 dashboardهای خود را بدون کپی داده ببینند. `infra:up` کانتینرهای orphan پروفایل قدیمی را حذف
 می‌کند، اما volume را پاک نمی‌کند؛ `superset:up` همان volume را در پروژه مستقل mount می‌کند.
@@ -131,6 +144,10 @@ Flow کامل:
 8. cookieهای Superset با prefix مخصوص instance بازنویسی می‌شوند تا نشست چند instance با هم
    تداخل نکند.
 
+در PUBLIC→OPERATION mapping، درخواست `/static/*` پس از کنترل دسترسی به
+`public_base_url` می‌رود و هویت کاربر به static server فرستاده نمی‌شود. سایر درخواست‌ها
+به URL عملیاتی می‌روند. هر دو URL در زمان fetch با سیاست شبکه بررسی می‌شوند.
+
 برای Production در حالت `REMOTE_USER`، ingress جلوی Superset باید هدرهای هویتی اینترنتی را
 حذف کند و فقط اتصال احرازشده BFF (ترجیحاً mTLS) را مجاز بداند. در غیر این صورت `OIDC` را
 انتخاب کنید.
@@ -166,10 +183,30 @@ health هسته، `depends_on` Compose یا startup هیچ سرویس Core نی�
 
 ## محدودیت‌های عملیاتی
 
+### اتصال TLS سمت سرور
+
+`SupersetWebClientConfiguration` یک WebClient اختصاصی برای Superset می‌سازد. تنظیمات
+زیر فقط سمت BFF هستند و در مرورگر یا metadata رجیستری قرار نمی‌گیرند:
+
+| متغیر | کاربرد |
+|---|---|
+| `SUPERSET_TLS_CA_CERT_FILE` | فایل PEM گواهی CA مورد اعتماد مقصد |
+| `SUPERSET_TLS_CLIENT_CERT_FILE` | فایل PEM زنجیره گواهی client BFF |
+| `SUPERSET_TLS_CLIENT_KEY_FILE` | فایل PEM کلید خصوصی client BFF |
+| `SUPERSET_TLS_REQUIRE_MTLS` | الزام وجود CA و گواهی/کلید client و منع HTTP |
+
+گواهی و کلید client باید با هم تنظیم شوند. در حالت الزام mTLS، تنظیم ناقص startup را
+متوقف می‌کند. hostname verification حفظ شده، trust-all وجود ندارد و redirect خودکار
+خاموش است. بدون فایل‌های سفارشی، trust پیش‌فرض TLS استفاده می‌شود. این تنظیمات سراسری
+connector هستند؛ تغییر trust/identity به restart BFF نیاز دارد، ولی تغییر URL ثبت‌شده
+instance نیاز ندارد. overlay دمو فایل‌های خصوصی را read-only mount می‌کند.
+
 - health check فعلی on-demand است؛ برای پایش دوره‌ای باید سامانه مانیتورینگ سازمان endpoint
   health را صدا بزند.
-- اتصال `REMOTE_USER` در Production به trusted ingress/mTLS خارج از این مخزن نیاز دارد.
-- `connection_ref` برای توسعه adapterهای client certificate یا secret اختصاصی حفظ شده، اما
-  BFF فعلی credentialی از آن resolve یا به Superset ارسال نمی‌کند.
+- اتصال `REMOTE_USER` به trusted ingress نیاز دارد؛ نمونه Native آن در مخزن موجود است.
+- `connection_ref` هنوز secret یا identity اختصاصی هر instance را resolve نمی‌کند؛
+  پیاده‌سازی فعلی PEM/mTLS در سطح connector BFF است.
 - Compose demo برای workstation است و HA، worker async، cache تولیدی و TLS termination
   Superset را فراهم نمی‌کند.
+- دموی Native دارای TLS است، اما SQLite، فرایندهای دستی و داده ساختگی دارد و جایگزین
+  استقرار Production با metadata DB پایدار، secret manager و مانیتورینگ نیست.

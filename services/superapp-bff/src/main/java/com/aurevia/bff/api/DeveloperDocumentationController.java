@@ -1,12 +1,14 @@
 package com.aurevia.bff.api;
 
 import com.aurevia.bff.security.SessionIdentity;
+import com.aurevia.bff.proxy.RouteNormalizer;
 import io.swagger.v3.oas.annotations.Hidden;
 import java.security.Principal;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -28,6 +30,7 @@ import reactor.core.publisher.Mono;
  */
 @Hidden
 @Profile("!prod")
+@ConditionalOnProperty(name = "springdoc.api-docs.enabled", havingValue = "true", matchIfMissing = true)
 @RestController
 public class DeveloperDocumentationController {
   private final WebClient authorization;
@@ -55,7 +58,13 @@ public class DeveloperDocumentationController {
       @RequestBody(required = false) Mono<byte[]> requestBody, ServerWebExchange exchange,
       Principal principal) {
     SessionIdentity identity = SessionIdentity.from(principal);
-    if (!path.startsWith("/internal/v1/")) {
+    boolean allowedPath;
+    try {
+      allowedPath = path.startsWith("/internal/v1/") && path.equals(RouteNormalizer.normalizePath(path));
+    } catch (IllegalArgumentException invalid) {
+      allowedPath = false;
+    }
+    if (!allowedPath) {
       return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST,
           "Only /internal/v1 authorization-service paths are available"));
     }
@@ -71,7 +80,9 @@ public class DeveloperDocumentationController {
           copyHeader(exchange.getRequest().getHeaders(), headers, HttpHeaders.ACCEPT);
           copyHeader(exchange.getRequest().getHeaders(), headers, "X-Correlation-ID");
         });
-    return requireSwaggerPermission(identity).then(request
+    String correlation = exchange.getRequest().getHeaders().getFirst("X-Correlation-ID");
+    return requireSwaggerPermission(identity, correlation == null || correlation.isBlank()
+        ? UUID.randomUUID().toString() : correlation).then(request
         .body(requestBody.defaultIfEmpty(new byte[0]), byte[].class)
         .exchangeToMono(response -> response.bodyToMono(byte[].class).defaultIfEmpty(new byte[0])
             .map(body -> {
@@ -81,17 +92,18 @@ public class DeveloperDocumentationController {
             })));
   }
 
-  private Mono<Void> requireSwaggerPermission(SessionIdentity identity) {
+  private Mono<Void> requireSwaggerPermission(SessionIdentity identity, String correlation) {
     Map<String, Object> check = Map.of(
         "subjectId", identity.subject(), "issuer", identity.issuer(),
-        "resource", "application:aurevia/admin", "action", "manage",
+        "resource", "application:aurevia", "action", "admin",
         "context", Map.of("channel", "swagger"),
-        "correlationId", UUID.randomUUID().toString());
+        "correlationId", correlation);
     return authorization.post().uri("/internal/v1/authorize/check")
-        .contentType(MediaType.APPLICATION_JSON).bodyValue(check).retrieve().bodyToMono(Map.class)
+        .contentType(MediaType.APPLICATION_JSON).header("X-Correlation-ID", correlation)
+        .bodyValue(check).retrieve().bodyToMono(Map.class)
         .filter(decision -> "ALLOW".equals(decision.get("result")))
         .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN,
-            "Swagger execution requires manage access to the admin application")))
+            "Swagger execution requires admin access to the platform application")))
         .then();
   }
 

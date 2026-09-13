@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Alert, Button, Card, Col, Empty, Form, InputNumber, Modal, Row, Segmented, Space, Spin, Statistic, Table, Tag, Typography, message } from "antd";
-import type { RemoteContext, RemoteModule } from "@aurevia/contracts";
+import type { HostRuntime, MicroFrontendProps, RemoteContext, RemoteModule } from "@aurevia/contracts";
 import { createJsonHttpClient } from "@aurevia/http-client";
 import { evaluateSHPolicy, SHAction, SHManifestProvider, SHRouteGuard } from "@aurevia/sh-core-ui";
 
-export const contractVersion = "1" as const;
+export const contractVersion = "1.0" as const;
 type Payment = { id: string; amount: number; maker: string; status: string };
 type Invoice = { id: string; supplier: string; amount: number; status: string };
 type Budget = { id: string; title: string; allocated: number; remaining: number };
@@ -14,26 +14,31 @@ const messages = {
   "fa-IR": { title: "مدیریت پرداخت‌ها", description: "صف پرداخت عملیاتی با کنترل دسترسی مستقل در OpenFGA", payments: "صف پرداخت", pending: "در انتظار تأیید", total: "مبلغ کل صف", amount: "مبلغ", status: "وضعیت", maker: "ایجادکننده", create: "پرداخت جدید", approve: "تأیید", reject: "رد", retry: "تلاش مجدد", loading: "در حال دریافت پرداخت‌ها…", error: "دریافت اطلاعات پرداخت ناموفق بود", empty: "پرداختی برای نمایش وجود ندارد", save: "ذخیره", cancel: "انصراف", saved: "عملیات با موفقیت انجام شد", required: "مبلغ الزامی است" },
   "en-US": { title: "Payment Management", description: "Operational payment queue protected independently by OpenFGA", payments: "Payment queue", pending: "Pending approval", total: "Total queued amount", amount: "Amount", status: "Status", maker: "Maker", create: "New payment", approve: "Approve", reject: "Reject", retry: "Retry", loading: "Loading payments…", error: "Could not load payment data", empty: "No payments to display", save: "Save", cancel: "Cancel", saved: "Operation completed", required: "Amount is required" },
 } as const;
-const financeClient = createJsonHttpClient({ basePath: "/finance-micro/api/v1" });
-const request = <T,>(path: string, init?: RequestInit) => financeClient.request<T>(path, init);
+type FinanceRuntime = Pick<HostRuntime, "http">;
+const financeClient = createJsonHttpClient({ basePath: "/api/proxy/finance" });
+function request<T>(runtime:FinanceRuntime,path:string,init?:RequestInit):Promise<T>{
+  if(init?.method==='POST')return runtime.http.post<T,unknown>(path,JSON.parse(String(init.body??'{}')));
+  if(init?.method==='PUT')return runtime.http.put<T,unknown>(path,JSON.parse(String(init.body??'{}')));
+  return runtime.http.get<T>(path);
+}
 
-function PaymentPage({ context }: { context: RemoteContext }) {
+function PaymentPage({ context,runtime }: { context: RemoteContext;runtime:FinanceRuntime }) {
   const copy = messages[context.locale];
   const [payments, setPayments] = useState<Payment[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState(""), [dialog, setDialog] = useState(false);
   const [form] = Form.useForm();
   const load = async () => {
     setLoading(true); setError("");
-    try { setPayments((await request<ListResponse<Payment>>("/payments")).items); }
+    try { setPayments((await request<ListResponse<Payment>>(runtime,"/payments")).items); }
     catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { setLoading(false); }
   };
   useEffect(() => { void load(); }, []);
   const mutate = async (path: string) => {
-    try { await request(path, { method: "POST", body: "{}" }); message.success(copy.saved); await load(); }
+    try { await request(runtime,path, { method: "POST", body: "{}" }); message.success(copy.saved); await load(); }
     catch (reason) { message.error(reason instanceof Error ? reason.message : String(reason)); }
   };
   const create = async (values: { amount: number }) => {
-    try { await request("/payments", { method: "POST", body: JSON.stringify(values) }); message.success(copy.saved); setDialog(false); form.resetFields(); await load(); }
+    try { await request(runtime,"/payments", { method: "POST", body: JSON.stringify(values) }); message.success(copy.saved); setDialog(false); form.resetFields(); await load(); }
     catch (reason) { message.error(reason instanceof Error ? reason.message : String(reason)); }
   };
   const money = (value: number) => new Intl.NumberFormat(context.locale).format(value);
@@ -59,10 +64,10 @@ function PaymentPage({ context }: { context: RemoteContext }) {
       </Modal>
     </Space>;
 }
-function FinanceReferencePage({ context, kind }: { context: RemoteContext; kind: "invoices" | "budgets" }) {
+function FinanceReferencePage({ context,runtime, kind }: { context: RemoteContext;runtime:FinanceRuntime; kind: "invoices" | "budgets" }) {
   const [rows, setRows] = useState<Array<Invoice | Budget>>([]), [loading, setLoading] = useState(true), [error, setError] = useState("");
   useEffect(() => {
-    request<ListResponse<Invoice | Budget>>(`/${kind}`).then(result => setRows(result.items)).catch(reason => setError(reason instanceof Error ? reason.message : String(reason))).finally(() => setLoading(false));
+    request<ListResponse<Invoice | Budget>>(runtime,`/${kind}`).then(result => setRows(result.items)).catch(reason => setError(reason instanceof Error ? reason.message : String(reason))).finally(() => setLoading(false));
   }, [kind]);
   const fa = context.locale === "fa-IR";
   const money = (value: number) => new Intl.NumberFormat(context.locale).format(value);
@@ -76,7 +81,7 @@ function FinanceReferencePage({ context, kind }: { context: RemoteContext; kind:
   ];
   return <Space direction="vertical" size={18} style={{ width: "100%" }}><div><Typography.Title level={3}>{title}</Typography.Title><Typography.Text type="secondary">{fa ? "داده آزمایشی دریافت‌شده از سرویس عملیاتی Finance" : "Demo data loaded from the operational Finance service"}</Typography.Text></div><Row gutter={[16, 16]}><Col xs={24} md={12}><Card><Statistic title={fa ? "تعداد رکورد" : "Records"} value={rows.length} /></Card></Col><Col xs={24} md={12}><Card><Statistic title={fa ? "وضعیت سرویس" : "Service status"} value={fa ? "فعال" : "Online"} /></Card></Col></Row><Card><Table rowKey="id" dataSource={rows} pagination={false} columns={columns} /></Card></Space>;
 }
-function FinanceWorkspace({ context }: { context: RemoteContext }) {
+function FinanceWorkspace({ context,runtime }: { context: RemoteContext;runtime:FinanceRuntime }) {
   const [page, setPage] = useState("payments");
   const fa = context.locale === "fa-IR";
   const canView = (resource: string) => evaluateSHPolicy(context.manifest, false, resource, "view").allowed;
@@ -84,11 +89,18 @@ function FinanceWorkspace({ context }: { context: RemoteContext }) {
     { value: "payments", label: fa ? "پرداخت‌ها" : "Payments" },
     ...(canView("page:finance.invoices") ? [{ value: "invoices", label: fa ? "صورتحساب‌ها" : "Invoices" }] : []),
     ...(canView("page:finance.budgets") ? [{ value: "budgets", label: fa ? "بودجه‌ها" : "Budgets" }] : []),
-  ]} />{page === "payments" && <SHRouteGuard resource="page:finance.payments" action="view"><PaymentPage context={context} /></SHRouteGuard>}{page === "invoices" && <SHRouteGuard resource="page:finance.invoices" action="view"><FinanceReferencePage context={context} kind="invoices" /></SHRouteGuard>}{page === "budgets" && <SHRouteGuard resource="page:finance.budgets" action="view"><FinanceReferencePage context={context} kind="budgets" /></SHRouteGuard>}</Space>;
+  ]} />{page === "payments" && <SHRouteGuard resource="page:finance.payments" action="view"><PaymentPage context={context} runtime={runtime} /></SHRouteGuard>}{page === "invoices" && <SHRouteGuard resource="page:finance.invoices" action="view"><FinanceReferencePage context={context} runtime={runtime} kind="invoices" /></SHRouteGuard>}{page === "budgets" && <SHRouteGuard resource="page:finance.budgets" action="view"><FinanceReferencePage context={context} runtime={runtime} kind="budgets" /></SHRouteGuard>}</Space>;
+}
+
+export function App({runtime,manifest}:MicroFrontendProps){
+  const context:RemoteContext={locale:runtime.theme.locale,manifest,correlationId:()=>crypto.randomUUID()};
+  return <SHManifestProvider initial={manifest}><FinanceWorkspace context={context} runtime={runtime}/></SHManifestProvider>;
 }
 
 export const mount: RemoteModule["mount"] = (element, context) => {
   const root = createRoot(element);
-  root.render(<SHManifestProvider initial={context.manifest}><FinanceWorkspace context={context} /></SHManifestProvider>);
+  const runtime:FinanceRuntime={http:{get:(path,options)=>financeClient.get(path,options),
+    post:(path,body,options)=>financeClient.post(path,body,options),put:(path,body,options)=>financeClient.put(path,body,options)}};
+  root.render(<SHManifestProvider initial={context.manifest}><FinanceWorkspace context={context} runtime={runtime} /></SHManifestProvider>);
   return () => root.unmount();
 };

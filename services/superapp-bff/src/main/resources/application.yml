@@ -19,6 +19,7 @@ spring:
     redis.namespace: aurevia:session:v2
 management.endpoints.web.exposure.include: health,info,metrics,prometheus
 springdoc:
+  use-fqn: true
   api-docs:
     path: /v3/api-docs
   default-produces-media-type: application/json
@@ -26,7 +27,6 @@ springdoc:
     path: /swagger-ui.html
     disable-swagger-default-url: true
     display-request-duration: true
-    filter: true
     operations-sorter: method
     persist-authorization: false
     tags-sorter: alpha
@@ -69,6 +69,11 @@ aurevia:
     mtls-key-store: ${GATEWAY_MTLS_KEYSTORE:}
     mtls-key-store-password: ${GATEWAY_MTLS_KEYSTORE_PASSWORD:}
   superset:
+    tls:
+      ca-cert-file: ${SUPERSET_TLS_CA_CERT_FILE:}
+      client-cert-file: ${SUPERSET_TLS_CLIENT_CERT_FILE:}
+      client-key-file: ${SUPERSET_TLS_CLIENT_KEY_FILE:}
+      require-mtls: ${SUPERSET_TLS_REQUIRE_MTLS:false}
     network-policy: ${SUPERSET_NETWORK_POLICY:DEVELOPMENT}
     development-host: ${SUPERSET_DEVELOPMENT_HOST:}
     allowed-private-cidrs: ${SUPERSET_ALLOWED_PRIVATE_CIDRS:}

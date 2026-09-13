@@ -107,7 +107,7 @@ public class JdbcSupersetAssetRepository implements SupersetAssetRepository {
         insert into resource(id,resource_key,type,parent_id,name_fa,name_en,owner_domain,
           external_system,external_type,external_id,source)
         values(:id,:key,'EXTERNAL_RESOURCE',:parent,:title,:title,'reports',:instanceCode,
-          :assetType,:externalId,'EXTERNAL_SYNC')
+          :assetType,:externalId,'ADMIN')
         """).param("id", resourceId).param("key", resourceKey).param("parent", parentResourceId)
         .param("title", command.title()).param("instanceCode", command.instanceCode())
         .param("assetType", command.assetType()).param("externalId", command.externalId()).update();

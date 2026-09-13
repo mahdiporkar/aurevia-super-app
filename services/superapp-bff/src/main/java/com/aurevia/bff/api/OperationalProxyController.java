@@ -49,7 +49,9 @@ public class OperationalProxyController {
     this.tokenEvidence=tokenEvidence;
   }
 
-  @RequestMapping("/{panelSlug}/{*path}")
+  // Swagger resources have lower handler priority than controllers. Reserve their roots
+  // so the operational catch-all cannot turn documentation assets into registry lookups.
+  @RequestMapping("/{panelSlug:(?!swagger-ui$|webjars$).+}/{*path}")
   public Mono<Void> proxy(@PathVariable("panelSlug") String panelSlug,
       @PathVariable("path") String ignored, ServerWebExchange exchange,
       Principal principal) {

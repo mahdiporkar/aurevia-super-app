@@ -189,21 +189,27 @@ Legacy backend forward شود.
 
 `OperationSupersetProxyController` عمداً Access Token کاربر را forward نمی‌کند.
 پس از OpenFGA check گزارش، BFF فقط headerهای allowlist‌شده، correlation id و هویت
-زیر را به Gateway می‌فرستد:
+زیر را مستقیماً به URL رجیستری Superset عملیاتی می‌فرستد:
 
 ```http
 X-Aurevia-Subject: <stable-subject>
-Cookie: AUREVIA_OPERATION_SUPERSET=<opaque-superset-session>
+X-Aurevia-Issuer: <trusted-issuer>
+Cookie: <upstream-superset-cookie-name>=<superset-session>
 ```
 
-Operation Gateway، `X-Aurevia-Subject` را فقط روی شبکه خصوصی به Superset منتقل
-می‌کند. Middleware تنظیم‌شده در `superset_config.py` آن را به `REMOTE_USER` تبدیل
+Operation Gateway در مسیر Superset حضور ندارد. Ingress احرازشده مقصد، هویت BFF را
+می‌پذیرد. Middleware تنظیم‌شده در `superset_config.py` آن را به `REMOTE_USER` تبدیل
 و Superset نشست مستقل خودش را ایجاد می‌کند. در نتیجه Superset نه Access Token و
 نه Refresh Token Keycloak را دریافت می‌کند.
 
-این header فقط زمانی قابل اعتماد است که Gateway درخواست را منحصراً از workload
+این header فقط زمانی قابل اعتماد است که ingress مقصد درخواست را منحصراً از workload
 معتبر BFF بپذیرد. در Production شبکه خصوصی به‌تنهایی کافی نیست و mTLS/Workload
 Identity الزامی است.
+
+در [دموی Native خارج از Docker](superset-native-network-demo-fa.md)، connector اختصاصی
+BFF با CA/client PEM و hostname verification به operation ingress متصل می‌شود.
+PUBLIC mapping فقط فایل‌های static را بدون هویت کاربر دریافت می‌کند. cookieهای خارجی
+در Browser prefix instance دارند و قبل از ارسال به مقصد به نام داخلی بازگردانده می‌شوند.
 
 ## Authorization Service و OpenFGA
 
@@ -264,4 +270,6 @@ object/relation را به OpenFGA check تبدیل می‌کند.
 | انتخاب توکن Legacy | `LegacyServiceTokenProvider.java` |
 | WebClient و mTLS Gateway | `GatewayWebClientConfiguration.java` |
 | Proxy بدون Keycloak token برای Superset | `OperationSupersetProxyController.java` |
-| تبدیل header Legacy و انتقال هویت Superset | `infra/mock-operation/gateway.conf` |
+| TLS/mTLS connector اختصاصی Superset | `SupersetWebClientConfiguration.java` |
+| Ingress احرازشده Superset دمو | `tools/superset-native-ingress.mjs` |
+| تبدیل header Legacy | `infra/mock-operation/gateway.conf` |

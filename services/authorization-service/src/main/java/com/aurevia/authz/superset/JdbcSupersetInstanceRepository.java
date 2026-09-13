@@ -79,7 +79,7 @@ class JdbcSupersetInstanceRepository implements SupersetInstanceRepository {
         insert into resource(resource_key,type,parent_id,name_fa,name_en,owner_domain,
           classification,status,source,metadata)
         select 'application:'||:code,'APPLICATION',id,:name,:name,'reports','EXTERNAL',
-          cast(:status as lifecycle_status),'EXTERNAL_SYNC',
+          cast(:status as lifecycle_status),'ADMIN',
           jsonb_build_object('provider','SUPERSET','instanceCode',:code)
         from resource where resource_key='application:aurevia'
         on conflict(resource_key) do update set name_fa=excluded.name_fa,

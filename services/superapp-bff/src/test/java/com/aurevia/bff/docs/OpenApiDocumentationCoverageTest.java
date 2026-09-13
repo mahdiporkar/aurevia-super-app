@@ -4,7 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Method;
-import java.util.List;
+import io.swagger.v3.oas.annotations.Hidden;
+import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
+import org.springframework.core.type.filter.AnnotationTypeFilter;
+import org.springframework.web.bind.annotation.RestController;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.annotation.AnnotatedElementUtils;
@@ -12,18 +15,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 class OpenApiDocumentationCoverageTest {
-  private static final List<String> CONTROLLERS = List.of(
-      "AdminProxyController", "CsrfController", "MeController", "ReportsController",
-      "OperationalProxyController", "OperationSupersetProxyController",
-      "MicroFrontendArtifactController", "PolicyEvaluationController");
-
   @Test
   void everyBrowserFacingEndpointHasPersianSummary() throws Exception {
     AtomicInteger endpoints = new AtomicInteger();
-    for (String simpleName : CONTROLLERS) {
-      Class<?> controller = Class.forName("com.aurevia.bff.api." + simpleName);
+    var scanner = new ClassPathScanningCandidateComponentProvider(false);
+    scanner.addIncludeFilter(new AnnotationTypeFilter(RestController.class));
+    for (var candidate : scanner.findCandidateComponents("com.aurevia.bff.api")) {
+      Class<?> controller = Class.forName(candidate.getBeanClassName());
+      if (AnnotatedElementUtils.hasAnnotation(controller, Hidden.class)) continue;
+      String simpleName = controller.getSimpleName();
       for (Method method : controller.getDeclaredMethods()) {
-        if (!AnnotatedElementUtils.hasAnnotation(method, RequestMapping.class)) continue;
+        if (!AnnotatedElementUtils.hasAnnotation(method, RequestMapping.class)
+            || AnnotatedElementUtils.hasAnnotation(method, Hidden.class)) continue;
         endpoints.incrementAndGet();
         String key = simpleName + "#" + method.getName();
         assertNotNull(BffOpenApiConfiguration.summary(key),

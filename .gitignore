@@ -11,6 +11,10 @@ test-results/
 **/*.test.d.ts
 *.log
 .tmp/e2e-auth/
+.tmp/swagger/
+.tmp/superset-native/
+.tmp/pages-e2e/
+infra/superset-native/__pycache__/
 
 # Docker images
 *.tar.gz

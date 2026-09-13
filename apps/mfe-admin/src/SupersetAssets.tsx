@@ -68,11 +68,11 @@ export function SupersetAssets() {
   useEffect(() => { void load(); }, [load]);
 
   const rows = useMemo<Row[]>(() => {
-    const byExternalId = new Map(stored.map((asset) => [asset.external_id, asset]));
-    const liveIds = new Set(catalog.map((asset) => asset.externalId));
+    const byExternalId = new Map(stored.map((asset) => [`${asset.asset_type}:${asset.external_id}`, asset]));
+    const liveIds = new Set(catalog.map((asset) => `${asset.assetType}:${asset.externalId}`));
     return [
-      ...catalog.map((asset) => ({ ...asset, registered: byExternalId.get(asset.externalId) })),
-      ...stored.filter((asset) => !liveIds.has(asset.external_id)).map((asset) => ({
+      ...catalog.map((asset) => ({ ...asset, registered: byExternalId.get(`${asset.assetType}:${asset.externalId}`) })),
+      ...stored.filter((asset) => !liveIds.has(`${asset.asset_type}:${asset.external_id}`)).map((asset) => ({
         key: `stored:${asset.id}`, externalId: asset.external_id, supersetId: asset.external_id,
         assetType: asset.asset_type, title: asset.title, urlPath: asset.url_path,
         published: asset.published, registered: asset, missing: true,

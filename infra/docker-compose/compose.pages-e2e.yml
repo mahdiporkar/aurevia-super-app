@@ -1,0 +1,11 @@
+# Optional local all-pages demo. Core remains independent of the identity demo.
+services:
+  operation-gateway:
+    networks:
+      - operation-services
+      - bff-egress
+      - pages-identity
+networks:
+  pages-identity:
+    external: true
+    name: aurevia-identity-demo_identity-demo
