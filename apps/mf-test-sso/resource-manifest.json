@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "module": {
+    "key": "test-sso",
+    "name": "SSO Test",
+    "nameFa": "آزمایش SSO",
+    "nameEn": "SSO Test",
+    "version": "0.1.0"
+  },
+  "resources": [
+    {
+      "key": "page:test-sso.home",
+      "type": "PAGE",
+      "name": "SSO Test",
+      "nameFa": "آزمایش SSO",
+      "nameEn": "SSO Test",
+      "classification": "INTERNAL",
+      "actions": [
+        "view"
+      ]
+    }
+  ]
+}

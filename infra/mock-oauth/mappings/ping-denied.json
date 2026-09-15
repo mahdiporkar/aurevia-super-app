@@ -1,0 +1,9 @@
+{
+  "priority": 10,
+  "request": {"method": "GET", "urlPath": "/api/v1/ping"},
+  "response": {
+    "status": 401,
+    "headers": {"Content-Type": "application/json", "WWW-Authenticate": "Bearer"},
+    "jsonBody": {"code": "KEYCLOAK_TOKEN_REQUIRED"}
+  }
+}

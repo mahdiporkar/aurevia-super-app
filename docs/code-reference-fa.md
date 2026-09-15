@@ -1,0 +1,249 @@
+# مرجع کد، فایل‌به‌فایل
+
+این سند کد دست‌نویس پروژه را بر اساس مسئولیت و بلوک منطقی توضیح می‌دهد. فایل‌های تولیدشده `*.d.ts` محصول build هستند و منطق اجرایی مستقلی ندارند.
+inventory و نسخه‌های همگام‌شده در [مرجع canonical وضعیت جاری](current-state-fa.md) نگهداری می‌شوند.
+
+## ریشه مخزن
+
+| فایل | مسئولیت |
+|---|---|
+| `pom.xml` | reactor Maven و نسخه‌های مشترک سرویس‌های Java |
+| `package.json` | workspaceها، build/test و orchestration فرانت‌اند |
+| `package-lock.json` | قفل دقیق dependencyهای npm |
+| `tsconfig.base.json` | قواعد مشترک TypeScript |
+| `.nvmrc` | نسخه Node.js |
+| `.env.example` | قرارداد متغیرهای محیطی بدون secret واقعی |
+
+## Shell
+
+### `apps/shell/src/index.tsx`
+
+- style و تنظیم RTL را وارد می‌کند.
+- context کاربر را از `GET /api/me/context` می‌خواند.
+- منو و routeهای MFE را از `uiCatalog` می‌سازد.
+- remote را هنگام نیاز بارگذاری می‌کند؛ بنابراین failure یک MFE کل Shell را متوقف نمی‌کند.
+
+### `remote-loader.ts`
+
+- script مربوط به `remoteEntry.js` را inject می‌کند.
+- container مربوط به Module Federation را پیدا می‌کند.
+- shared scope را initialize و ماژول expose‌شده را resolve می‌کند.
+- خطا را به caller برمی‌گرداند تا UI fallback نمایش دهد.
+
+## Micro Frontendها
+
+هر MFE دو حالت اجرا دارد:
+
+- `src/bootstrap.tsx` قرارداد جاری `MicroFrontendPlugin.App` نسخه `1.0` را برای Shell صادر می‌کند؛ `mount` نسخه `1` فقط مسیر سازگاری artifactهای قدیمی است.
+- `src/index.ts`، ماژول `standalone.ts` را به‌صورت async بارگذاری می‌کند تا shared dependencyهای Module Federation زودتر از initialization مصرف نشوند.
+- `src/standalone.ts` همان `mount` را با context محلی روی `#root` اجرا می‌کند.
+- `webpack.config.cjs` هم `remoteEntry.js` و هم `index.html` مستقل را تولید می‌کند.
+- `infra/mfe/nginx.conf` فایل‌ها را با CORS لازم برای remote entry سرو و routeهای SPA را به `index.html` fallback می‌کند.
+
+### Admin
+
+- `bootstrap.tsx`: mount مستقل Admin MFE و اتصال صفحه‌ها.
+- `Panels.tsx`: دریافت registry پنل‌ها، loading، error، retry، فرم و نمایش وضعیت فعال.
+- `SupersetAssets.tsx`: تعریف asset گزارش/داشبورد و اتصال آن به resource داخلی.
+
+Admin APIها از prefix `/api/v1/admin` استفاده می‌کنند. mutationها ابتدا CSRF را از `/api/v1/csrf` دریافت می‌کنند.
+
+### Reports
+
+`apps/mfe-reports/src/bootstrap.tsx`:
+
+- `GET /api/v1/reports` را اجرا می‌کند.
+- گزارش‌های مجاز را به‌صورت card/list نشان می‌دهد.
+- `url_path` را زیر `/reports-runtime` باز می‌کند.
+- خطا و empty state را مدیریت می‌کند.
+
+### HR و Finance
+
+هر دو MFE صفحه‌های دامنه، stateهای loading/error/empty، فرم mutation و guardهای نمایشی دارند. درخواست‌های HR از `/hr-micro/api/v1` و درخواست‌های Finance از `/finance-micro/api/v1` عبور می‌کنند؛ مقصد عملیاتی مستقیماً در frontend تعریف نمی‌شود و BFF آن را از route registry resolve می‌کند.
+
+## packageهای مشترک
+
+- `packages/contracts`: typeهای Panel، Manifest، Permission و قراردادهای مشترک.
+- `packages/http-client`: درخواست same-origin و گردش CSRF.
+- `packages/authorization-sdk`: قرارداد و guardهای مجوزدهی.
+- `packages/i18n`: ترجمه فارسی/انگلیسی.
+- `packages/sh-core-ui`: componentهای UI و guard نمایشی مبتنی بر permission.
+
+## BFF
+
+### `SuperappBffApplication.java`
+
+نقطه شروع Spring Boot است.
+
+### `security/SecurityConfig.java`
+
+- health، root و routeهای login/callback را public می‌کند.
+- سایر routeها را authenticated می‌کند.
+- Spring CSRF را برای mutationها فعال نگه می‌دارد.
+- فقط `/api/v1/superset/**` را از Spring CSRF خارج می‌کند، چون Superset CSRF مستقل دارد.
+- logout را به `VaultLogoutHandler` متصل می‌کند.
+
+### token vault
+
+- `TokenVaultCrypto`: رمزگذاری/رمزگشایی AES-GCM و key id.
+- `TokenVaultService`: ذخیره token record با TTL در Redis و نگهداری handle در session.
+- `RefreshCoordinator`: هماهنگ‌کردن refresh هم‌زمان برای جلوگیری از چند refresh موازی.
+- `TokenRefreshService`: refresh پیش‌دستانه، single-flight و یک retry کنترل‌شده پس از 401.
+- `OidcLoginSuccessHandler`: sync هویت/گروه، ذخیره vault، تعویض session id و redirect نهایی.
+- `VaultLogoutHandler`: حذف token vault هنگام logout.
+
+### Controllerها
+
+| کلاس | route | مسئولیت |
+|---|---|---|
+| `CsrfController` | `/api/v1/csrf` | ساخت/برگرداندن token CSRF |
+| `MeController` | `/api/me/context`، `/api/v1/me`، `/api/v1/me/manifest` | context canonical و projectionهای سازگاری |
+| `AdminProxyController` | `/api/v1/admin/**` | proxy کنترل‌پلین به Authorization Service |
+| `MicroFrontendArtifactController` | `/api/mfe/{moduleKey}/**` | proxy کنترل‌شده manifest و artifact |
+| `ReportsController` | `/api/v1/reports` | assetهای گزارش مجاز کاربر |
+| `OperationSupersetProxyController` | `/api/integrations/superset/**` و aliasهای قدیمی | tunnel امن مستقیم به Superset ثبت‌شده |
+| `OperationalProxyController` | `/hr-micro/**`, `/finance-micro/**` | route resolution، check، token refresh و proxy محدودشده عملیاتی |
+| `DeveloperDocumentationController` | `/api/v1/docs/**` | projection runtime قرارداد Admin عمومی و Authorization داخلی |
+
+### `OperationSupersetProxyController.java` به ترتیب اجرا
+
+1. `REQUEST_HEADERS` فقط headerهای مورد نیاز را allowlist می‌کند.
+2. `RESPONSE_HEADERS` headerهای امن/ضروری پاسخ را انتخاب می‌کند.
+3. مقصد Superset از Registry گرفته و با URL/SSRF policy و تنظیم TLS همان instance بررسی می‌شود؛ Operation Gateway در این flow نیست.
+4. redirect خودکار WebClient خاموش است تا `Location` به مرورگر برگردد، نه اینکه BFF داخل شبکه آن را دنبال کند.
+5. path با `normalizePath` پاک‌سازی می‌شود.
+6. query string بدون decode/re-encode غیرضروری منتقل می‌شود.
+7. subject احراز‌شده در `X-Aurevia-Subject` قرار می‌گیرد.
+8. prefix و host اصلی forward می‌شوند.
+9. فقط POST/PUT/PATCH body upstream می‌گیرند؛ GET receiver اضافی ایجاد نمی‌کند.
+10. status و headerهای upstream روی پاسخ WebFlux قرار می‌گیرند.
+11. body درون lifecycle همان WebClient response stream می‌شود؛ خارج‌کردن Flux از `exchangeToMono` باعث body صفر بایت می‌شد.
+12. `Location`های root-relative زیر `/reports-runtime` بازنویسی می‌شوند.
+
+### proxy helpers
+
+- `RouteNormalizer`: جلوگیری از path traversal و مقصد خارج از allowlist.
+- `ProxyRetryPolicy`: retry محدود برای عملیات idempotent و خطاهای transient.
+- `AuthorizationServiceClient`: client داخلی manifest/authorization.
+- `GatewayWebClientConfiguration`: allowlist مقصد و پیکربندی اختیاری PKCS12/mTLS برای gateway.
+
+## Authorization Service
+
+### Security
+
+`config/SecurityConfig.java` health را public نگه می‌دارد. در local، `/internal/**` با Basic Auth محافظت می‌شود؛ profile تولید client certificate هویت BFF را روی mTLS الزامی می‌کند. CSRF برای API داخلی ignore شده، چون browser-facing نیست.
+
+### `AuthorizationController`
+
+- `/authorize/check`: OpenFGA relationship check و Decision.
+- `/authorize/check-batch`: اجرای چند check.
+- `/subjects/{id}/manifest`: ترکیب permissionهای USER، GROUP و ROLE فعال، ETag و TTL یک دقیقه.
+
+### identity و route registry
+
+- `IdentitySyncController`: upsert هویت OIDC و جایگزینی idempotent snapshot عضویت گروه‌ها در login.
+- `IdentityAdminController`: فهرست گروه/نقش، ساخت نقش و assign/revoke نقش برای USER/GROUP.
+- `RouteResolutionController`: longest-prefix resolution با مرز path segment و اتصال method/pattern به resource/action.
+- `AdminAuthorizationInterceptor`: الزام grant فعال admin برای تمام registry endpointهای مدیریتی.
+- `WebMvcConfiguration`: نصب interceptor و تعریف استثناهای صریح endpointهای subject-facing.
+
+### `RegistryController`
+
+- CRUD پنل‌های MFE.
+- optimistic locking با query parameter `version`.
+- archive منطقی به‌جای delete فیزیکی.
+- ثبت outbox برای تغییرات panel.
+- مشاهده audit با limit کنترل‌شده.
+
+### Registryهای مستقل Resource Manifest و MF Manifest/Navigation
+
+- `ResourceManifestController`: endpointهای fetch، ایجاد Draft، preview/diff و publish تأییدشده را ارائه می‌کند؛ endpoint سازگار قدیمی نیز فقط Draft می‌سازد.
+- `ResourceManifestService`: قرارداد نسخه‌دار را normalize و validate می‌کند، ownership/type/parent/action را کنترل می‌کند و منابع غایب نسخه جدید را به `DEPRECATED` می‌برد.
+- `HttpManifestFetcher`: دریافت مشترک JSON با timeout، سقف اندازه، content-type و عدم follow redirect؛ URL هر قرارداد پیش از fetch با policy مستقل MF/Resource بررسی می‌شود و backend هیچ `remoteEntry.js`ای اجرا نمی‌کند.
+- `ResourceManifestRepository` و `JdbcResourceManifestRepository`: مرز persistence برای ledger مانیفست، diff، ownership و publish اتمیک.
+- `UiPluginRegistryService`: artifact runtime، Navigation manifest و overlay راهبر را مستقل از Resource Tree مدیریت و Navigation مؤثر را تولید می‌کند.
+- `DemoDataPolicy`: یک policy مرکزی برای حذف پنل و resource نوع `DEMO` از catalog و تصمیم runtime در محیط production.
+
+### `AccessAdminController`
+
+- CRUD منبع و action.
+- اتصال action به resource.
+- ثبت کاربر.
+- grant مستقیم و revoke منطقی.
+- audit تغییرات مدیریتی.
+
+grant برای USER/GROUP/ROLE ساخته می‌شود، action به relation نگاشت می‌شود و write/delete در outbox قرار می‌گیرد. رفتار کامل در [access-control-fa.md](access-control-fa.md) توضیح داده شده است.
+
+### `SupersetAssetController`
+
+- فهرست assetهای Superset.
+- فهرست assetهای publish‌شده دارای grant مستقیم user.
+- ساخت هم‌زمان resource خارجی، اتصال action `view` و رکورد `superset_asset` در یک transaction.
+
+### Policy و OpenFGA
+
+- `StructuredPolicyEvaluator`: allowlist field/operator/obligation و default deny.
+- `OperationalRules`: org scope و maker-checker.
+- `RelationshipAuthorizationPort`: مرز domain با engine رابطه‌ای.
+- `OpenFgaRelationshipAdapter`: پیاده‌سازی HTTP/OpenFGA.
+- `OpenFgaConfiguration`: ساخت client.
+- `OutboxReconciler`: پردازش دوره‌ای eventهای pending.
+
+## migrationهای دیتابیس
+
+- `V1__control_plane.sql`: همه typeها و tableهای پایه، index، audit و outbox.
+- `V2__bootstrap_catalog.sql`: چهار panel، actionها و resourceهای پایه.
+- `V3__development_users_and_actions.sql`: کاربران توسعه و اتصال actionها.
+- `V4__superset_report_catalog.sql`: dashboard نمونه و grantهای اولیه.
+- `V5__superset_access_levels.sql`: سطح‌های گزارش.
+- `V6__active_grant_uniqueness.sql`: یکتایی grant فعال.
+- `V7__groups_roles_and_admin_grant.sql`: گروه‌ها، نقش‌ها و bootstrap مجوز admin.
+- `V8__operational_route_catalog.sql`: resource/action و routeهای عملیاتی HR/Finance.
+- `V9__panel_authorization_and_route_operations.sql`: resource مجزای هر panel، فیلتر manifest، operationهای کامل HR/Finance و bootstrap outbox.
+- `V10__absolute_mfe_urls.sql`: تبدیل Remote Entry پنل‌ها به URL کامل و قابل مدیریت.
+- `V11__api_resource_type.sql`: افزودن نوع هفتم `API_RESOURCE` به enum پایگاه داده.
+- `V12__complete_demo_resource_tree.sql`: درخت نمونه شامل هر هفت نوع resource و actionهای متصل.
+- `V13__resource_parent_outbox.sql`: bootstrap رویدادهای parent برای projection در OpenFGA.
+- `V28__canonical_resource_catalog.sql`: کاتالوگ canonical، bindingها و ledger نسخه مانیفست.
+- `V33__dynamic_ui_plugin_registry.sql`: artifactهای runtime تغییرناپذیر و menu overlay.
+- `V51__microfrontend_governance_catalog.sql`: modeهای `MANIFEST/MANUAL/HYBRID`، classification، ownership، workflow Draft/Publish و Navigation overlay.
+- `V52__immutable_resource_manifest_versions.sql`: یکتایی نسخه مانیفست به ازای هر MFE و جلوگیری از بازنویسی محتوای همان نسخه.
+- `V61__synchronize_hr_operation_authorization_keys.sql`: هماهنگ‌سازی کلیدهای مجوز عملیات HR؛ آخرین migration فعلی از مجموع ۶۱ migration.
+
+ترتیب migrationها قرارداد است؛ migration اجراشده را ویرایش نکنید، migration جدید بسازید.
+
+## Infra
+
+### Compose و `infra/nginx/nginx.conf`
+
+- `compose.yml` فقط Core شامل data storeها، BFF، Authorization، Nginx، OpenFGA، Gateway و mockهای عملیاتی را اجرا می‌کند.
+- Identity، چهار MFE server و Superset demo در overlayهای مستقل lifecycle دارند.
+- Nginx ورودی هم‌مبدأ Shell/BFF است و مسیر artifactهای MFE و aliasهای Superset را به BFF می‌دهد.
+- CSP و headerهای امنیتی را می‌گذارد.
+- `/api`, `/auth`, `/oauth2`, `/login` را به BFF می‌دهد.
+- `/reports-runtime` و endpointهای root-relative Superset را به connector مستقیم BFF می‌دهد.
+
+### Superset مستقل
+
+- `compose.superset-demo.yml`: lifecycle اختیاری Superset محلی خارج از Core.
+- `infra/superset-operation/superset_config.py`: DB، Remote User، cookie مستقل، ProxyFix و خاموش‌کردن telemetry برای demo.
+- رجیستری instance/integration آدرس و TLS را تعیین می‌کند و BFF بدون واسطهٔ Operation Gateway متصل می‌شود.
+
+### هویت و مجوز
+
+- `infra/keycloak/realm-aurevia.json`: realm، client و کاربران توسعه.
+- `infra/openfga/model.fga`: typeها، relationها و permissionهای مشتق‌شده.
+- `infra/openfga/model-tests.yaml`: اثبات grant گروه/Role، مستقیم و default deny.
+- `services/authorization-service/Dockerfile`: build چندمرحله‌ای Authorization Service با Java 21 و health tooling.
+- `services/superapp-bff/Dockerfile`: build چندمرحله‌ای BFF با Java 21 و health tooling.
+
+مرجع کامل relationها، permissionها، mapping هفت نوع resource، Redis cache، outbox و محدودیت‌های جاری در [معماری جامع OpenFGA](architecture-openfga-complete-fa.md) قرار دارد.
+
+## تست‌ها
+
+- تست crypto از round-trip و خرابی ciphertext محافظت می‌کند.
+- تست RouteNormalizer مسیر مجاز/نامجاز را بررسی می‌کند.
+- تست ProxyRetryPolicy retry ایمن را بررسی می‌کند.
+- تست CSRF قرارداد endpoint را پوشش می‌دهد.
+- تست policy حالت allow، deny و خطای context را پوشش می‌دهد.
+- تست OperationalRules جداسازی وظایف را بررسی می‌کند.

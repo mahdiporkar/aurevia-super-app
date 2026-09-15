@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "module": {
+    "key": "test-legacy",
+    "name": "Legacy Test",
+    "nameFa": "آزمایش Legacy",
+    "nameEn": "Legacy Test",
+    "version": "0.1.0"
+  },
+  "resources": [
+    {
+      "key": "page:test-legacy.home",
+      "type": "PAGE",
+      "name": "Legacy Test",
+      "nameFa": "آزمایش Legacy",
+      "nameEn": "Legacy Test",
+      "classification": "INTERNAL",
+      "actions": [
+        "view"
+      ]
+    }
+  ]
+}

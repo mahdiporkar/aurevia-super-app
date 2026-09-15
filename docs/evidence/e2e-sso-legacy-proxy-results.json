@@ -1,0 +1,992 @@
+{
+  "runAt": "2026-09-12T17:50:42.406Z",
+  "counts": {
+    "PASS": 41,
+    "FAIL": 0,
+    "BLOCKED": 0
+  },
+  "results": [
+    {
+      "id": "ADMIN-SSO",
+      "expected": "Register panel, publish resources, sync UI, create profile/target/route/operations",
+      "actual": "Admin APIs successful",
+      "status": "PASS"
+    },
+    {
+      "id": "ADMIN-LEGACY",
+      "expected": "Register panel, publish resources, sync UI, create profile/target/route/operations",
+      "actual": "Admin APIs successful",
+      "status": "PASS"
+    },
+    {
+      "id": "AUTH-DUAL-SSO",
+      "expected": "Visible in effective context + downstream 200",
+      "actual": {
+        "contextVisible": true,
+        "httpStatus": 200,
+        "authMode": "SSO",
+        "correlationId": "faf7c9b0-e50c-4ff8-ae7a-878af7cf4570"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "AUTH-DUAL-LEGACY",
+      "expected": "Visible in effective context + downstream 200",
+      "actual": {
+        "contextVisible": true,
+        "httpStatus": 200,
+        "authMode": "LEGACY",
+        "correlationId": "f16854d0-32d4-4c5c-844a-3a1c701a4cfa"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "AUTH-SSO-SSO",
+      "expected": "Visible in effective context + downstream 200",
+      "actual": {
+        "contextVisible": true,
+        "httpStatus": 200,
+        "authMode": "SSO",
+        "correlationId": "81588b9c-5e18-42e9-8e2d-b696ade1213c"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "AUTH-SSO-LEGACY",
+      "expected": "Absent from context + backend 403",
+      "actual": {
+        "contextVisible": false,
+        "httpStatus": 403,
+        "correlationId": "812ed154-2578-4e4f-8fe5-030a6a63c777"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "AUTH-LEGACY-SSO",
+      "expected": "Absent from context + backend 403",
+      "actual": {
+        "contextVisible": false,
+        "httpStatus": 403,
+        "correlationId": "3c7063a4-58c5-42c8-bcea-79b099807f65"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "AUTH-LEGACY-LEGACY",
+      "expected": "Visible in effective context + downstream 200",
+      "actual": {
+        "contextVisible": true,
+        "httpStatus": 200,
+        "authMode": "LEGACY",
+        "correlationId": "ee046be8-1d71-4028-899e-f762e490d86a"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "AUTH-NONE-SSO",
+      "expected": "Absent from context + backend 403",
+      "actual": {
+        "contextVisible": false,
+        "httpStatus": 403,
+        "correlationId": "591430fd-e757-4e23-bdcb-658e74bd941a"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "AUTH-NONE-LEGACY",
+      "expected": "Absent from context + backend 403",
+      "actual": {
+        "contextVisible": false,
+        "httpStatus": 403,
+        "correlationId": "8836a550-9a4a-4223-aa6a-8e97a57828d9"
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "ADMIN-UNAUTHORIZED",
+      "expected": "403 for non-admin route creation",
+      "actual": 403,
+      "status": "PASS"
+    },
+    {
+      "id": "SSO-DATA",
+      "expected": "200",
+      "actual": 200,
+      "status": "PASS"
+    },
+    {
+      "id": "LEGACY-DATA",
+      "expected": "200",
+      "actual": 200,
+      "status": "PASS"
+    },
+    {
+      "id": "ROUTE-UNKNOWN",
+      "expected": "404",
+      "actual": 404,
+      "status": "PASS"
+    },
+    {
+      "id": "ROUTE-METHOD",
+      "expected": "404 (no registered POST operation; CSRF included)",
+      "actual": 404,
+      "status": "PASS"
+    },
+    {
+      "id": "ROUTE-DISABLE",
+      "expected": "404 without rebuild/restart",
+      "actual": 404,
+      "status": "PASS"
+    },
+    {
+      "id": "ROUTE-ENABLE",
+      "expected": "200 without rebuild/restart",
+      "actual": 200,
+      "status": "PASS"
+    },
+    {
+      "id": "ROUTE-WRONG-DESTINATION",
+      "expected": "400 unapproved destination",
+      "actual": 400,
+      "status": "PASS"
+    },
+    {
+      "id": "ROUTE-CONFIG-CHANGE",
+      "expected": "404 after rewriting to nonexistent service path",
+      "actual": 404,
+      "status": "PASS"
+    },
+    {
+      "id": "ROUTE-CONFIG-RESTORE",
+      "expected": "200",
+      "actual": 200,
+      "status": "PASS"
+    },
+    {
+      "id": "ROUTE-UNAUTHENTICATED",
+      "expected": "401",
+      "actual": 401,
+      "status": "PASS"
+    },
+    {
+      "id": "SSO-MISSING",
+      "expected": "401",
+      "actual": 401,
+      "status": "PASS"
+    },
+    {
+      "id": "SSO-INVALID",
+      "expected": "401",
+      "actual": 401,
+      "status": "PASS"
+    },
+    {
+      "id": "SSO-LEGACY-CREDENTIAL",
+      "expected": "401",
+      "actual": 401,
+      "status": "PASS"
+    },
+    {
+      "id": "LEGACY-MISSING",
+      "expected": "401",
+      "actual": 401,
+      "status": "PASS"
+    },
+    {
+      "id": "LEGACY-INVALID",
+      "expected": "401",
+      "actual": 401,
+      "status": "PASS"
+    },
+    {
+      "id": "LEGACY-SSO-CREDENTIAL",
+      "expected": "401",
+      "actual": 401,
+      "status": "PASS"
+    },
+    {
+      "id": "LEGACY-TOKEN-ENDPOINT",
+      "expected": "401 incorrect service password",
+      "actual": 401,
+      "status": "PASS"
+    },
+    {
+      "id": "SSO-EXPIRED",
+      "expected": "401 for a real Keycloak-issued expired access token",
+      "actual": 401,
+      "status": "PASS"
+    },
+    {
+      "id": "LEGACY-CACHE",
+      "expected": "Server cache present after successful calls",
+      "actual": {
+        "cached": true,
+        "missAndHit": true
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "LEGACY-MISSING-SECRET",
+      "expected": "502; fail closed",
+      "actual": 502,
+      "status": "PASS"
+    },
+    {
+      "id": "LEGACY-RESTORE-SECRET",
+      "expected": "200",
+      "actual": 200,
+      "status": "PASS"
+    },
+    {
+      "id": "SECURITY-RESPONSES",
+      "expected": "No downstream credentials in responses/context",
+      "actual": "No credential material",
+      "status": "PASS"
+    },
+    {
+      "id": "SECURITY-SERVER-SESSION",
+      "expected": "Opaque HttpOnly cookie resolves to token-free Redis identity",
+      "actual": {
+        "opaqueSession": true,
+        "tokenMaterialInRedisSession": false
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "SECURITY-NETWORK-ISOLATION",
+      "expected": "No backend or gateway host port",
+      "actual": "No published downstream/gateway port",
+      "status": "PASS"
+    },
+    {
+      "id": "AUDIT-CORRELATION",
+      "expected": "BFF decision/target/mode/result and downstream share correlation",
+      "actual": {
+        "correlationId": "ec65a5e4-46b5-4c7b-ad24-a8be368b3cbb",
+        "bff": true,
+        "downstream": true,
+        "storedEntries": 3
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "BROWSER-DUAL",
+      "expected": "Real Shell login, menus, MF requests, storage and network checks",
+      "actual": {
+        "checks": [
+          {
+            "mode": "sso",
+            "visible": true,
+            "apiStatus": 200
+          },
+          {
+            "mode": "legacy",
+            "visible": true,
+            "apiStatus": 200
+          }
+        ],
+        "storageContainsCredentials": false,
+        "bearerHeadersFromBrowser": false,
+        "directDownstreamRequests": 0,
+        "apiRequestCount": 10
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "BROWSER-SSO-ONLY",
+      "expected": "Real Shell login, menus, MF requests, storage and network checks",
+      "actual": {
+        "checks": [
+          {
+            "mode": "sso",
+            "visible": true,
+            "apiStatus": 200
+          },
+          {
+            "mode": "legacy",
+            "visible": false,
+            "apiStatus": 403
+          }
+        ],
+        "storageContainsCredentials": false,
+        "bearerHeadersFromBrowser": false,
+        "directDownstreamRequests": 0,
+        "apiRequestCount": 7
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "BROWSER-LEGACY-ONLY",
+      "expected": "Real Shell login, menus, MF requests, storage and network checks",
+      "actual": {
+        "checks": [
+          {
+            "mode": "sso",
+            "visible": false,
+            "apiStatus": 403
+          },
+          {
+            "mode": "legacy",
+            "visible": true,
+            "apiStatus": 200
+          }
+        ],
+        "storageContainsCredentials": false,
+        "bearerHeadersFromBrowser": false,
+        "directDownstreamRequests": 0,
+        "apiRequestCount": 7
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "BROWSER-NONE",
+      "expected": "Real Shell login, menus, MF requests, storage and network checks",
+      "actual": {
+        "checks": [
+          {
+            "mode": "sso",
+            "visible": false,
+            "apiStatus": 403
+          },
+          {
+            "mode": "legacy",
+            "visible": false,
+            "apiStatus": 403
+          }
+        ],
+        "storageContainsCredentials": false,
+        "bearerHeadersFromBrowser": false,
+        "directDownstreamRequests": 0,
+        "apiRequestCount": 4
+      },
+      "status": "PASS"
+    },
+    {
+      "id": "SECURITY-LOGS",
+      "expected": "No known secrets or raw credentials in application/edge/identity logs",
+      "actual": "No credential material found",
+      "status": "PASS"
+    }
+  ],
+  "evidence": {
+    "context": {
+      "manifestType": "EFFECTIVE_USER_MANIFEST",
+      "subject": {
+        "type": "user",
+        "issuer": "http://localhost:8180/realms/aurevia",
+        "id": "022bad84-4734-4f32-980c-94e9639e7366"
+      },
+      "version": "manifest-sha256-4dd3668251c9ce227d69822d3d3b78f9fa6ab00f4625e702a27198681d8c0919",
+      "expiresAt": "2026-09-12T17:50:37.104912734Z",
+      "panels": [
+        {
+          "id": "21b69783-ddc7-4083-a14d-9afbc4114ac7",
+          "code": "TEST_LEGACY",
+          "slug": "test-legacy",
+          "nameFa": "آزمایش legacy",
+          "nameEn": "legacy Test",
+          "remoteEntry": "http://localhost:3012/remoteEntry.js",
+          "exposedModule": "./plugin",
+          "routeBasePath": "/test-legacy",
+          "semanticVersion": "0.1.0",
+          "contractVersion": "1.0",
+          "integrity": null,
+          "classification": "DEMO",
+          "resourceDefinitionMode": "MANIFEST"
+        },
+        {
+          "id": "822bb713-5d65-4e94-8dd2-3234d9ab9602",
+          "code": "TEST_SSO",
+          "slug": "test-sso",
+          "nameFa": "آزمایش sso",
+          "nameEn": "sso Test",
+          "remoteEntry": "http://localhost:3011/remoteEntry.js",
+          "exposedModule": "./plugin",
+          "routeBasePath": "/test-sso",
+          "semanticVersion": "0.1.0",
+          "contractVersion": "1.0",
+          "integrity": null,
+          "classification": "DEMO",
+          "resourceDefinitionMode": "MANIFEST"
+        }
+      ],
+      "permissions": {
+        "application:aurevia/test-legacy": [
+          "view"
+        ],
+        "application:aurevia/test-sso": [
+          "view"
+        ],
+        "module:test-legacy": [
+          "view"
+        ],
+        "module:test-sso": [
+          "view"
+        ],
+        "page:test-legacy.home": [
+          "view"
+        ],
+        "page:test-sso.home": [
+          "view"
+        ]
+      },
+      "resourceTree": [
+        {
+          "id": "8bfb836e-dd12-4237-8e8d-1e11f31db3fc",
+          "parent_id": null,
+          "resource_key": "application:aurevia/test-legacy",
+          "type": "APPLICATION",
+          "name_fa": "آزمایش legacy",
+          "name_en": "legacy Test",
+          "owner_domain": "test-legacy",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        },
+        {
+          "id": "b86cd137-09c6-45d5-9c65-0006eb90f9be",
+          "parent_id": null,
+          "resource_key": "application:aurevia/test-sso",
+          "type": "APPLICATION",
+          "name_fa": "آزمایش sso",
+          "name_en": "sso Test",
+          "owner_domain": "test-sso",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        },
+        {
+          "id": "0eda2d60-975e-4235-bfda-bd48cfef7c97",
+          "parent_id": "8bfb836e-dd12-4237-8e8d-1e11f31db3fc",
+          "resource_key": "module:test-legacy",
+          "type": "MODULE",
+          "name_fa": "آزمایش Legacy",
+          "name_en": "Legacy Test",
+          "owner_domain": "test-legacy",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        },
+        {
+          "id": "8dcea82e-f4f2-4116-a02b-9445fb8a3d49",
+          "parent_id": "b86cd137-09c6-45d5-9c65-0006eb90f9be",
+          "resource_key": "module:test-sso",
+          "type": "MODULE",
+          "name_fa": "آزمایش SSO",
+          "name_en": "SSO Test",
+          "owner_domain": "test-sso",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        },
+        {
+          "id": "02b0fa7c-498e-49fa-8b9e-c398acdeb81a",
+          "parent_id": "0eda2d60-975e-4235-bfda-bd48cfef7c97",
+          "resource_key": "page:test-legacy.home",
+          "type": "PAGE",
+          "name_fa": "آزمایش Legacy",
+          "name_en": "Legacy Test",
+          "owner_domain": "test-legacy",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        },
+        {
+          "id": "32481d7d-367c-4ddc-90bf-b65727a8de79",
+          "parent_id": "8dcea82e-f4f2-4116-a02b-9445fb8a3d49",
+          "resource_key": "page:test-sso.home",
+          "type": "PAGE",
+          "name_fa": "آزمایش SSO",
+          "name_en": "SSO Test",
+          "owner_domain": "test-sso",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        }
+      ],
+      "uiCatalog": {
+        "catalogVersion": "manifest-sha256-4dd3668251c9ce227d69822d3d3b78f9fa6ab00f4625e702a27198681d8c0919",
+        "generatedAt": "2026-09-12T17:49:37.104912734Z",
+        "contractVersion": "1.0",
+        "modules": [
+          {
+            "registrationId": "21b69783-ddc7-4083-a14d-9afbc4114ac7",
+            "moduleKey": "test-legacy",
+            "displayName": "آزمایش legacy",
+            "displayNameEn": "legacy Test",
+            "description": "Independent authentication E2E fixture",
+            "order": 110,
+            "routePrefix": "test-legacy",
+            "defaultRouteId": "home",
+            "remote": {
+              "remoteEntryUrl": "/api/mfe/test-legacy/remoteEntry.js",
+              "remoteName": "aurevia_test_legacy",
+              "exposedModule": "./plugin",
+              "contractVersion": "1.0",
+              "artifactVersion": "0.1.0"
+            },
+            "runtime": {
+              "apiBasePath": "/api/proxy/test-legacy"
+            },
+            "routes": [
+              {
+                "id": "home",
+                "path": "home",
+                "title": "Legacy Test",
+                "resource": "page:test-legacy.home",
+                "action": "view"
+              }
+            ],
+            "menus": [
+              {
+                "id": "test-legacy.home",
+                "routeId": "home",
+                "title": "Legacy Test",
+                "order": 110
+              }
+            ],
+            "navigation": [
+              {
+                "key": "test-legacy.home",
+                "type": "PAGE",
+                "pageKey": "home",
+                "title": "Legacy Test",
+                "order": 110,
+                "source": "MANIFEST"
+              }
+            ],
+            "classification": "DEMO",
+            "resourceDefinitionMode": "MANIFEST",
+            "manifestUrl": "/api/mfe/test-legacy/manifest.json"
+          },
+          {
+            "registrationId": "822bb713-5d65-4e94-8dd2-3234d9ab9602",
+            "moduleKey": "test-sso",
+            "displayName": "آزمایش sso",
+            "displayNameEn": "sso Test",
+            "description": "Independent authentication E2E fixture",
+            "order": 110,
+            "routePrefix": "test-sso",
+            "defaultRouteId": "home",
+            "remote": {
+              "remoteEntryUrl": "/api/mfe/test-sso/remoteEntry.js",
+              "remoteName": "aurevia_test_sso",
+              "exposedModule": "./plugin",
+              "contractVersion": "1.0",
+              "artifactVersion": "0.1.0"
+            },
+            "runtime": {
+              "apiBasePath": "/api/proxy/test-sso"
+            },
+            "routes": [
+              {
+                "id": "home",
+                "path": "home",
+                "title": "SSO Test",
+                "resource": "page:test-sso.home",
+                "action": "view"
+              }
+            ],
+            "menus": [
+              {
+                "id": "test-sso.home",
+                "routeId": "home",
+                "title": "SSO Test",
+                "order": 110
+              }
+            ],
+            "navigation": [
+              {
+                "key": "test-sso.home",
+                "type": "PAGE",
+                "pageKey": "home",
+                "title": "SSO Test",
+                "order": 110,
+                "source": "MANIFEST"
+              }
+            ],
+            "classification": "DEMO",
+            "resourceDefinitionMode": "MANIFEST",
+            "manifestUrl": "/api/mfe/test-sso/manifest.json"
+          }
+        ]
+      },
+      "contractVersion": "1.0",
+      "identity": {
+        "issuer": "http://localhost:8180/realms/aurevia",
+        "subject": "022bad84-4734-4f32-980c-94e9639e7366",
+        "username": "e2e.dual-access"
+      },
+      "tenant": {
+        "id": "default"
+      },
+      "organizations": [],
+      "allowedApplications": [
+        "test-legacy",
+        "test-sso"
+      ],
+      "applications": [],
+      "allowedMicros": [
+        {
+          "registrationId": "21b69783-ddc7-4083-a14d-9afbc4114ac7",
+          "moduleKey": "test-legacy",
+          "displayName": "آزمایش legacy",
+          "displayNameEn": "legacy Test",
+          "description": "Independent authentication E2E fixture",
+          "order": 110,
+          "routePrefix": "test-legacy",
+          "defaultRouteId": "home",
+          "remote": {
+            "remoteEntryUrl": "/api/mfe/test-legacy/remoteEntry.js",
+            "remoteName": "aurevia_test_legacy",
+            "exposedModule": "./plugin",
+            "contractVersion": "1.0",
+            "artifactVersion": "0.1.0"
+          },
+          "runtime": {
+            "apiBasePath": "/api/proxy/test-legacy"
+          },
+          "routes": [
+            {
+              "id": "home",
+              "path": "home",
+              "title": "Legacy Test",
+              "resource": "page:test-legacy.home",
+              "action": "view"
+            }
+          ],
+          "menus": [
+            {
+              "id": "test-legacy.home",
+              "routeId": "home",
+              "title": "Legacy Test",
+              "order": 110
+            }
+          ],
+          "navigation": [
+            {
+              "key": "test-legacy.home",
+              "type": "PAGE",
+              "pageKey": "home",
+              "title": "Legacy Test",
+              "order": 110,
+              "source": "MANIFEST"
+            }
+          ],
+          "classification": "DEMO",
+          "resourceDefinitionMode": "MANIFEST",
+          "manifestUrl": "/api/mfe/test-legacy/manifest.json"
+        },
+        {
+          "registrationId": "822bb713-5d65-4e94-8dd2-3234d9ab9602",
+          "moduleKey": "test-sso",
+          "displayName": "آزمایش sso",
+          "displayNameEn": "sso Test",
+          "description": "Independent authentication E2E fixture",
+          "order": 110,
+          "routePrefix": "test-sso",
+          "defaultRouteId": "home",
+          "remote": {
+            "remoteEntryUrl": "/api/mfe/test-sso/remoteEntry.js",
+            "remoteName": "aurevia_test_sso",
+            "exposedModule": "./plugin",
+            "contractVersion": "1.0",
+            "artifactVersion": "0.1.0"
+          },
+          "runtime": {
+            "apiBasePath": "/api/proxy/test-sso"
+          },
+          "routes": [
+            {
+              "id": "home",
+              "path": "home",
+              "title": "SSO Test",
+              "resource": "page:test-sso.home",
+              "action": "view"
+            }
+          ],
+          "menus": [
+            {
+              "id": "test-sso.home",
+              "routeId": "home",
+              "title": "SSO Test",
+              "order": 110
+            }
+          ],
+          "navigation": [
+            {
+              "key": "test-sso.home",
+              "type": "PAGE",
+              "pageKey": "home",
+              "title": "SSO Test",
+              "order": 110,
+              "source": "MANIFEST"
+            }
+          ],
+          "classification": "DEMO",
+          "resourceDefinitionMode": "MANIFEST",
+          "manifestUrl": "/api/mfe/test-sso/manifest.json"
+        }
+      ],
+      "dynamicRoutes": [
+        {
+          "id": "home",
+          "path": "home",
+          "title": "Legacy Test",
+          "resource": "page:test-legacy.home",
+          "action": "view",
+          "moduleKey": "test-legacy"
+        },
+        {
+          "id": "home",
+          "path": "home",
+          "title": "SSO Test",
+          "resource": "page:test-sso.home",
+          "action": "view",
+          "moduleKey": "test-sso"
+        }
+      ],
+      "navigation": [
+        {
+          "key": "test-legacy.home",
+          "type": "PAGE",
+          "pageKey": "home",
+          "title": "Legacy Test",
+          "order": 110,
+          "source": "MANIFEST"
+        },
+        {
+          "key": "test-sso.home",
+          "type": "PAGE",
+          "pageKey": "home",
+          "title": "SSO Test",
+          "order": 110,
+          "source": "MANIFEST"
+        }
+      ],
+      "resources": [
+        {
+          "id": "8bfb836e-dd12-4237-8e8d-1e11f31db3fc",
+          "parent_id": null,
+          "resource_key": "application:aurevia/test-legacy",
+          "type": "APPLICATION",
+          "name_fa": "آزمایش legacy",
+          "name_en": "legacy Test",
+          "owner_domain": "test-legacy",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        },
+        {
+          "id": "b86cd137-09c6-45d5-9c65-0006eb90f9be",
+          "parent_id": null,
+          "resource_key": "application:aurevia/test-sso",
+          "type": "APPLICATION",
+          "name_fa": "آزمایش sso",
+          "name_en": "sso Test",
+          "owner_domain": "test-sso",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        },
+        {
+          "id": "0eda2d60-975e-4235-bfda-bd48cfef7c97",
+          "parent_id": "8bfb836e-dd12-4237-8e8d-1e11f31db3fc",
+          "resource_key": "module:test-legacy",
+          "type": "MODULE",
+          "name_fa": "آزمایش Legacy",
+          "name_en": "Legacy Test",
+          "owner_domain": "test-legacy",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        },
+        {
+          "id": "8dcea82e-f4f2-4116-a02b-9445fb8a3d49",
+          "parent_id": "b86cd137-09c6-45d5-9c65-0006eb90f9be",
+          "resource_key": "module:test-sso",
+          "type": "MODULE",
+          "name_fa": "آزمایش SSO",
+          "name_en": "SSO Test",
+          "owner_domain": "test-sso",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        },
+        {
+          "id": "02b0fa7c-498e-49fa-8b9e-c398acdeb81a",
+          "parent_id": "0eda2d60-975e-4235-bfda-bd48cfef7c97",
+          "resource_key": "page:test-legacy.home",
+          "type": "PAGE",
+          "name_fa": "آزمایش Legacy",
+          "name_en": "Legacy Test",
+          "owner_domain": "test-legacy",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        },
+        {
+          "id": "32481d7d-367c-4ddc-90bf-b65727a8de79",
+          "parent_id": "8dcea82e-f4f2-4116-a02b-9445fb8a3d49",
+          "resource_key": "page:test-sso.home",
+          "type": "PAGE",
+          "name_fa": "آزمایش SSO",
+          "name_en": "SSO Test",
+          "owner_domain": "test-sso",
+          "classification": "INTERNAL",
+          "actions": [
+            "view"
+          ]
+        }
+      ],
+      "actions": {
+        "application:aurevia/test-legacy": [
+          "view"
+        ],
+        "application:aurevia/test-sso": [
+          "view"
+        ],
+        "module:test-legacy": [
+          "view"
+        ],
+        "module:test-sso": [
+          "view"
+        ],
+        "page:test-legacy.home": [
+          "view"
+        ],
+        "page:test-sso.home": [
+          "view"
+        ]
+      },
+      "policies": {}
+    },
+    "audit": {
+      "correlationId": "ec65a5e4-46b5-4c7b-ad24-a8be368b3cbb",
+      "bff": true,
+      "downstream": true,
+      "storedEntries": 3
+    },
+    "BROWSER-DUAL": {
+      "checks": [
+        {
+          "mode": "sso",
+          "visible": true,
+          "apiStatus": 200
+        },
+        {
+          "mode": "legacy",
+          "visible": true,
+          "apiStatus": 200
+        }
+      ],
+      "storageContainsCredentials": false,
+      "bearerHeadersFromBrowser": false,
+      "directDownstreamRequests": 0,
+      "apiRequestCount": 10
+    },
+    "BROWSER-SSO-ONLY": {
+      "checks": [
+        {
+          "mode": "sso",
+          "visible": true,
+          "apiStatus": 200
+        },
+        {
+          "mode": "legacy",
+          "visible": false,
+          "apiStatus": 403
+        }
+      ],
+      "storageContainsCredentials": false,
+      "bearerHeadersFromBrowser": false,
+      "directDownstreamRequests": 0,
+      "apiRequestCount": 7
+    },
+    "BROWSER-LEGACY-ONLY": {
+      "checks": [
+        {
+          "mode": "sso",
+          "visible": false,
+          "apiStatus": 403
+        },
+        {
+          "mode": "legacy",
+          "visible": true,
+          "apiStatus": 200
+        }
+      ],
+      "storageContainsCredentials": false,
+      "bearerHeadersFromBrowser": false,
+      "directDownstreamRequests": 0,
+      "apiRequestCount": 7
+    },
+    "BROWSER-NONE": {
+      "checks": [
+        {
+          "mode": "sso",
+          "visible": false,
+          "apiStatus": 403
+        },
+        {
+          "mode": "legacy",
+          "visible": false,
+          "apiStatus": 403
+        }
+      ],
+      "storageContainsCredentials": false,
+      "bearerHeadersFromBrowser": false,
+      "directDownstreamRequests": 0,
+      "apiRequestCount": 4
+    }
+  },
+  "javaTests": {
+    "tests": 194,
+    "failures": 0,
+    "skipped": 0,
+    "modules": {
+      "ui-artifact-security": {
+        "tests": 7,
+        "failures": 0,
+        "skipped": 0
+      },
+      "superapp-bff": {
+        "tests": 57,
+        "failures": 0,
+        "skipped": 0
+      },
+      "authorization-service": {
+        "tests": 128,
+        "failures": 0,
+        "skipped": 0
+      },
+      "test-sso-service": {
+        "tests": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "test-legacy-service": {
+        "tests": 2,
+        "failures": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "frontendTests": {
+    "tests": 42,
+    "failures": 0,
+    "skipped": 0,
+    "source": "npm test executed in implementation session"
+  }
+}

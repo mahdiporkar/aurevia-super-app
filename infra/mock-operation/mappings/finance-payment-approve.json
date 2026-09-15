@@ -1,0 +1,1 @@
+{"priority":5,"request":{"method":"POST","urlPathPattern":"/api/v1/payments/.*/approve"},"response":{"status":200,"headers":{"Content-Type":"application/json"},"jsonBody":{"status":"APPROVED"}}}

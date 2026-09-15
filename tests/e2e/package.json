@@ -1,0 +1,8 @@
+{
+  "name": "@aurevia/e2e-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  }
+}

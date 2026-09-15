@@ -1,0 +1,356 @@
+# Aurevia Super App
+
+[![CI](https://github.com/mahdiporkar/aurevia-super-app/actions/workflows/ci.yml/badge.svg)](https://github.com/mahdiporkar/aurevia-super-app/actions/workflows/ci.yml)
+[![GitHub Pages](https://github.com/mahdiporkar/aurevia-super-app/actions/workflows/pages.yml/badge.svg)](https://mahdiporkar.github.io/aurevia-super-app/)
+
+**[Live product showcase](https://mahdiporkar.github.io/aurevia-super-app/)** — a standalone, data-free demonstration of the Aurevia experience and architecture.
+
+Release history and deployment constraints are recorded in [CHANGELOG.md](CHANGELOG.md).
+
+> راهنمای مرزهای اعتماد، جریان توکن، کنترل دسترسی و الزامات انتشار Production: [Enterprise Production Readiness (FA)](docs/enterprise-production-readiness-fa.md)
+
+Production-shaped, Persian-first enterprise super-app monorepo. The browser talks only to the same-origin BFF; tokens remain encrypted on the server. Authorization is evaluated by the Authorization Service and OpenFGA. Token Exchange is deliberately absent.
+
+## Documentation
+
+- [Canonical current state: architecture, capabilities, inventories and contracts (فارسی)](docs/current-state-fa.md)
+- [Current architecture and request flows](docs/architecture.md)
+- [English complete guide](docs/README-en.md)
+- [راهنمای جامع فارسی](docs/README-fa.md)
+- [راهنمای اتصال یک فرانت‌اند مستقل به Backend](docs/connecting-separate-frontend-fa.md)
+- [چرخهٔ مستقل Core و Micro Frontend و سیاست امنیت URL](docs/mfe-independent-lifecycle-fa.md)
+- [راهنمای تغییر نام پروژه](docs/project-renaming-guide-fa.md)
+- [راهنمای آموزشی صفر تا تسلط تیم فنی](docs/technical-team-zero-to-production-fa.md)
+- [Access-control model (فارسی)](docs/access-control-fa.md)
+- [راهنمای کامل تمام فرم‌ها و فیلدهای میکرو راهبری (فارسی)](docs/operator-admin-form-field-guide-fa.md)
+- [Micro Frontend access for users, roles and groups (فارسی)](docs/access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش)
+- [Code reference (فارسی)](docs/code-reference-fa.md)
+- [Feature-by-feature code and runtime reference — 2026-09-04 (فارسی)](docs/codebase-feature-reference-2026-09-04-fa.md)
+- [Architecture, Clean Code and SOLID audit — 2026-09-04 (فارسی)](docs/codebase-architecture-clean-code-solid-audit-2026-09-04-fa.md)
+- [Authorization Engine architecture (فارسی)](docs/authorization-engine-fa.md)
+- [Complete architecture and OpenFGA reference (فارسی)](docs/architecture-openfga-complete-fa.md)
+- [OpenFGA deployment and endpoint configuration (فارسی)](docs/openfga-deployment-configuration-fa.md)
+- [Full-stack quality, security and UI audit — 2026-08-31 (فارسی)](docs/full-stack-quality-audit-2026-08-31-fa.md)
+- [Linux demo deployment runbook (فارسی)](docs/deployment-demo-linux-fa.md)
+- [راهنمای نصب کاملاً تازه و اعتبارسنجی دسترسی‌ها (فارسی)](docs/fresh-install-validation-fa.md)
+- [Linux production deployment runbook (فارسی)](docs/deployment-production-linux-fa.md)
+- [گزارش ممیزی Production در ۲۰۲۶-۰۸-۳۱ (فارسی)](docs/production-readiness-audit-2026-08-31-fa.md)
+- [Dynamic Proxy Route management guide (فارسی)](docs/dynamic-proxy-routing-fa.md)
+- [Legacy service self-service and authentication guide (فارسی)](docs/legacy-service-authentication-fa.md#تعریف-یک-micro-app-از-نوع-legacy-بدون-انتشار-نسخه)
+- [Operational token forwarding: Keycloak, Gateway, Legacy and Superset (فارسی)](docs/operational-token-forwarding-fa.md)
+- [Legacy and OAuth2 end-to-end verification (فارسی)](docs/legacy-oauth2-end-to-end-demo-fa.md)
+- [گزارش پیاده‌سازی و آزمون واقعی دو برنامهٔ مستقل SSO و Legacy (فارسی)](docs/e2e-sso-legacy-proxy-test-fa.md)
+- [بازبینی و اصلاح Swagger/OpenAPI، اجرای امن و نتایج واقعی (فارسی)](docs/swagger-openapi-review-2026-09-12-fa.md)
+- [Browser session vs. Keycloak token (فارسی)](docs/operational-token-forwarding-fa.md#تفاوت-session-مرورگر-با-توکن-keycloak)
+- [Resource Catalog and Manifest architecture (فارسی)](docs/resource-catalog-manifest-architecture-fa.md)
+- [Shell runtime and Micro Frontend loading (فارسی)](docs/shell-runtime-and-mfe-loading-fa.md)
+- [HR/Finance multi-page OpenFGA access demo (فارسی)](docs/two-page-openfga-demo-fa.md)
+- [HR/Finance ERP and OpenFGA resource-tree demo (فارسی)](docs/hr-finance-erp-openfga-demo-fa.md)
+- [Superset routing, access and in-MFE embedding guide (فارسی)](docs/superset-routing-and-embedding-fa.md)
+- [Superset as an external integration and independent lifecycle (فارسی)](docs/external-integration-superset-fa.md)
+- [دموی دو Superset خارج از Docker، شبکه LAN، mTLS و گزارش از BFF (فارسی)](docs/superset-native-network-demo-fa.md)
+- [External Identity Provider، Multi-IdP و Canonical Identity (فارسی)](docs/external-identity-provider-fa.md)
+- [Superset SSO and Remote User authentication (فارسی)](docs/superset-routing-and-embedding-fa.md#احراز-هویت-و-sso-بین-super-app-و-superset)
+- [Git governance and repository access (فارسی)](docs/git-governance-fa.md)
+- [Operations and troubleshooting (فارسی)](docs/operations-fa.md)
+
+Repository collaboration rules are in [CONTRIBUTING.md](CONTRIBUTING.md) and security reporting is in [SECURITY.md](SECURITY.md).
+
+## Pinned toolchain
+
+- Node.js 22.15.0+ (22.x) / npm 10.9.2
+- Java 21
+- Spring Boot 3.5.5
+- Webpack 5 Module Federation
+- PostgreSQL 17, Redis 8, OpenFGA 1.18 (container tags are pinned in Compose)
+
+## Repository
+
+```text
+apps/                         Shell, four product MFEs and two E2E fixture MFEs
+packages/                     contracts, HTTP/authorization SDK, UI guards and i18n
+services/                     BFF, Authorization, shared policy and two fixture services
+infra/                        Compose, proxies, IAM, policy and databases
+tests/                        end-to-end, security and contract tests
+docs/                         ADRs, diagrams, threat model and runbooks
+```
+
+## Local commands
+
+Copy `.env.example` to `.env` and replace every `change-me` value. On a new OpenFGA database,
+bootstrap the store/model before starting the complete stack. `infra:up` now fails early if the
+store/model are placeholders, unavailable, or the Shell artifact has not been built.
+
+```bash
+npm ci
+npm run build --workspace=@aurevia/shell
+npm run openfga:bootstrap
+npm run infra:up
+npm run identity:up              # optional local Keycloak demo
+npm run mfe:build                 # optional demo MFE lifecycle
+npm run mfe:up
+./mvnw verify
+npm test
+npm run infra:verify
+npm run infra:verify:token-proxy
+```
+
+The local Compose profile enables a fail-fast OpenFGA startup reconciliation. `infra:verify`
+then requires Flyway V56+, zero projection drift and the Admin MFE `0.5.0` contract;
+`infra:verify:token-proxy` exercises real OIDC login, the token-free Redis session, Superset,
+Legacy token caching and OAuth2 user-token forwarding end to end.
+
+`npm run infra:up` starts only Aurevia Core and remains healthy with zero MFEs and zero local
+Identity Providers online. The optional Keycloak demo has its own lifecycle (`npm run identity:up`
+and `npm run identity:down`); production Identity Providers are registered by OIDC URL and tenant.
+The optional demo microfrontends are served by their own Compose project (`npm run mfe:up` and
+`npm run mfe:down`). Their default registry URLs are:
+
+- Admin: `http://localhost:3001/remoteEntry.js`
+- HR: `http://localhost:3002/remoteEntry.js`
+- Finance: `http://localhost:3003/remoteEntry.js`
+- Reports: `http://localhost:3004/remoteEntry.js`
+
+The Administration panel accepts a complete policy-valid `http://` or `https://` Remote Entry
+URL without an origin list or Core restart. For local webpack development, run `dev:mfe:admin`, `dev:mfe:hr`,
+`dev:mfe:finance`, and `dev:mfe:reports` in separate terminals. Use an HTTPS
+Remote Entry URL when the Shell itself is deployed over HTTPS.
+
+Production uses `PRODUCTION_INTERNET` URL/network policy (HTTPS, public destinations and SRI).
+Private enterprise MFE networks use the platform-wide `INTERNAL_ENTERPRISE` policy. These are
+network boundaries, not per-MFE address lists; the registry remains the source of truth.
+
+On Windows use `mvnw.cmd verify`. No real credentials or external deployment are needed. See [architecture](docs/architecture.md) for boundaries and request flows.
+
+## Security invariants
+
+- The browser receives only an opaque, Secure, HttpOnly session cookie.
+- Browser applications use relative same-origin URLs and never receive bearer tokens.
+- The BFF forwards the unchanged Public IAM access token to the operational gateway over mTLS.
+- Only Authorization Service writes OpenFGA relationships.
+- OpenFGA is the authorization source of truth; Redis only caches check decisions for a short TTL and tuple writes invalidate the matching entry.
+- Access and refresh tokens are encrypted in the Redis-backed server-side Token Vault and never stored in the browser.
+- Missing route/action/session/policy information denies access.
+- Superset deployments have an independent lifecycle and are registered by URL; the browser reaches them only through the authorized same-origin BFF tunnel.
+
+## Manifest developer guide
+
+The effective manifest is the frontend contract for navigation and presentation-level
+authorization. It is not an API authorization credential: every protected backend request
+is checked again by the BFF and Authorization Service.
+
+### Fetching the effective user context
+
+After the OAuth2 Authorization Code login has completed, call the canonical same-origin endpoint.
+`GET /api/v1/me/manifest` remains available only as a compatibility projection for older clients.
+
+```http
+GET /api/me/context HTTP/1.1
+Accept: application/json
+X-Correlation-ID: <uuid>
+Cookie: AUREVIA_SESSION=<opaque-session-id>
+```
+
+Frontend code must include the browser session and must not attach a bearer token:
+
+```ts
+import type { EffectiveUserContext } from '@aurevia/contracts';
+
+export async function fetchContext(): Promise<EffectiveUserContext> {
+  const response = await fetch('/api/me/context', {
+    credentials: 'same-origin',
+    redirect: 'manual',
+    headers: {
+      Accept: 'application/json',
+      'X-Correlation-ID': crypto.randomUUID(),
+    },
+  });
+  if (response.status === 401 || response.status === 302 || response.type === 'opaqueredirect') {
+    window.location.assign('/auth/login');
+    throw new Error('AUTH_REDIRECT');
+  }
+  if (!response.ok) throw new Error(`Context HTTP ${response.status}`);
+  return response.json() as Promise<EffectiveUserContext>;
+}
+```
+
+### Response contract
+
+```json
+{
+  "contractVersion": "1.0",
+  "identity": {
+    "issuer": "http://localhost:8180/realms/aurevia",
+    "subject": "2c70eec1-...",
+    "username": "mahdi"
+  },
+  "tenant": { "id": "default", "name": "Default" },
+  "organizations": [],
+  "allowedApplications": ["aurevia"],
+  "allowedMicros": [],
+  "dynamicRoutes": [],
+  "navigation": [],
+  "resources": [],
+  "actions": {},
+  "policies": {},
+  "version": "manifest-a1b2c3",
+  "expiresAt": "2026-08-29T20:00:00Z",
+  "panels": [
+    {
+      "id": "uuid",
+      "code": "HR",
+      "slug": "mfe-hr",
+      "nameFa": "منابع انسانی",
+      "nameEn": "Human Resources",
+      "remoteEntry": "http://localhost:3002/remoteEntry.js",
+      "exposedModule": "./bootstrap",
+      "routeBasePath": "/hr",
+      "semanticVersion": "0.1.0",
+      "contractVersion": "1"
+    }
+  ],
+  "permissions": {
+    "business:hr.employee": ["view", "update"]
+  },
+  "resourceTree": [
+    {
+      "id": "uuid",
+      "parent_id": null,
+      "resource_key": "application:aurevia",
+      "type": "APPLICATION",
+      "name_fa": "آرویا",
+      "name_en": "Aurevia",
+      "actions": []
+    }
+  ]
+}
+```
+
+Field semantics:
+
+| Field | Meaning |
+|---|---|
+| `version` | Content-derived version suitable for change detection |
+| `expiresAt` | Refresh deadline; the current service TTL is 60 seconds |
+| `panels` | Active panels for which OpenFGA returned `can_view` |
+| `remoteEntry` | Complete registry URL accepted by the environment URL/network policy |
+| `permissions` | Effective active USER, GROUP and ROLE actions keyed by canonical resource key |
+| `resourceTree` | Authorized nodes plus ancestors required to render the hierarchy |
+| `presentation` | Optional `hide`, `disable` or `readOnly` UI policy when supplied |
+| `uiCatalog` | Authorized modules, immutable artifact URLs, routes and navigation consumed by the current Shell |
+| `identity`, `tenant`, `organizations` | Canonical server-derived identity and organizational context |
+| `allowedMicros`, `dynamicRoutes`, `navigation`, `resources`, `actions`, `policies` | Versioned context projections for current and compatible consumers |
+
+The response is `Cache-Control: no-cache` and includes an ETag. Clients should refresh it
+at `expiresAt`, after an administrative grant change, and after a new login. They must fail
+closed when the response is unavailable or expired; retaining an expired manifest must not
+enable actions.
+
+### Consuming the manifest in Shell and MFEs
+
+The Shell wraps remotes in `SHManifestProvider` and passes the same immutable snapshot to
+the current plugin contract. The legacy `mount` contract is still accepted for registered
+artifacts whose `contractVersion` is `1`.
+
+```ts
+export interface MicroFrontendPlugin {
+  contractVersion: '1.0';
+  App: React.ComponentType<{
+    runtime: HostRuntime;
+    manifest: EffectiveManifest;
+  }>;
+}
+```
+
+Use canonical resource/action keys for presentation guards:
+
+```tsx
+<SHCan resource="business:hr.employee" action="view">
+  <EmployeeList />
+</SHCan>
+
+<SHAction resource="business:hr.employee" action="update" mode="disable">
+  <Button>ویرایش</Button>
+</SHAction>
+
+<SHRouteGuard resource="module:hr" action="view">
+  <HrRoutes />
+</SHRouteGuard>
+```
+
+`SHCan` hides by default, `SHAction` supports `hide`, `disable`, and `readOnly`, and
+`SHRouteGuard` renders an access-denied state. These controls improve UX only. Never infer
+that an API call is authorized because its button or route was visible.
+
+### Adding a new manifest-controlled feature
+
+1. Add a forward-only migration for the canonical resource and action.
+2. Attach the action through `resource_action`.
+3. Register operational routes with the same resource/action where applicable.
+4. Add OpenFGA action-to-relation and action-to-permission mappings if the action is new.
+5. Grant USER, GROUP, or ROLE access through the Admin MFE.
+6. Wait for and monitor the transactional outbox projection.
+7. Use the exact resource/action keys in the MFE guard.
+8. Test direct, group, role, inherited, revoked, expired, and unrelated-user cases.
+9. Verify the backend returns 403 even when a user manually bypasses the frontend guard.
+
+The complete Persian reference, including all ten resource types, OpenFGA relations,
+inheritance, Redis caching, outbox behavior, and known gaps, is in
+[architecture-openfga-complete-fa.md](docs/architecture-openfga-complete-fa.md).
+
+## Current production readiness
+
+The `prod` profiles implement fail-closed application guards: Swagger and demo mutations are
+disabled, outbound destinations require HTTPS and production URL policy, MFE integrity is
+mandatory, Authorization Service requires client certificates, and BFF connections to
+Authorization/Gateway use mTLS. The base Compose file is still a local/demo topology, not a
+production deployment. The target platform must provide real secrets and certificate rotation,
+HA/PITR for PostgreSQL, Redis HA, an image registry, WAF/shared rate limits, monitoring/alerting,
+and a hardened external Superset deployment. Local `change-me` values, development servers,
+and example data must never be promoted to production.
+
+## آزمون سرتاسری مستقل SSO و Legacy
+
+پس از آماده‌سازی Core و اجرای Keycloak محلی، دو برنامهٔ آزمایشی مستقل را بسازید و اجرا کنید.
+ثبت مایکروفرانت‌اندها، Manifestها، مسیر proxy، مقصد و روش احراز هویت از APIهای موجود مدیریت
+انجام می‌شود. Runner مجوزهای واقعی OpenFGA را تنظیم و چهار حالت دسترسی کاربر را در API و
+مرورگر آزمون می‌کند. گزارش فارسی شامل کارهای انجام‌شده، علت اشکال‌ها، اصلاحات و نتایج واقعی است.
+
+```powershell
+.\mvnw.cmd -P e2e-sso-legacy package
+npm run e2e:auth:build
+npm run e2e:auth:prepare
+npm run identity:up
+npm run e2e:auth:core:up
+npm run e2e:auth:up
+npm run e2e:auth:verify
+npm run e2e:auth:report
+```
+
+Imageهای Core باید از قبل با `npm run infra:up` ساخته شده باشند؛ overlay اختیاری JARهای
+تازهٔ Java را mount می‌کند. نتایج و تصویرهای مرورگر در `target/e2e-auth` و رمزهای تصادفی
+محلی در `.tmp/e2e-auth` ذخیره می‌شوند؛ این مسیرها در Git ثبت نمی‌شوند. خروجی امن و قابل
+نگهداری آزمون در `docs/evidence/e2e-sso-legacy-proxy-results.json` قرار دارد.
+برای توسعهٔ مستقل از `dev:mf-test-sso` و `dev:mf-test-legacy` و برای توقف چهار جزء آزمایشی
+از `e2e:auth:down` استفاده کنید. فرمان‌های نصب تازه، بازگشت محیط، جزئیات امنیت و
+نتایج واقعی در [گزارش فارسی آزمون](docs/e2e-sso-legacy-proxy-test-fa.md) آمده‌اند.
+
+## Superset demo
+
+`npm run infra:up` starts Aurevia Core without Superset. Run `npm run superset:up` only when
+the independent local demo is needed. Its one-shot init container migrates the
+metadata database, creates the local administrator, initializes roles, and loads the official
+Superset example datasets and dashboards when `SUPERSET_LOAD_EXAMPLES=yes`. Only this init
+container receives temporary bootstrap egress because the examples are downloaded; the
+runtime Superset is exposed on host loopback for the registry-driven direct BFF connector.
+Operation Gateway is not part of the Superset request path.
+
+Open the full Superset UI through the authenticated tunnel:
+
+```text
+http://localhost:8443/reports-runtime/superset/welcome/
+```
+
+Set `SUPERSET_LOAD_EXAMPLES=no` outside local/demo environments.
+Stop it independently with `npm run superset:down`. Production Superset is never deployed by
+the Core Compose; register its HTTPS base URL through the Admin registry.

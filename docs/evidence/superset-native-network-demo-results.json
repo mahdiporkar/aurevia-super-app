@@ -1,0 +1,661 @@
+{
+  "collectedAt": "2026-09-12T19:33:24.451Z",
+  "scope": "Native Superset demo on the Aurevia workstation LAN",
+  "versions": {
+    "superset": "5.0.0",
+    "python": "3.11.13",
+    "gunicorn": "23.0.0",
+    "uv": "0.8.15"
+  },
+  "runtime": {
+    "host": "192.168.1.6",
+    "nativeRoot": "/home/mahdi/.local/share/aurevia-superset-demo",
+    "distro": "Ubuntu",
+    "publicUrl": "https://192.168.1.6:8089",
+    "operationUrl": "https://192.168.1.6:8088",
+    "outsideContainers": true,
+    "publicStaticOnly": true,
+    "operationRequiresMtls": true
+  },
+  "registration": {
+    "registeredAt": "2026-09-12T19:12:36.491Z",
+    "instances": {
+      "public": {
+        "id": "ec465f5c-5d27-47a9-99cc-e565d1333b50",
+        "code": "superset-native-public",
+        "url": "https://192.168.1.6:8089"
+      },
+      "operation": {
+        "id": "15ccb443-240d-4da7-b294-5deab88e3f55",
+        "code": "superset-native-operation",
+        "url": "https://192.168.1.6:8088"
+      }
+    },
+    "mappingId": "7ad05935-0d78-4c52-adc3-5c01e339709e",
+    "assets": [
+      {
+        "id": "08f6da1f-7e70-44c3-9862-37b858271b8c",
+        "resourceId": "de1bc44d-e685-4813-8dd7-4f52165f1e4a",
+        "externalId": "1",
+        "type": "DASHBOARD",
+        "path": "/superset/dashboard/1/"
+      },
+      {
+        "id": "7c157586-72e3-4a01-9c6b-6c7937f36f05",
+        "resourceId": "5cfc7fb3-a01a-4098-a567-433634ff0ef3",
+        "externalId": "1",
+        "type": "CHART",
+        "path": "/explore/?slice_id=1"
+      },
+      {
+        "id": "a3b63783-4d5e-47fd-8904-0d6ff27bacca",
+        "resourceId": "987b17b9-3875-4780-9a67-671d271664f8",
+        "externalId": "2",
+        "type": "CHART",
+        "path": "/explore/?slice_id=2"
+      }
+    ],
+    "grants": [
+      {
+        "assetId": "08f6da1f-7e70-44c3-9862-37b858271b8c",
+        "grantId": "6e51cfe3-d021-4fb1-ba1c-6bb9abeca89b"
+      },
+      {
+        "assetId": "7c157586-72e3-4a01-9c6b-6c7937f36f05",
+        "grantId": "8990ae44-c51c-4ce9-bbb3-f00e012eed2b"
+      },
+      {
+        "assetId": "a3b63783-4d5e-47fd-8904-0d6ff27bacca",
+        "grantId": "b9c4e9ca-c0d8-42f9-b245-05680ce483a3"
+      }
+    ],
+    "viewer": {
+      "username": "e2e.dual-access",
+      "userId": "c2fd03ac-35b4-49fd-9bba-f7a1f558f542",
+      "subject": "022bad84-4734-4f32-980c-94e9639e7366",
+      "issuer": "http://localhost:8180/realms/aurevia"
+    },
+    "reports": {
+      "zone": "operation",
+      "dashboardId": 1,
+      "dashboardSlug": "aurevia-native-demo",
+      "datasetId": 1,
+      "chartIds": [
+        1,
+        2
+      ],
+      "expectedTotal": 1150,
+      "rows": 4,
+      "publicHasAnalyticalAssets": false
+    }
+  },
+  "nativePrivacy": {
+    "supersetVersion": "5.0.0",
+    "filename": "2741.45cdd326bd2d4058e762.entry.js",
+    "sourceSha256": "2486c6ab7a09da0439c1789427594767efb4254320175115111dc3cbeea97cb9",
+    "servedSha256": "12b65174b08839bbc6dfe409438a0cf1d67ad26d91504efaf23f58cf15a0f53c",
+    "scarfPixelDisabled": true
+  },
+  "tls": {
+    "hostnameVerified": true,
+    "operationRequiresClientIdentity": true,
+    "serverSan": "IP Address:192.168.1.6, IP Address:127.0.0.1, DNS:localhost, DNS:host.docker.internal",
+    "validFrom": "Sep 12 18:54:32 2026 GMT",
+    "validTo": "Oct 12 18:59:32 2026 GMT",
+    "caFingerprint": "90:60:AA:7E:1A:77:67:28:5B:2A:56:61:02:29:20:A8:06:AF:71:3A:CF:4B:39:A9:48:5C:79:A4:F7:96:0F:9D",
+    "caPrivateKeyExported": false
+  },
+  "java": [
+    {
+      "module": "ui-artifact-security",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "superapp-bff",
+      "tests": 78,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "authorization-service",
+      "tests": 142,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "javaPassed": 227,
+  "native": {
+    "runAt": "2026-09-12T19:33:08.254Z",
+    "counts": {
+      "PASS": 26,
+      "FAIL": 0,
+      "BLOCKED": 0
+    },
+    "results": [
+      {
+        "id": "NATIVE-PROCESSES",
+        "expected": "Both native Gunicorn processes are outside Docker cgroups",
+        "actual": [
+          {
+            "zone": "public",
+            "pid": 4950,
+            "cgroup": "0::/init.scope",
+            "analyticalAssets": {
+              "dashboards": 0,
+              "slices": 0,
+              "tables": 0
+            }
+          },
+          {
+            "zone": "operation",
+            "pid": 4951,
+            "cgroup": "0::/init.scope",
+            "analyticalAssets": {
+              "dashboards": 1,
+              "slices": 2,
+              "tables": 1
+            }
+          }
+        ],
+        "status": "PASS"
+      },
+      {
+        "id": "NATIVE-PUBLIC-HEALTH",
+        "expected": "Independent public Superset HTTPS responds 200",
+        "actual": 200,
+        "status": "PASS"
+      },
+      {
+        "id": "NATIVE-OPERATION-HEALTH",
+        "expected": "Independent operation health requires BFF client identity",
+        "actual": 200,
+        "status": "PASS"
+      },
+      {
+        "id": "NATIVE-MTLS-REJECT",
+        "expected": "Operation rejects requests without client certificate",
+        "actual": "TLS handshake rejected",
+        "status": "PASS"
+      },
+      {
+        "id": "NATIVE-CERTIFICATE-VERIFY",
+        "expected": "Demo HTTPS certificate hostname is verified",
+        "actual": "Hostname mismatch rejected",
+        "status": "PASS"
+      },
+      {
+        "id": "PUBLIC-RUNTIME-REJECT",
+        "expected": "Public instance cannot run dashboard or chart API",
+        "actual": 404,
+        "status": "PASS"
+      },
+      {
+        "id": "CORE-HEALTH",
+        "expected": "Core stays healthy independently of external Superset",
+        "actual": 200,
+        "status": "PASS"
+      },
+      {
+        "id": "REGISTRY-MAPPING",
+        "expected": "Default mapping resolves public integration to operation host",
+        "actual": {
+          "publicCode": "superset-native-public",
+          "operationCode": "superset-native-operation",
+          "default": true
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "REGISTRY-RESOURCES",
+        "expected": "Two integration resources and three assets persist with a valid database source",
+        "actual": {
+          "registeredResources": 5,
+          "source": "ADMIN"
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "BFF-HEALTH",
+        "expected": "BFF connects to native operation health with verified mTLS",
+        "actual": {
+          "httpStatus": 200,
+          "status": "ACTIVE"
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "ADMIN-REPORTS",
+        "expected": "Administrator sees all three registered native reports",
+        "actual": 3,
+        "status": "PASS"
+      },
+      {
+        "id": "VIEWER-REPORTS",
+        "expected": "Viewer sees only the three granted reports, with same-origin URLs",
+        "actual": 3,
+        "status": "PASS"
+      },
+      {
+        "id": "VIEWER-DASHBOARD",
+        "expected": "Viewer dashboard loads through BFF and Remote User SSO",
+        "actual": 200,
+        "status": "PASS"
+      },
+      {
+        "id": "PUBLIC-ASSETS",
+        "expected": "BFF serves dashboard JavaScript from the independent public instance",
+        "actual": {
+          "httpStatus": 200,
+          "publicStaticRequests": 1
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "BFF-QUERY",
+        "expected": "Chart data query is executed on operational Superset through BFF",
+        "actual": {
+          "httpStatus": 200,
+          "total": 1150,
+          "operationQueryRequests": 1
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "SUPERSET-CSRF-REJECT",
+        "expected": "Operational Superset rejects a query without its own CSRF",
+        "actual": 400,
+        "status": "PASS"
+      },
+      {
+        "id": "DENIED-REPORTS",
+        "expected": "User without BI grants gets an empty report catalog",
+        "actual": [],
+        "status": "PASS"
+      },
+      {
+        "id": "DENIED-DASHBOARD",
+        "expected": "Knowing the dashboard URL cannot bypass BFF grants",
+        "actual": 403,
+        "status": "PASS"
+      },
+      {
+        "id": "DENIED-QUERY",
+        "expected": "Chart data cannot be queried by an ungranted user",
+        "actual": 403,
+        "status": "PASS"
+      },
+      {
+        "id": "VIEWER-QUERY",
+        "expected": "Granted viewer can run the matching chart data query",
+        "actual": {
+          "httpStatus": 200,
+          "total": 1150
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "UNGRANTED-CHART-REJECT",
+        "expected": "A known dataset cannot bypass an ungranted chart ID",
+        "actual": 403,
+        "status": "PASS"
+      },
+      {
+        "id": "UNGRANTED-FAVORITE-REJECT",
+        "expected": "Favorite status cannot include an ungranted dashboard ID",
+        "actual": 403,
+        "status": "PASS"
+      },
+      {
+        "id": "REVOKE-DASHBOARD",
+        "expected": "Revoking the dashboard grant takes effect after outbox propagation",
+        "actual": {
+          "httpStatus": 403,
+          "propagationMs": 4988
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "RESTORE-DASHBOARD",
+        "expected": "Restoring the view grant restores BFF access after outbox propagation",
+        "actual": {
+          "httpStatus": 200,
+          "propagationMs": 5963
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "BROWSER-REPORT",
+        "expected": "Real Chrome renders the catalog dashboard URL and fetches real chart data through BFF",
+        "actual": {
+          "reportsCatalogRendered": true,
+          "grantedReportLinks": 3,
+          "dashboardRendered": true,
+          "tableRows": 4,
+          "total": 1150,
+          "chartDataResponses": 2,
+          "networkRequests": 73,
+          "sameOrigin": true,
+          "oauthHeaders": false,
+          "storageContainsCredentials": false
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "NO-RAW-CREDENTIALS",
+        "expected": "Evidence contains no OAuth tokens, passwords, or private keys",
+        "actual": "No raw credentials",
+        "status": "PASS"
+      }
+    ],
+    "evidence": {
+      "nativeProcesses": [
+        {
+          "zone": "public",
+          "pid": 4950,
+          "cgroup": "0::/init.scope",
+          "analyticalAssets": {
+            "dashboards": 0,
+            "slices": 0,
+            "tables": 0
+          }
+        },
+        {
+          "zone": "operation",
+          "pid": 4951,
+          "cgroup": "0::/init.scope",
+          "analyticalAssets": {
+            "dashboards": 1,
+            "slices": 2,
+            "tables": 1
+          }
+        }
+      ],
+      "browser": {
+        "reportsCatalogRendered": true,
+        "grantedReportLinks": 3,
+        "dashboardRendered": true,
+        "tableRows": 4,
+        "total": 1150,
+        "chartDataResponses": 2,
+        "networkRequests": 73,
+        "sameOrigin": true,
+        "oauthHeaders": false,
+        "storageContainsCredentials": false
+      }
+    }
+  },
+  "swaggerRegression": {
+    "runAt": "2026-09-12T19:28:43.505Z",
+    "counts": {
+      "PASS": 19,
+      "FAIL": 0,
+      "BLOCKED": 0
+    },
+    "results": [
+      {
+        "id": "LOGIN-REDIRECT",
+        "expected": "Anonymous Swagger navigation redirects to BFF login",
+        "actual": 302,
+        "status": "PASS"
+      },
+      {
+        "id": "JSON-UNAUTHENTICATED",
+        "expected": "Authorization JSON façade returns 401 without session",
+        "actual": 401,
+        "status": "PASS"
+      },
+      {
+        "id": "SWAGGER-HTML",
+        "expected": "Swagger HTML is served after login",
+        "actual": {
+          "httpStatus": 200,
+          "path": "/swagger-ui/index.html"
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "SWAGGER-ASSETS",
+        "expected": "All scripts and styles load as their actual content type",
+        "actual": {
+          "assets": 7,
+          "failures": 0
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "SWAGGER-CONFIG",
+        "expected": "Two same-origin contracts; no persisted authorization or external validator",
+        "actual": {
+          "urls": [
+            {
+              "url": "/v3/api-docs",
+              "name": "1 - BFF عمومی سوپر اپ"
+            },
+            {
+              "url": "/api/v1/docs/authorization/openapi",
+              "name": "2 - سرویس مجوزدهی"
+            }
+          ],
+          "persistAuthorization": false
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "BFF-CONTRACT",
+        "expected": "Valid runtime OpenAPI with unique IDs, path parameters and references",
+        "actual": {
+          "operations": 52,
+          "uniqueOperationIds": 52,
+          "brokenReferences": 0
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "AUTHORIZATION-CONTRACT",
+        "expected": "Valid runtime OpenAPI with unique IDs, path parameters and references",
+        "actual": {
+          "operations": 130,
+          "uniqueOperationIds": 130,
+          "brokenReferences": 0
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "BFF-PUBLIC-LOGIN",
+        "expected": "Login/provider discovery is anonymous and login documents HTTP 302",
+        "actual": "Anonymous + 302",
+        "status": "PASS"
+      },
+      {
+        "id": "BFF-PROXY-CSRF",
+        "expected": "Mutations require session AND CSRF; Superset retains its own CSRF model",
+        "actual": {
+          "mutationsChecked": 13
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "IDENTITY-CONTRACT",
+        "expected": "All provider and external identity endpoints are documented",
+        "actual": {
+          "providerEndpoints": 8,
+          "externalIdentityEndpoints": 3
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "SPEC-EXAMPLES",
+        "expected": "Request examples satisfy declared required fields and enums",
+        "actual": {
+          "bff": 8,
+          "authorizationService": 50
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "ACTOR-HEADERS-AUTO",
+        "expected": "Swagger does not require caller-supplied actor headers generated by BFF",
+        "actual": {
+          "headersChecked": 69
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "READ-TRY-OUT",
+        "expected": "Read internal panels through the development façade",
+        "actual": 200,
+        "status": "PASS"
+      },
+      {
+        "id": "WRITE-CSRF-REJECT",
+        "expected": "POST through Swagger façade without CSRF is rejected",
+        "actual": 403,
+        "status": "PASS"
+      },
+      {
+        "id": "WRITE-TRY-OUT",
+        "expected": "POST with valid CSRF succeeds through the façade",
+        "actual": {
+          "httpStatus": 200,
+          "decision": "ALLOW"
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "EXECUTE-PATH-REJECT",
+        "expected": "Façade refuses paths outside /internal/v1/",
+        "actual": 400,
+        "status": "PASS"
+      },
+      {
+        "id": "EXECUTE-NONADMIN-REJECT",
+        "expected": "An authenticated user without admin manage cannot execute internal APIs",
+        "actual": 403,
+        "status": "PASS"
+      },
+      {
+        "id": "BROWSER-SWAGGER",
+        "expected": "Real Chrome: both contracts, GET and CSRF-protected POST Execute, storage and network",
+        "actual": {
+          "steps": [
+            {
+              "path": "/api/v1/csrf",
+              "method": "get",
+              "httpStatus": 200
+            },
+            {
+              "path": "/internal/v1/registry/panels",
+              "method": "get",
+              "httpStatus": 200
+            },
+            {
+              "path": "/internal/v1/authorize/check",
+              "method": "post",
+              "httpStatus": 200
+            }
+          ],
+          "writeDecision": "ALLOW",
+          "requests": 16,
+          "embeddedAssets": 2,
+          "sameOrigin": true,
+          "storageContainsCredentials": false,
+          "bearerOrBasicHeaders": false
+        },
+        "status": "PASS"
+      },
+      {
+        "id": "NO-RAW-CREDENTIALS",
+        "expected": "No actual credentials in contracts or sanitized evidence",
+        "actual": "No raw credentials",
+        "status": "PASS"
+      }
+    ],
+    "evidence": {
+      "config": {
+        "urls": [
+          {
+            "url": "/v3/api-docs",
+            "name": "1 - BFF عمومی سوپر اپ"
+          },
+          {
+            "url": "/api/v1/docs/authorization/openapi",
+            "name": "2 - سرویس مجوزدهی"
+          }
+        ],
+        "persistAuthorization": false
+      },
+      "bff": {
+        "operations": 52,
+        "uniqueOperationIds": 52,
+        "brokenReferences": 0
+      },
+      "authorizationService": {
+        "operations": 130,
+        "uniqueOperationIds": 130,
+        "brokenReferences": 0
+      },
+      "browser": {
+        "steps": [
+          {
+            "path": "/api/v1/csrf",
+            "method": "get",
+            "httpStatus": 200
+          },
+          {
+            "path": "/internal/v1/registry/panels",
+            "method": "get",
+            "httpStatus": 200
+          },
+          {
+            "path": "/internal/v1/authorize/check",
+            "method": "post",
+            "httpStatus": 200
+          }
+        ],
+        "writeDecision": "ALLOW",
+        "requests": 16,
+        "embeddedAssets": 2,
+        "sameOrigin": true,
+        "storageContainsCredentials": false,
+        "bearerOrBasicHeaders": false
+      }
+    }
+  },
+  "configurationIsolation": {
+    "status": "PASS",
+    "command": "npm run superset:config:test"
+  },
+  "containers": [
+    {
+      "name": "aurevia-nginx-1",
+      "status": "Up 6 minutes"
+    },
+    {
+      "name": "aurevia-aurevia-bff-1",
+      "status": "Up 7 minutes (healthy)"
+    },
+    {
+      "name": "aurevia-authorization-service-1",
+      "status": "Up 7 minutes (healthy)"
+    },
+    {
+      "name": "aurevia-mfe-demo-mfe-reports-1",
+      "status": "Up 30 minutes"
+    },
+    {
+      "name": "aurevia-mfe-demo-mfe-admin-1",
+      "status": "Up 30 minutes"
+    }
+  ],
+  "supersetContainers": [],
+  "limits": {
+    "samePhysicalWorkstation": true,
+    "separateLanClientTested": false,
+    "productionDwh": false
+  }
+}

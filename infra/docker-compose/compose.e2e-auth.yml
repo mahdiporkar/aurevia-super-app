@@ -1,0 +1,33 @@
+name: aurevia-e2e-auth
+services:
+  test-sso-service:
+    build: { context: ../../services/test-sso-service, dockerfile: Dockerfile }
+    environment:
+      TEST_SSO_ISSUER: http://localhost:8180/realms/aurevia
+      TEST_SSO_JWKS_URI: http://host.docker.internal:8180/realms/aurevia/protocol/openid-connect/certs
+      TEST_SSO_AUDIENCE: account
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [operation-services, identity-egress]
+    # Protected APIs deliberately have no host port.
+  test-legacy-service:
+    build: { context: ../../services/test-legacy-service, dockerfile: Dockerfile }
+    environment:
+      TEST_LEGACY_USERNAME: e2e-service
+      TEST_LEGACY_PASSWORD: "${TEST_LEGACY_PASSWORD:?Run npm run e2e:auth:prepare}"
+    networks: [operation-services, bff-egress]
+  mf-test-sso:
+    image: nginx:1.29.1-alpine
+    volumes:
+      - ../../apps/mf-test-sso/dist:/usr/share/nginx/html:ro
+      - ../mfe/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports: ["127.0.0.1:3011:8080"]
+  mf-test-legacy:
+    image: nginx:1.29.1-alpine
+    volumes:
+      - ../../apps/mf-test-legacy/dist:/usr/share/nginx/html:ro
+      - ../mfe/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports: ["127.0.0.1:3012:8080"]
+networks:
+  operation-services: { external: true, name: aurevia_operation-services }
+  bff-egress: { external: true, name: aurevia_bff-egress }
+  identity-egress: {}

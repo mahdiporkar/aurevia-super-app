@@ -1,0 +1,1 @@
+{"request":{"method":"POST","urlPath":"/api/v1/employees"},"response":{"status":201,"headers":{"Content-Type":"application/json"},"jsonBody":{"id":"e-103","status":"ACTIVE","enforcedScope":{"orgUnit":"tehran"}}}}

@@ -1,0 +1,16 @@
+server:
+  port: ${PORT:8092}
+  error:
+    include-message: never
+    include-stacktrace: never
+spring:
+  application:
+    name: test-legacy-service
+logging:
+  level:
+    org.springframework.security: WARN
+    org.springframework.web: WARN
+test-legacy:
+  username: ${TEST_LEGACY_USERNAME}
+  password: ${TEST_LEGACY_PASSWORD}
+  token-ttl-seconds: ${TEST_LEGACY_TOKEN_TTL_SECONDS:120}

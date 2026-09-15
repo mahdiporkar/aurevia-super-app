@@ -1,0 +1,54 @@
+server:
+  shutdown: graceful
+  reactive.session.cookie:
+    secure: true
+    http-only: true
+    same-site: lax
+spring.lifecycle.timeout-per-shutdown-phase: 30s
+spring.data.redis.ssl.enabled: true
+springdoc:
+  api-docs.enabled: false
+  swagger-ui.enabled: false
+aurevia:
+  identity-providers:
+    local-secrets.enabled: false
+    file-secrets.root: ${IDENTITY_PROVIDER_SECRET_ROOT}
+  mfe-proxy:
+    network-policy: ${UI_ARTIFACT_NETWORK_POLICY:PRODUCTION_INTERNET}
+    development-host: ""
+    allowed-private-cidrs: ${UI_ARTIFACT_ALLOWED_PRIVATE_CIDRS:}
+    allow-http: false
+  development:
+    token-evidence-logging:
+      enabled: false
+  gateway:
+    require-mtls: true
+    base-url: ${OPERATION_GATEWAY_URL}
+    mtls-key-store: ${GATEWAY_MTLS_KEYSTORE}
+    mtls-key-store-password: ${GATEWAY_MTLS_KEYSTORE_PASSWORD}
+    mtls-trust-store: ${GATEWAY_MTLS_TRUSTSTORE}
+    mtls-trust-store-password: ${GATEWAY_MTLS_TRUSTSTORE_PASSWORD}
+  superset:
+    network-policy: ${SUPERSET_NETWORK_POLICY:PRODUCTION_INTERNET}
+    development-host: ""
+    allowed-private-cidrs: ${SUPERSET_ALLOWED_PRIVATE_CIDRS:}
+    allow-http: false
+  legacy:
+    allowed-hosts: ${LEGACY_ALLOWED_HOSTS}
+    allowed-ports: ${LEGACY_ALLOWED_PORTS:443}
+    allow-insecure-local: false
+    local-secrets.enabled: false
+    file-secrets:
+      enabled: true
+      root: ${LEGACY_SECRET_ROOT}
+    token-vault:
+      key-id: ${LEGACY_TOKEN_VAULT_KEY_ID}
+      key-base64: ${LEGACY_TOKEN_VAULT_KEY_BASE64}
+      previous-keys: ${LEGACY_TOKEN_VAULT_PREVIOUS_KEYS:}
+  authorization-service:
+    authentication-mode: mtls
+    base-url: ${AUTHORIZATION_URL}
+    mtls-key-store: ${AUTH_MTLS_KEYSTORE}
+    mtls-key-store-password: ${AUTH_MTLS_KEYSTORE_PASSWORD}
+    mtls-trust-store: ${AUTH_MTLS_TRUSTSTORE}
+    mtls-trust-store-password: ${AUTH_MTLS_TRUSTSTORE_PASSWORD}

@@ -1,0 +1,39 @@
+server:
+  ssl:
+    enabled: true
+    key-store: ${AUTH_TLS_KEYSTORE}
+    key-store-password: ${AUTH_TLS_KEYSTORE_PASSWORD}
+    key-store-type: PKCS12
+    trust-store: ${AUTH_TLS_TRUSTSTORE}
+    trust-store-password: ${AUTH_TLS_TRUSTSTORE_PASSWORD}
+    trust-store-type: PKCS12
+    client-auth: need
+  shutdown: graceful
+spring.lifecycle.timeout-per-shutdown-phase: 30s
+springdoc.api-docs.enabled: false
+aurevia:
+  identity-providers:
+    allow-http: false
+    allow-private-hosts: false
+    require-host-allowlist: true
+    allowed-hosts: ${IDENTITY_PROVIDER_ALLOWED_HOSTS}
+  resource-tree:
+    development-mutations-enabled: false
+  demo-data:
+    enabled: false
+  internal:
+    authentication-mode: mtls
+    bff-identity: ${AUTH_BFF_CERT_IDENTITY:aurevia-bff}
+  directory:
+    require-tls: true
+  ui-artifacts:
+    network-policy: ${UI_ARTIFACT_NETWORK_POLICY:PRODUCTION_INTERNET}
+    development-host: ""
+    allowed-private-cidrs: ${UI_ARTIFACT_ALLOWED_PRIVATE_CIDRS:}
+    allow-http: false
+    require-integrity: true
+  superset:
+    network-policy: ${SUPERSET_NETWORK_POLICY:PRODUCTION_INTERNET}
+    development-host: ""
+    allowed-private-cidrs: ${SUPERSET_ALLOWED_PRIVATE_CIDRS:}
+    allow-http: false

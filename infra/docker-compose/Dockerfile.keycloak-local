@@ -1,0 +1,14 @@
+FROM eclipse-temurin:21-jre-jammy
+
+ARG KEYCLOAK_VERSION=26.3.3
+COPY keycloak-${KEYCLOAK_VERSION}.tar.gz /tmp/keycloak.tar.gz
+RUN mkdir -p /opt/keycloak \
+    && tar --strip-components=1 -xzf /tmp/keycloak.tar.gz -C /opt/keycloak \
+    && rm /tmp/keycloak.tar.gz \
+    && chown -R 1000:0 /opt/keycloak \
+    && chmod -R g+rwX /opt/keycloak
+
+USER 1000
+WORKDIR /opt/keycloak
+EXPOSE 8080 8443 9000
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]

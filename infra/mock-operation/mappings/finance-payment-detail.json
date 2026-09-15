@@ -1,0 +1,1 @@
+{"request":{"method":"GET","urlPathPattern":"/api/v1/payments/[^/]+"},"response":{"status":200,"headers":{"Content-Type":"application/json"},"jsonBody":{"id":"PAY-1405-001","amount":125000000,"maker":"finance-maker","status":"PENDING_APPROVAL"}}}

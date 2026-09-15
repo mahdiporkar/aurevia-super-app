@@ -1,0 +1,5 @@
+{
+  "schemaVersion": "1.0",
+  "module": { "key": "reports", "name": "Reports", "nameFa": "گزارش‌ها", "nameEn": "Reports", "version": "0.2.0" },
+  "resources": []
+}

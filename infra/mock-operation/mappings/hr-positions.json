@@ -1,0 +1,1 @@
+{"request":{"method":"GET","urlPath":"/api/v1/positions"},"response":{"status":200,"headers":{"Content-Type":"application/json"},"jsonBody":{"items":[{"id":"pos-hr-specialist","name":"HR Specialist"},{"id":"pos-developer","name":"Software Developer"}]}}}

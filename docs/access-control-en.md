@@ -1,0 +1,127 @@
+# Access-Control and Authorization Model
+
+## Vocabulary
+
+| Concept | Meaning | Storage/model |
+|---|---|---|
+| User | A person projected from an external issuer | `app_user` / `user` |
+| Group | Organizational group and membership | `directory_group` / `group` |
+| Role | A reusable permission bundle | `application_role` / `role` |
+| Resource | Anything protected by authorization | `resource` |
+| Action | An operation on a resource | `action` |
+| Grant | Subject + resource + action assignment | `authorization_grant` |
+| Relation | OpenFGA relationship such as viewer or manager | OpenFGA tuple |
+| Condition | Structured contextual rule | `condition_definition` |
+| Obligation | Output restriction such as masking or row filters | `data_policy` |
+
+## Resource tree
+
+Resources may point to a parent and use one of ten types: `APPLICATION`, `MODULE`, `PAGE`,
+`UI_COMPONENT`, `FIELD`, `BUSINESS_RESOURCE`, `EXTERNAL_RESOURCE`, `API_RESOURCE`,
+`DATA_RESOURCE`, or `DATA_GOVERNANCE_RESOURCE`.
+
+```text
+application:aurevia
+├── module:hr
+│   └── business_resource:employee
+├── module:finance
+│   └── business_resource:payment
+└── external_resource:superset-public
+    └── external_resource:superset-public:dashboard:welcome-dashboard
+```
+
+PostgreSQL stores the catalog hierarchy and the outbox projects every parent edge into OpenFGA. The authorization model explicitly inherits permissions from parent resources, while the effective manifest returns authorized nodes plus the ancestors needed to render the tree.
+
+## Relationships and derived permissions
+
+| Object | Relation | Derived permission |
+|---|---|---|
+| application | `viewer` | `can_view` |
+| application | `manager` | `can_view`, `can_manage` |
+| resource | `viewer` | `can_view` |
+| resource | `creator` | `can_create` |
+| resource | `editor` | `can_view`, `can_edit` |
+| resource | `deleter` | `can_delete` |
+| resource | `manager` | all resource permissions |
+| external_resource | `viewer` | `can_view` |
+| external_resource | `editor` | `can_view`, `can_edit` |
+| external_resource | `sharer` | `can_share` |
+| external_resource | `exporter` | `can_export` |
+| external_resource | `manager` | all external-resource permissions |
+
+Users can receive relationships directly, through group membership, or through a role assigned to a user/group.
+
+## Runtime decision
+
+`AuthorizationController.check` sends `user:<subject>`, action, and resource to `RelationshipAuthorizationPort`. The OpenFGA adapter evaluates the configured model and returns `ALLOW` or `DENY` with a reason code, model version, decision ID, and obligations. Missing or invalid data must fail closed.
+
+## Effective user context
+
+`GET /api/me/context` is the canonical Shell call and returns identity, the effective
+`uiCatalog`, routes, navigation, resource projections, and the compatible manifest fields:
+
+```json
+{
+  "version": "manifest-...",
+  "expiresAt": "...",
+  "panels": [],
+  "permissions": {
+    "business_resource:employee": ["view", "update"]
+  }
+}
+```
+
+`GET /api/v1/me/manifest` remains available as a compatibility projection. The Shell may hide
+routes and controls using this context. UI hiding is not a security boundary; APIs must enforce
+the same decision independently.
+
+## Assigning access to a user
+
+1. Create or select the user.
+2. Select a resource from the tree.
+3. Select an action attached to that resource.
+4. Choose the relation.
+5. Optionally set `expiresAt`.
+6. Admin MFE sends `POST /api/v1/admin/grants` with CSRF.
+7. BFF forwards to `/internal/v1/registry/grants`.
+8. Authorization Service stores the grant and audit event.
+
+```json
+{
+  "userId": "UUID",
+  "resourceId": "UUID",
+  "actionId": "UUID",
+  "relation": "viewer",
+  "expiresAt": null
+}
+```
+
+`DELETE /api/v1/admin/grants/{id}` archives the active grant instead of physically deleting it.
+
+## Assigning a Superset report or dashboard
+
+1. Admin MFE loads dashboards and charts from the selected registered Superset instance.
+2. Register the selected asset with `POST /api/v1/admin/superset-assets`.
+3. The service creates an instance-scoped `EXTERNAL_RESOURCE` for the asset.
+4. It attaches `view`, `update`, and `admin` actions.
+5. UI levels map to `viewer/view`, `editor/update`, and `manager/admin`.
+6. `/api/v1/reports` accepts any of these active levels for a published asset.
+7. Opening the asset uses the secured direct BFF connector; Operation Gateway is not involved.
+
+## Structured policy
+
+Allowed fields are `ownerId`, `orgUnit`, `branch`, `classification`, `request.ipClass`, and `time`. Allowed operators are `eq`, `in`, `before`, and `after`.
+
+Allowed obligations are `rowFilters`, `allowedColumns`, `maskedColumns`, `maximumRows`, `exportAllowed`, `printAllowed`, and `watermark`. Unknown fields/operators/obligations, missing context, and parsing errors produce DENY.
+
+`OperationalRules` enforces organizational row scope and maker-checker separation for payment approval.
+
+## Production deployment requirements
+
+- The admin registry requires an authenticated `X-Actor` with an active `application:aurevia/admin` grant.
+- Effective manifest permissions combine direct USER grants with GROUP- and ROLE-derived grants.
+- Grant and revoke transactions enqueue idempotent OpenFGA projection events.
+- OpenFGA failures deny by default; backlog, retry, and drift require production alerting.
+- Shared internal Basic Auth is a local bootstrap mechanism; production requires mTLS, rotation, and network policies.
+- UI authorization never replaces API enforcement.
+- Every new panel must have a corresponding resource/action authorization design.
