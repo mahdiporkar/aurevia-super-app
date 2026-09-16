@@ -208,7 +208,7 @@ metadata یا action باید با نسخه جدید Manifest منتشر شود.
 | توضیحات | اختیاری | مالک، هدف و محدوده MFE | — |
 | Service Slug | الزامی؛ lowercase kebab-case | namespace عمومی API؛ مستقل از route نمایشی | `payroll-api` |
 | Remote Name | الزامی؛ حرف آغازین و سپس حرف/عدد/underscore | نام container در Module Federation و باید در هر artifact یکتا باشد | `payroll_ui_1_2_0` |
-| آدرس کامل Remote Entry | الزامی؛ HTTP(S) absolute | URL دقیق artifact. در production باید policy شبکه و سیاست HTTPS/SRI رعایت شود؛ origin-list ثابت وجود ندارد | `https://cdn.example/mfe/payroll/remoteEntry.js` |
+| آدرس کامل Remote Entry | الزامی؛ HTTP(S) absolute | URL دقیق artifact. استقرار داخل Docker لازم نیست؛ با `UI_ARTIFACT_NETWORK_POLICY=UNRESTRICTED` می‌تواند روی هر شبکه‌ای باشد. در production HTTPS/SRI توصیه می‌شود | `https://cdn.example/mfe/payroll/remoteEntry.js` |
 | Exposed Module | الزامی؛ با `./` | module exportشده توسط container | `./plugin` |
 | Route Prefix | الزامی؛ `/` + kebab-case | مسیر UI؛ `login/admin/settings/api/assets/error` برای رکورد جدید رزروشده‌اند | `/payroll` |
 | Default Route ID | الزامی | باید با یکی از `routes[].key` در MF Manifest یکسان باشد | `employee-list` |
@@ -218,7 +218,7 @@ metadata یا action باید با نسخه جدید Manifest منتشر شود.
 | حالت تعریف Resource | الزامی؛ `MANIFEST`/`MANUAL`/`HYBRID` | فقط منبع تعریف Authorization Resource را تعیین می‌کند: فایل، ادمین، یا هر دو با مالکیت مستقل؛ روی MF Manifest/route/navigation اثری ندارد | `HYBRID` |
 | Classification | الزامی؛ `REAL`/`DEMO` | MFE آزمایشی را صریح علامت می‌زند؛ در production و با `demo-data.enabled=false` از Catalog و تصمیم runtime حذف می‌شود | `REAL` |
 | Resource Manifest URL | در `MANIFEST` الزامی؛ URL مطلق JSON | آدرس `resource-manifest.json`؛ بدون credential/query/fragment و سازگار با policy شبکه. Backend فقط JSON را می‌خواند و Webpack اجرا نمی‌کند | `https://cdn.example/mfe/payroll/resource-manifest.json` |
-| MF Manifest URL | اختیاری تا زمان sync؛ URL مطلق JSON | آدرس مستقل `mf-manifest.json` برای runtime، route و navigation؛ تابع همان policy شبکه | `https://cdn.example/mfe/payroll/mf-manifest.json` |
+| MF Manifest URL | اختیاری تا زمان sync؛ URL مطلق JSON | آدرس مستقل `mf-manifest.json` برای runtime، route و navigation؛ تابع همان policy شبکه است. کلید داخل Manifest لازم نیست با slug ثبت‌شده برابر باشد؛ Shell همیشه slug رجیستری را شناسه یکتای خودش می‌داند | `https://cdn.example/mfe/payroll/mf-manifest.json` |
 | فعال | boolean | فقط MFE فعال وارد catalog/manifest runtime می‌شود | — |
 
 ### ۵.۲ فرم «انتشار Artifact immutable»

@@ -55,7 +55,7 @@ class UiPluginRegistryServiceTest {
     UUID panel=UUID.randomUUID();
     String manifest="""
         {"schemaVersion":"1.0",
-         "microfrontend":{"key":"hr","name":"Human Resources","version":"2.0.0"},
+         "microfrontend":{"key":"vendor_hr_portal","name":"Human Resources","version":"2.0.0"},
          "runtime":{"remoteEntry":"https://static.example.test/hr/remoteEntry.js",
            "remoteName":"aurevia_hr","exposedModule":"./plugin","contractVersion":"1.0",
            "apiBasePath":"/api/proxy/hr"},

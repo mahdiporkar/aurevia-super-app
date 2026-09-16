@@ -99,6 +99,21 @@ class AuthorizationDecisionServiceManifestTest {
     assertThat(manifest.uiCatalog().modules()).isEmpty();
   }
 
+  @Test void manifestPageGrantExposesItsMicrofrontendWithoutApplicationGrant() {
+    when(queries.activePanels()).thenReturn(List.of(panel()));
+    when(queries.permissionCandidates()).thenReturn(List.of(
+        new AuthorizationQueryRepository.PermissionCandidate("page:admin.allowed","PAGE","view")));
+    when(relationships.check(anyString(),eq("can_view"),eq("application:aurevia/admin")))
+        .thenReturn(false);
+    allowBatchObjects(Set.of("resource:page/admin.allowed"));
+
+    var manifest=service.manifest("user-1","https://issuer.example");
+
+    assertThat(manifest.uiCatalog().modules()).extracting(module->module.moduleKey())
+        .containsExactly("admin");
+    assertThat(manifest.panels()).extracting(panel->panel.slug()).containsExactly("admin");
+  }
+
   @Test void disabledOrDemoResourceIsDeniedBeforeOpenFgaIsCalled() {
     when(queries.runtimeResourceActionEnabled("resource:page/hr.employees","view"))
         .thenReturn(Optional.of(false));

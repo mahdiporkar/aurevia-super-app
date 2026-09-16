@@ -78,6 +78,19 @@ class UiArtifactUriPolicyTest {
         .hasMessageContaining("CIDR");
   }
 
+  @Test void unrestrictedPolicyAllowsAnMfeOutsideDockerOrAnApprovedCidr() {
+    var policy=new UiArtifactUriPolicy("UNRESTRICTED",true,"","");
+    assertThat(policy.validateConfigured(
+        "http://192.168.50.15:4100/remoteEntry.js",REMOTE_ENTRY,"Remote Entry").getHost())
+        .isEqualTo("192.168.50.15");
+    assertThat(policy.validateConfigured(
+        "http://127.0.0.1:4100/remoteEntry.js",REMOTE_ENTRY,"Remote Entry").getHost())
+        .isEqualTo("127.0.0.1");
+    assertThatThrownBy(()->policy.validateConfigured(
+        "http://169.254.169.254/latest/remoteEntry.js",REMOTE_ENTRY,"Remote Entry"))
+        .hasMessageContaining("blocked");
+  }
+
   @Test void assetResolutionCannotEscapeRegisteredDirectory() {
     var policy=new UiArtifactUriPolicy("DEVELOPMENT",true,"");
     assertThat(policy.prepareAssetForFetch(

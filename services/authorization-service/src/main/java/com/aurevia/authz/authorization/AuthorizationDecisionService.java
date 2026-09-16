@@ -81,7 +81,8 @@ public class AuthorizationDecisionService {
 
   public Manifest manifest(String subjectId,String issuer) {
     String subject=identities.openFgaUser(issuer,subjectId);
-    List<AuthorizationQueryRepository.PanelRecord> panels=queries.activePanels().stream()
+    List<AuthorizationQueryRepository.PanelRecord> allPanels=queries.activePanels();
+    List<AuthorizationQueryRepository.PanelRecord> applicationPanels=allPanels.stream()
         .filter(panel->relationships.check(subject,"can_view",
             "application:aurevia/"+panel.slug())).toList();
     List<AuthorizationQueryRepository.PermissionCandidate> candidates=
@@ -115,9 +116,16 @@ public class AuthorizationDecisionService {
             resource.type(),resource.nameFa(),resource.nameEn(),resource.ownerDomain(),
             resource.classification(),permissions.getOrDefault(resource.resourceKey(),List.of())))
         .toList();
-    List<UiModuleDefinition> modules=panels.stream()
+    // A grant on a manifest PAGE is sufficient to expose its owning MFE. Requiring the
+    // separate application:aurevia/{slug} grant here made directly granted pages disappear
+    // from /api/me/context (allowedMicros and uiCatalog.modules).
+    List<UiModuleDefinition> modules=allPanels.stream()
         .map(panel->uiModule(panel,permissions)).filter(Objects::nonNull).toList();
-    List<PanelSummary> publicPanels=panels.stream().map(AuthorizationDecisionService::panelSummary)
+    Set<UUID> modulePanelIds=modules.stream().map(UiModuleDefinition::registrationId)
+        .collect(java.util.stream.Collectors.toSet());
+    List<PanelSummary> publicPanels=allPanels.stream()
+        .filter(panel->modulePanelIds.contains(panel.id())||applicationPanels.contains(panel))
+        .map(AuthorizationDecisionService::panelSummary)
         .toList();
     String version=manifestVersion(publicPanels,permissions,tree,modules);
     Instant generated=Instant.now();
@@ -212,9 +220,10 @@ public class AuthorizationDecisionService {
       var remote=new RemoteDescriptor(panel.remoteEntryUrl(),panel.artifactRemoteName(),
           panel.artifactExposedModule(),panel.artifactContractVersion(),panel.artifactVersion(),
           panel.artifactIntegrity());
-      String declaredModuleKey=first(textOrNull(manifest.path("microfrontend"),"key"),
-          textOrNull(manifest.path("module"),"key"),textOrNull(manifest,"moduleKey"),panel.slug());
-      return new UiModuleDefinition(panel.id(),declaredModuleKey,panel.nameFa(),panel.nameEn(),
+      // The registry slug is the Shell's stable identifier. An externally supplied manifest may
+      // use any descriptive key, so it must not be allowed to change proxy routing or collide
+      // with another registered module.
+      return new UiModuleDefinition(panel.id(),panel.slug(),panel.nameFa(),panel.nameEn(),
           panel.description(),panel.icon(),panel.sortOrder(),
           panel.routeBasePath().replaceFirst("^/",""),defaultRouteId,remote,
           new RuntimeDescriptor(apiBasePath),List.copyOf(routes),List.copyOf(menus),navigation,

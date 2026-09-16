@@ -179,12 +179,12 @@ export function PanelsView() {
           <Form.Item name="name_en" label="نام انگلیسی" rules={required}><Input /></Form.Item>
           <Form.Item name="description" label="توضیحات"><Input style={{ width: 390 }} /></Form.Item>
           <Form.Item name="service_slug" label="Service Slug" rules={[...required,{pattern:/^[a-z][a-z0-9-]{1,49}$/,message:'حروف کوچک لاتین، عدد و خط تیره'}]}><Input placeholder="hr" /></Form.Item>
-          <Form.Item name="remote_name" label="Remote Name" rules={[...required,{pattern:/^[A-Za-z][A-Za-z0-9_]*$/,message:'نام container معتبر نیست'}]}><Input placeholder="hr_ui_1_4_2" /></Form.Item>
+          <Form.Item name="remote_name" label="Remote Name" rules={[...required,{pattern:/^[A-Za-z][A-Za-z0-9_]*$/,message:'نام Remote باید با حرف شروع شود و فقط شامل حروف، عدد و _ باشد'}]} extra="این نام Module Federation است و نام container داکر نیست"><Input placeholder="hr_ui_1_4_2" /></Form.Item>
           <Form.Item name="remote_entry_path" label="آدرس کامل Remote Entry" rules={[
             ...required,
             { type: 'url', message: 'آدرس کامل با http:// یا https:// وارد کنید' },
             { validator: (_, value) => !value || /^https?:\/\//i.test(value) ? Promise.resolve() : Promise.reject(new Error('فقط http و https مجاز است')) },
-          ]} extra="مثال: http://localhost:3001/remoteEntry.js"><Input placeholder="http://localhost:3001/remoteEntry.js" style={{ width: 390 }} /></Form.Item>
+          ]} extra="مثال: https://mfe.example.com/remoteEntry.js یا http://192.168.1.20:3001/remoteEntry.js؛ استقرار داخل Docker الزامی نیست"><Input placeholder="https://mfe.example.com/remoteEntry.js" style={{ width: 390 }} /></Form.Item>
           <Form.Item name="exposed_module" label="Exposed Module" rules={required}><Input /></Form.Item>
           <Form.Item name="route_base_path" label="Route Prefix" rules={[...required,{pattern:/^\/[a-z][a-z0-9-]{1,49}$/,message:'مانند /hr2 وارد کنید'},{validator:(_,value)=>!['/login','/admin','/settings','/api','/assets','/error'].includes(value)?Promise.resolve():Promise.reject(new Error('این prefix رزروشده است'))}]} extra="مثال: /hr2؛ مستقل از Service Slug"><Input /></Form.Item>
           <Form.Item name="default_route_id" label="Default Route ID" rules={required}><Input placeholder="employee-list" /></Form.Item>
@@ -192,8 +192,8 @@ export function PanelsView() {
           <Form.Item name="contract_version" label="نسخه قرارداد" rules={required}><Input /></Form.Item>
           <Form.Item name="resource_definition_mode" label="روش تعریف Resource" rules={required} extra="HYBRID: ساختار Manifest و Resourceهای تکمیلی مستقل با مالکیت ADMIN در کنار هم"><Select style={{width:220}} options={['HYBRID','MANIFEST','MANUAL'].map(value=>({value,label:value}))}/></Form.Item>
           <Form.Item name="classification" label="رده Micro Frontend" rules={required} extra="DEMO در production با demo-data.enabled=false وارد Catalog مؤثر نمی‌شود"><Select style={{width:160}} options={['REAL','DEMO'].map(value=>({value,label:value}))}/></Form.Item>
-          <Form.Item name="mf_manifest_url" label="MF Manifest URL" extra="runtime، routeهای محلی و navigation پیش‌فرض؛ URL ثبت‌شده باید با policy شبکه محیط سازگار باشد"><Input placeholder="http://localhost:3001/mf-manifest.json" style={{width:390}}/></Form.Item>
-          <Form.Item name="resource_manifest_url" label="Resource Manifest URL" extra="برای HYBRID اختیاری و برای MANIFEST الزامی؛ URL فایل JSON تابع policy شبکه محیط است"><Input placeholder="http://localhost:3001/resource-manifest.json" style={{width:390}}/></Form.Item>
+          <Form.Item name="mf_manifest_url" label="MF Manifest URL" extra="runtime، routeهای محلی و navigation پیش‌فرض؛ می‌تواند روی میزبان یا شبکه‌ای خارج از Docker باشد"><Input placeholder="https://mfe.example.com/mf-manifest.json" style={{width:390}}/></Form.Item>
+          <Form.Item name="resource_manifest_url" label="Resource Manifest URL" extra="برای HYBRID اختیاری و برای MANIFEST الزامی؛ می‌تواند روی میزبان یا شبکه‌ای خارج از Docker باشد"><Input placeholder="https://mfe.example.com/resource-manifest.json" style={{width:390}}/></Form.Item>
           <Form.Item name="sort_order" label="ترتیب"><InputNumber /></Form.Item>
           <Form.Item name="active" valuePropName="checked"><Checkbox>فعال</Checkbox></Form.Item>
         </Space>

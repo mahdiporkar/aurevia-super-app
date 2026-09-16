@@ -111,12 +111,9 @@ public class UiPluginRegistryService {
     if(!microfrontend.isObject()||root.has("resources"))
       throw new IllegalArgumentException(
           "MF manifest requires microfrontend metadata and must not define resources");
-    String moduleKey=microfrontend.path("key").asText();
     String version=microfrontend.path("version").asText();
     if(textOrNull(microfrontend,"name")==null||version.isBlank())
       throw new IllegalArgumentException("microfrontend name and version are required");
-    if(!panel.slug().equals(moduleKey))
-      throw new IllegalArgumentException("microfrontend.key must match the registered panel slug");
     JsonNode runtime=root.path("runtime");
     if(!runtime.isObject())throw new IllegalArgumentException("MF manifest runtime is required");
     String declaredRemote=textOrNull(runtime,"remoteEntry");
@@ -302,7 +299,7 @@ public class UiPluginRegistryService {
       if(!"1.0".equals(request.contractVersion())) {
         throw new IllegalArgumentException("unsupported contractVersion");
       }
-      String moduleKey=plugins.activePanelSlug(panelId).orElseThrow(()->
+      plugins.activePanelSlug(panelId).orElseThrow(()->
           new IllegalArgumentException("active panel not found"));
       JsonNode root=json.readTree(request.manifest());
       if(root.has("resources"))throw new IllegalArgumentException(
@@ -310,7 +307,7 @@ public class UiPluginRegistryService {
       String declaredModuleKey=first(textOrNull(root.path("microfrontend"),"key"),
           textOrNull(root,"moduleKey"),textOrNull(root.path("module"),"key"));
       if(!"1.0".equals(root.path("schemaVersion").asText())
-          ||!moduleKey.equals(declaredModuleKey)||!root.path("routes").isArray()
+          ||declaredModuleKey==null||!root.path("routes").isArray()
           ||(!root.path("menus").isArray()&&!root.path("navigation").isArray())) {
         throw new IllegalArgumentException("invalid manifest schema or moduleKey");
       }

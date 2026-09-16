@@ -11,7 +11,13 @@ import java.util.Set;
 /** Shared registration and fetch-time URL policy for executable UI artifacts and manifests. */
 public final class UiArtifactUriPolicy {
   public enum ArtifactType { REMOTE_ENTRY, JSON_MANIFEST, EXTERNAL_ORIGIN }
-  public enum NetworkMode { DEVELOPMENT, INTERNAL_ENTERPRISE, PRODUCTION_INTERNET }
+  /**
+   * UNRESTRICTED is for installations where MFEs are administered explicitly and may live on
+   * arbitrary networks (including outside the Docker network).  It still rejects targets that
+   * are never safe for an outbound artifact fetch, such as metadata, multicast and link-local
+   * addresses.
+   */
+  public enum NetworkMode { DEVELOPMENT, INTERNAL_ENTERPRISE, PRODUCTION_INTERNET, UNRESTRICTED }
 
   private static final Set<String> METADATA_HOSTS=Set.of(
       "metadata.google.internal","metadata.google","instance-data","metadata.azure.internal");
@@ -115,7 +121,8 @@ public final class UiArtifactUriPolicy {
         ||isReserved(bytes)||isMetadataAddress(bytes)) {
       throw new IllegalArgumentException(label+" target is blocked by the UI artifact network policy");
     }
-    if(networkMode!=NetworkMode.DEVELOPMENT&&address.isLoopbackAddress()) {
+    if(networkMode!=NetworkMode.DEVELOPMENT&&networkMode!=NetworkMode.UNRESTRICTED
+        &&address.isLoopbackAddress()) {
       throw new IllegalArgumentException(label+" loopback target is blocked by the UI artifact network policy");
     }
     boolean privateTarget=address.isSiteLocalAddress()
@@ -176,6 +183,7 @@ public final class UiArtifactUriPolicy {
       case "DEV","DEVELOPMENT" -> NetworkMode.DEVELOPMENT;
       case "INTERNAL","INTERNAL_ENTERPRISE" -> NetworkMode.INTERNAL_ENTERPRISE;
       case "PRODUCTION","PRODUCTION_INTERNET" -> NetworkMode.PRODUCTION_INTERNET;
+      case "ANY","UNRESTRICTED" -> NetworkMode.UNRESTRICTED;
       default -> throw new IllegalArgumentException("Unknown UI artifact network policy: "+value);
     };
   }

@@ -3,14 +3,13 @@ interface FederationContainer{init(scope:unknown):Promise<void>|void;get(module:
 declare global{interface Window{[key:string]:unknown}}
 declare const __webpack_init_sharing__:(scope:string)=>Promise<void>;declare const __webpack_share_scopes__:{default:unknown};
 const loads=new Map<string,Promise<LoadedRemoteModule>>(),initialized=new WeakSet<object>();
-export function validateRemoteDescriptor(scope:string,url:string,allowed:string[],integrity?:string,baseUrl?:string):URL{
+export function validateRemoteDescriptor(scope:string,url:string,integrity?:string,baseUrl?:string):URL{
   if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(scope))throw new Error('Remote scope is invalid');let remoteUrl:URL;
   const base=baseUrl??(typeof location!=='undefined'?location.origin:undefined);
   if(url.startsWith('//')||(!/^[A-Za-z][A-Za-z0-9+.-]*:/i.test(url)&&!url.startsWith('/')))
     throw new Error('Remote Entry must be an http(s) URL or a same-origin absolute path');
   try{remoteUrl=new URL(url,base)}catch{throw new Error('Remote Entry must be an http(s) URL or a same-origin absolute path')}
-  const normalizedAllowed=allowed.map(value=>{try{return new URL(value,base).href}catch{return''}});
-  if(!['http:','https:'].includes(remoteUrl.protocol)||!normalizedAllowed.includes(remoteUrl.href))throw new Error('Remote URL is not allowlisted');
+  if(!['http:','https:'].includes(remoteUrl.protocol))throw new Error('Remote Entry must use HTTP(S)');
   if(url.startsWith('/')&&base&&remoteUrl.origin!==new URL(base).origin)throw new Error('Remote URL must be same-origin');
   if(typeof location!=='undefined'&&location.protocol==='https:'&&remoteUrl.protocol!=='https:')throw new Error('Remote Entry must use HTTPS');
   if(integrity&&!/^sha(256|384|512)-[A-Za-z0-9+/]+={0,2}$/.test(integrity))throw new Error('Remote integrity is invalid');return remoteUrl;
@@ -24,7 +23,7 @@ function inject(scope:string,url:string,integrity:string|undefined,timeoutMs:num
 function isContainer(value:unknown):value is FederationContainer{return typeof value==='object'&&value!==null&&'init'in value&&'get'in value}
 function isRemote(value:unknown):value is LoadedRemoteModule{if(typeof value!=='object'||value===null||!('contractVersion'in value))return false;const candidate=value as Record<string,unknown>;return(candidate.contractVersion==='1.0'&&typeof candidate.App==='function')||(candidate.contractVersion==='1'&&typeof candidate.mount==='function')}
 export function clearRemoteCache(scope?:string){if(!scope){loads.clear();return}for(const key of loads.keys())if(key.startsWith(`${scope}|`))loads.delete(key)}
-export function loadRemote(scope:string,url:string,module:string,allowed:string[],integrity?:string,timeoutMs=15000):Promise<LoadedRemoteModule>{
-  const normalizedUrl=validateRemoteDescriptor(scope,url,allowed,integrity).href;const key=[scope,normalizedUrl,module,integrity??''].join('|'),cached=loads.get(key);if(cached)return cached;
+export function loadRemote(scope:string,url:string,module:string,integrity?:string,timeoutMs=15000):Promise<LoadedRemoteModule>{
+  const normalizedUrl=validateRemoteDescriptor(scope,url,integrity).href;const key=[scope,normalizedUrl,module,integrity??''].join('|'),cached=loads.get(key);if(cached)return cached;
   const promise=(async()=>{await inject(scope,normalizedUrl,integrity,timeoutMs);await __webpack_init_sharing__('default');const container=window[scope];if(!isContainer(container))throw new Error('Remote container was not registered');if(!initialized.has(container)){await container.init(__webpack_share_scopes__.default);initialized.add(container)}const loaded=(await container.get(module))();if(!isRemote(loaded))throw new Error('Remote plugin export is invalid');return loaded})().catch(error=>{loads.delete(key);throw error});loads.set(key,promise);return promise;
 }
