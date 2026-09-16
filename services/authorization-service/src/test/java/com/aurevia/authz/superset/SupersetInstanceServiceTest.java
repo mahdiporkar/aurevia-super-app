@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.aurevia.authz.api.dto.SupersetInstanceDtos.InstanceRequest;
 import com.aurevia.authz.observability.AuditTrail;
@@ -13,10 +14,33 @@ import com.aurevia.authz.identity.CanonicalIdentityResolver;
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class SupersetInstanceServiceTest {
+  @Test void logicalSupersetGrantAuthorizesTheMappedIntegrationWithoutTopologyGrants() {
+    SupersetInstanceRepository repository=mock(SupersetInstanceRepository.class);
+    RelationshipAuthorizationPort relationships=mock(RelationshipAuthorizationPort.class);
+    CanonicalIdentityResolver identities=mock(CanonicalIdentityResolver.class);
+    when(identities.openFgaUser("https://issuer.example","subject-1"))
+        .thenReturn("user:canonical");
+    when(relationships.check("user:canonical","can_view",
+        "external_resource:superset-public")).thenReturn(true);
+    when(repository.activeIntegrations()).thenReturn(List.of(
+        new com.aurevia.authz.api.dto.SupersetInstanceDtos.IntegrationView(
+            "public-default","Superset","MAPPED",
+            "/api/integrations/superset/public-default/","REMOTE_USER",true,"ACTIVE")));
+    var service=new SupersetInstanceService(repository,mock(SupersetAssetRepository.class),
+        relationships,mock(AuditTrail.class),new ObjectMapper(),identities,
+        "DEVELOPMENT",true,"localhost","");
+
+    assertThat(service.integrationsForSubject("https://issuer.example","subject-1"))
+        .extracting("key").containsExactly("public-default");
+    assertThat(service.canAccess("https://issuer.example","subject-1",
+        "public-default","operation-default")).isTrue();
+  }
+
   @Test void registersAnExternalHttpsBasePathWithoutEnvironmentChanges() {
     SupersetInstanceRepository repository=mock(SupersetInstanceRepository.class);
     var service=new SupersetInstanceService(repository,mock(SupersetAssetRepository.class),

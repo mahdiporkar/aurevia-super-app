@@ -27,6 +27,19 @@ public class ReportsController {
         ?null:requestedInstance;
     return authorization.resolveSupersetProxy(publicInstance)
         .flatMap(target->authorization.supersetAssets(identity.issuer(),identity.subject(),
-            String.valueOf(target.get("operation_code"))));
+            String.valueOf(target.get("operation_code")))
+            .map(assets->bindToMapping(assets,String.valueOf(target.get("public_code")))));
+  }
+
+  static List<Map> bindToMapping(List<Map> assets,String publicInstance) {
+    String prefix="/api/v1/superset-instances/"+publicInstance;
+    return assets.stream().map(asset->{
+      var result=new java.util.LinkedHashMap<>(asset);
+      Object path=asset.get("url_path");
+      if(path instanceof String value&&value.startsWith("/")&&!value.startsWith("//")) {
+        result.put("url_path",prefix+value);
+      }
+      return (Map)result;
+    }).toList();
   }
 }

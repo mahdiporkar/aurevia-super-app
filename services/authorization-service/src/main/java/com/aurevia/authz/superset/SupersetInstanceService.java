@@ -57,6 +57,7 @@ public class SupersetInstanceService {
         .collect(java.util.stream.Collectors.toMap(MappingView::publicCode,
             MappingView::operationCode,(first,ignored)->first));
     return instances.activeIntegrations().stream().filter(integration->administrator
+        ||relationships.check(user,"can_view","external_resource:superset-public")
         ||relationships.check(user,"can_view","application:"+integration.key())
         ||assets.publishedAssets(mappedTargets.getOrDefault(integration.key(),integration.key()))
             .stream().anyMatch(asset->canView(user,asset))).toList();
@@ -65,6 +66,7 @@ public class SupersetInstanceService {
   public boolean canAccess(String issuer,String subject,String integrationCode,String targetCode) {
     String user=identities.openFgaUser(issuer,subject);
     return relationships.check(user,"can_manage","application:aurevia")
+        ||relationships.check(user,"can_view","external_resource:superset-public")
         ||relationships.check(user,"can_view","application:"+integrationCode)
         ||assets.publishedAssets(targetCode).stream().anyMatch(asset->canView(user,asset));
   }

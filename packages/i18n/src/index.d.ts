@@ -20,5 +20,5 @@ declare const messages: {
     };
 };
 export declare const direction: (locale: Locale) => "rtl" | "ltr";
-export declare const t: (locale: Locale, key: keyof (typeof messages)["en-US"]) => "Access denied" | "ابر اپلیکیشن اورویا" | "ورود" | "خروج" | "در حال بارگذاری…" | "دسترسی مجاز نیست" | "سامانه در دسترس نیست" | "English" | "Aurevia Super App" | "Sign in" | "Sign out" | "Loading…" | "Application unavailable" | "فارسی";
+export declare const t: (locale: Locale, key: keyof (typeof messages)["en-US"]) => "ابر اپلیکیشن اورویا" | "ورود" | "خروج" | "در حال بارگذاری…" | "دسترسی مجاز نیست" | "سامانه در دسترس نیست" | "English" | "Aurevia Super App" | "Sign in" | "Sign out" | "Loading…" | "Access denied" | "Application unavailable" | "فارسی";
 export {};

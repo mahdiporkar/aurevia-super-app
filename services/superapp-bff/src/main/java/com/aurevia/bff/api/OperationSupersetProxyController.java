@@ -161,7 +161,7 @@ public class OperationSupersetProxyController {
     });
   }
 
-  private static Map selectAssetTarget(Map target,String path) {
+  static Map selectAssetTarget(Map target,String path) {
     if (!path.startsWith("/static/") || target.get("public_base_url") == null) return target;
     var selected = new java.util.HashMap<String,Object>(target);
     selected.put("base_url", target.get("public_base_url"));

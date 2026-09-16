@@ -70,6 +70,24 @@ class OperationSupersetProxyControllerTest {
         .isEqualTo("/reports-runtime/login/?next=%2Fsuperset%2Fdashboard%2F1%2F");
   }
 
+  @Test void routesOnlyFrontendStaticAssetsToThePublicInstance() {
+    Map<String,Object> mapping=Map.of(
+        "base_url","http://operation.example:8088",
+        "auth_mode","REMOTE_USER",
+        "public_base_url","http://public.example:8089",
+        "public_tls_required",false);
+
+    Map staticTarget=OperationSupersetProxyController.selectAssetTarget(mapping,
+        "/static/assets/images/logo.png");
+    Map apiTarget=OperationSupersetProxyController.selectAssetTarget(mapping,
+        "/api/v1/dashboard/42");
+
+    assertThat(staticTarget.get("base_url")).isEqualTo("http://public.example:8089");
+    assertThat(staticTarget.get("auth_mode")).isEqualTo("STATIC_ASSETS");
+    assertThat(apiTarget.get("base_url")).isEqualTo("http://operation.example:8088");
+    assertThat(apiTarget.get("auth_mode")).isEqualTo("REMOTE_USER");
+  }
+
   private static String rewrite(String upstreamLocation) {
     HttpHeaders source = new HttpHeaders();
     source.setLocation(java.net.URI.create(upstreamLocation));

@@ -1,6 +1,5 @@
 \set ON_ERROR_STOP on
 BEGIN;
-#
 
 INSERT INTO identity_provider(id,code,name,provider_type,issuer_url,authorization_endpoint,
   token_endpoint,jwks_uri,user_info_endpoint,client_id,client_secret_reference,enabled,

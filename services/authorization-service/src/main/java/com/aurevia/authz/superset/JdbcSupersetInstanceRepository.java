@@ -33,8 +33,17 @@ class JdbcSupersetInstanceRepository implements SupersetInstanceRepository {
 
   @Override public List<IntegrationView> activeIntegrations() {
     return database.sql("""
-        select code,name,zone::text,auth_mode,proxy_mode,health_status
-        from superset_instance where active and proxy_mode order by zone,code
+        select p.code,p.name,'MAPPED' zone,o.auth_mode,true proxy_mode,
+          case when p.health_status='UNREACHABLE' or o.health_status='UNREACHABLE'
+            then 'UNREACHABLE'
+            when p.health_status='ACTIVE' and o.health_status='ACTIVE' then 'ACTIVE'
+            else 'UNKNOWN' end health_status
+        from superset_proxy_mapping mapping
+        join superset_instance p on p.id=mapping.public_instance_id
+          and p.zone='PUBLIC' and p.active and p.proxy_mode
+        join superset_instance o on o.id=mapping.operation_instance_id
+          and o.zone='OPERATION' and o.active and o.proxy_mode
+        where mapping.active order by mapping.is_default desc,p.code
         """).query((result,row)->new IntegrationView(result.getString("code"),
             result.getString("name"),result.getString("zone"),
             "/api/integrations/superset/"+result.getString("code")+"/",
@@ -76,30 +85,16 @@ class JdbcSupersetInstanceRepository implements SupersetInstanceRepository {
 
   @Override public void ensureApplicationResource(InstanceValue value) {
     database.sql("""
-        insert into resource(resource_key,type,parent_id,name_fa,name_en,owner_domain,
-          classification,status,source,metadata)
-        select 'application:'||:code,'APPLICATION',id,:name,:name,'reports','EXTERNAL',
-          cast(:status as lifecycle_status),'ADMIN',
-          jsonb_build_object('provider','SUPERSET','instanceCode',:code)
-        from resource where resource_key='application:aurevia'
-        on conflict(resource_key) do update set name_fa=excluded.name_fa,
-          name_en=excluded.name_en,parent_id=excluded.parent_id,status=excluded.status,
-          metadata=excluded.metadata,version=resource.version+1,updated_at=now()
-        """).param("code",value.code()).param("name",value.name())
-        .param("status",value.active()?"ACTIVE":"INACTIVE").update();
+        update resource set name_fa='سوپرست',name_en='Superset',status='ACTIVE',
+          metadata=metadata||jsonb_build_object('provider','SUPERSET','logicalIntegration',true),
+          version=version+1,updated_at=now()
+        where resource_key='external_resource:superset-public'
+        """).update();
     database.sql("""
         insert into resource_action(resource_id,action_id)
         select resource.id,action.id from resource join action on action.action_key in ('view','admin')
-        where resource.resource_key='application:'||:code on conflict do nothing
-        """).param("code",value.code()).update();
-    database.sql("""
-        insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
-        select 'resource',id,'RESOURCE_PARENT_WRITE',jsonb_build_object(
-          'user','application:aurevia','relation','parent','object','application:'||:code),
-          'SUPERSET_INTEGRATION_PARENT:'||id
-        from resource where resource_key='application:'||:code
-        on conflict(idempotency_key) do nothing
-        """).param("code",value.code()).update();
+        where resource.resource_key='external_resource:superset-public' on conflict do nothing
+        """).update();
   }
 
   @Override public void updateHealth(String code,String status) {

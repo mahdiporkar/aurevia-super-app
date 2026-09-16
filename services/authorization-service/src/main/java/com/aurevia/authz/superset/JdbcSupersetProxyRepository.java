@@ -14,7 +14,7 @@ class JdbcSupersetProxyRepository implements SupersetProxyRepository {
   @Override
   public Optional<Map<String,Object>> activeMapping(String publicInstanceCode) {
     String selection=publicInstanceCode==null||publicInstanceCode.isBlank()
-        ?"and m.is_default":"and p.code=:code";
+        ?"":"and p.code=:code";
     var query=database.sql("""
         select p.code public_code,p.base_url public_base_url,p.tls_required public_tls_required,
                m.public_path,o.code operation_code,o.base_url,
@@ -26,7 +26,7 @@ class JdbcSupersetProxyRepository implements SupersetProxyRepository {
         join superset_instance o on o.id=m.operation_instance_id
           and o.zone='OPERATION' and o.active and o.proxy_mode
         where m.active
-        """+selection);
+        """+selection+" order by m.is_default desc,m.updated_at desc,m.id limit 1");
     if(publicInstanceCode!=null&&!publicInstanceCode.isBlank()) {
       query=query.param("code",publicInstanceCode);
     }

@@ -31,7 +31,10 @@ services:
     volumes: [../superset-operation/superset_config.py:/app/pythonpath/superset_config.py:ro]
     depends_on: {superset-operation-init: {condition: service_completed_successfully}}
     ports: ["127.0.0.1:8088:8088"]
-    networks: [superset-runtime]
+    # Keep database traffic on the isolated runtime network while also giving
+    # Docker Desktop a non-internal network on which to publish 127.0.0.1:8088
+    # for the BFF's host.docker.internal operation target.
+    networks: [superset-runtime, bootstrap-egress]
     healthcheck: {test: [CMD-SHELL, "curl -fsS http://127.0.0.1:8088/health"], interval: 10s, timeout: 5s, retries: 30}
 
 networks:
