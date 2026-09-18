@@ -270,8 +270,9 @@ Artifact/MF Manifest قرارداد runtime، route و navigation پیش‌فر�
 
 ## ۶. راهبری Proxy
 
-مدل سه‌لایه است: `Service Target` مقصد منطقی و auth profile، `Proxy Route` namespace و
-rewrite، و `Route Operation` قرارداد HTTP و resource/action.
+مدل سه‌لایه است: `Service Target` مقصد شبکه‌ای، `Proxy Route` مسیر و Auth Profile مستقل، و
+`Route Operation` قرارداد HTTP و resource/action. یک میکرو می‌تواند هر تعداد Route داشته
+باشد و Routeهای `FORWARD_USER_TOKEN` و `LEGACY_SERVICE_TOKEN` را هم‌زمان استفاده کند.
 
 ### ۶.۱ فرم Service Target
 
@@ -280,8 +281,8 @@ rewrite، و `Route Operation` قرارداد HTTP و resource/action.
 | کد | الزامی؛ شناسه فنی | پایدار و یکتا | `legacy-payroll` |
 | نام | الزامی | عنوان راهبری | `سامانه حقوق قدیمی` |
 | محیط | الزامی | محیط مقصد؛ اکنون `OPERATION` یا `STAGING` | `OPERATION` |
-| Outbound Auth Profile | الزامی | `FORWARD_USER_TOKEN` برای OAuth2 جدید؛ `LEGACY_SERVICE_TOKEN` برای token سرویس Legacy | `legacy-payroll-password` |
-| آدرس کامل Gateway | الزامی؛ HTTP(S)، host allowlisted | باید Gateway کنترل‌شده باشد، نه URL مستقیم هر سرویس؛ SSRF در سرور کنترل می‌شود | `http://operation-gateway:80` |
+| Outbound Auth Profile پیش‌فرض | فیلد سازگاری و مخفی | Routeهای قدیمی هنگام migration از آن مقدار می‌گیرند؛ نوع احراز هویت Route جدید روی خود Route انتخاب می‌شود | `public-iam-forward` |
+| Origin کامل Gateway | الزامی؛ فقط scheme/host/port و host allowlisted | BFF دقیقاً همین origin را استفاده می‌کند؛ برای origin افزوده، allowlist هر دو سرویس را تنظیم کنید | `http://operation-gateway:80` |
 | Upstream Base Path | الزامی؛ path امن | namespace سرویس پشت Gateway؛ query/`..`/encoded path مجاز نیست | `/legacy-payroll` |
 | Health Path | الزامی؛ path امن | endpoint سلامت Gateway/target؛ نباید عملیات business انجام دهد | `/health` |
 | TLS Profile Ref | اختیاری | مرجع mTLS؛ فقط `tls://...`. در production معمولاً برای Gateway الزامی است | `tls://operation-gateway-client` |
@@ -301,10 +302,11 @@ rewrite، و `Route Operation` قرارداد HTTP و resource/action.
 |---|---|---|---|
 | کد | الزامی و یکتا | شناسه route در audit | `legacy-payroll-api` |
 | Panel | الزامی | مالک route و دامنه UI | `ADMIN` |
-| Service Target | الزامی | مقصد و auth profile | `legacy-payroll` |
-| Service Slug | الزامی؛ lowercase kebab-case | namespace پایدار زیر `/api/proxy/` | `legacy-payroll` |
-| Path Prefix | الزامی؛ path canonical | ورودی مرورگر؛ برای مسیر جدید الگوی توصیه‌شده `/api/proxy/{serviceSlug}` است | `/api/proxy/legacy-payroll` |
-| Strip Segments | ۰..۲۰ | تعداد segmentهای ورودی که پیش از rewrite حذف می‌شوند؛ Preview را حتماً اجرا کنید | `0` |
+| Service Target | الزامی | مقصد شبکه‌ای؛ همان Target می‌تواند بین Routeهای Legacy و Forward مشترک باشد | `payroll-gateway` |
+| Auth Mode این Route | الزامی | انتخاب مستقل Auth Profile: ارسال token کاربر یا دریافت token فنی Legacy | `legacy-payroll-password` |
+| Service Slug | الزامی؛ lowercase kebab-case | شناسه منطقی سرویس؛ Path Prefix به آن محدود نیست | `legacy-payroll` |
+| Path Prefix | الزامی؛ path canonical | هر مسیر same-origin امن؛ Nginx پیش‌فرض `/api/**` و namespaceهای `*-micro` را پویا forward می‌کند و مسیرهای دیگر به تنظیم ingress متناظر نیاز دارند | `/api/proxy/legacy-payroll` |
+| Strip Segments | ۰..۲۰ | تعداد segmentهای ورودی که پیش از rewrite حذف می‌شوند؛ برای نمونه بالا معمولاً `3` | `3` |
 | Priority | ‎-۱۰۰۰..۱۰۰۰ | فقط برای prefixهای هم‌پوشان؛ مقدار بالاتر مقدم است | `100` |
 | Allowed Methods | حداقل یک مورد | allowlist متد؛ فقط نیاز واقعی را فعال کنید | `GET,POST` |
 | Rewrite Prefix | دو فیلد شرطی | اگر یکی مقدار دارد دیگری نیز الزامی؛ فقط literal prefix با `^/` و بدون regex آزاد | `^/api/proxy/legacy-payroll` |
@@ -329,6 +331,12 @@ rewrite، و `Route Operation` قرارداد HTTP و resource/action.
 
 کنترل‌های `Preview`، `Match Test` و `Resolution Test` هیچ mutation ندارند و باید پیش از
 فعال‌سازی route استفاده شوند.
+
+برای یک میکرو با API ترکیبی، دو Route مستقل روی یک Target تعریف کنید؛ مثلاً
+`/api/proxy/payroll/legacy` با پروفایل Legacy و `/api/proxy/payroll/modern` با پروفایل
+Forward. تعداد Route محدود نیست. Prefix مشترک نیز مجاز است، اما اگر Method و Pattern دو
+Operation هم‌زمان match شوند باید Priority متفاوت باشد؛ در غیر این صورت resolve عمداً با
+خطای ambiguity متوقف می‌شود.
 
 ## ۷. اتصال‌های خروجی Legacy
 
@@ -368,7 +376,7 @@ Auth Profile قرار می‌گیرد.
 | Connect Timeout | ۱۰۰..۳۰۰۰۰ ms | timeout endpoint token | `3000` |
 | Response Timeout | ۱۰۰..۱۲۰۰۰۰ ms | timeout پاسخ token | `10000` |
 | Max Response | ۱۰۲۴..۵۲۴۲۸۸۰ bytes | سقف پاسخ token برای دفاع حافظه | `1048576` |
-| فعال | boolean | profile غیرفعال target را غیرقابل resolve می‌کند | — |
+| فعال | boolean | profile غیرفعال Route متصل را غیرقابل resolve می‌کند | — |
 | توضیح | اختیاری | مالک secret، روش rotation و ticket | — |
 
 کنترل‌ها: «اعتبارسنجی اتصال» secret را نمی‌خواند؛ «تست توکن» یک token واقعی می‌گیرد اما
@@ -561,7 +569,7 @@ Resource Manifest:
 
 1. Auth Profile = `public-iam-forward` / `FORWARD_USER_TOKEN`.
 2. Target = Gateway allowlisted و upstream base path سرویس.
-3. Route = `/api/proxy/payroll` با GETهای لازم.
+3. Route = `/api/proxy/payroll` با Auth Profile برابر `public-iam-forward` و GETهای لازم.
 4. Operation = resource/action معتبر و `authorizationRequired=true`.
 5. BFF token Keycloak را از vault Redis می‌خواند؛ browser token را نمی‌بیند.
 
@@ -570,8 +578,8 @@ Resource Manifest:
 1. Secret Store: credential با نام `secret://legacy/payroll` ایجاد و rotate شود.
 2. Outbound Connection: فقط origin token endpoint ثبت شود.
 3. Auth Profile: connection، endpoint path، adapter و Secret Ref ثبت شوند.
-4. Target: همان Gateway با profile Legacy انتخاب شود.
-5. Route/Operation: مانند سرویس جدید، resource/action و مجوز مستقل داشته باشد.
+4. Target: همان Gateway مورد اعتماد انتخاب شود؛ Target می‌تواند با Routeهای Forward مشترک باشد.
+5. Route: Auth Profile نوع Legacy انتخاب و Operation با resource/action و مجوز مستقل تعریف شود.
 6. BFF token Legacy را می‌گیرد، رمز‌شده و TTLدار در Redis نگه می‌دارد، و Gateway هدر خصوصی را
    به Authorization upstream تبدیل و سپس حذف می‌کند.
 
@@ -740,8 +748,8 @@ Audit/API Log و وضعیت sync بررسی و نسخه قبلی را تا پا�
 | Panel | `code`, `slug`, `name_fa`, `name_en`, `description`, `service_slug`, `remote_name`, `remote_entry_path`, `exposed_module`, `route_base_path`, `default_route_id`, `semantic_version`, `contract_version`, `resource_definition_mode`, `classification`, `mf_manifest_url`, `resource_manifest_url`, `sort_order`, `active` |
 | Artifact | `artifactVersion`, `remoteEntryUrl`, `remoteName`, `exposedModule`, `contractVersion`, `integrity`, `manifest` |
 | Navigation | `key`, `source`, `nodeType`, `title`, `parentKey`, `pageKey`, `externalUrl`, `order`, `hidden` |
-| Service Target | `code`, `name`, `environment`, `outboundAuthProfileId`, `gatewayBaseUrl`, `upstreamBasePath`, `healthCheckPath`, `tlsProfileRef`, `secretRef`, `connectTimeoutMs`, `responseTimeoutMs`, `maxResponseSize`, `active`, `description` |
-| Proxy Route | `code`, `panelId`, `serviceTargetId`, `serviceSlug`, `pathPrefix`, `stripPrefix`, `priority`, `allowedMethods`, `rewritePattern`, `rewriteReplacement`, `retryEnabled`, `maxRetries`, `preserveHost`, `active` |
+| Service Target | `code`, `name`, `environment`, `outboundAuthProfileId` (سازگاری)، `gatewayBaseUrl`, `upstreamBasePath`, `healthCheckPath`, `tlsProfileRef`, `secretRef`, `connectTimeoutMs`, `responseTimeoutMs`, `maxResponseSize`, `active`, `description` |
+| Proxy Route | `code`, `panelId`, `serviceTargetId`, `outboundAuthProfileId`, `serviceSlug`, `pathPrefix`, `stripPrefix`, `priority`, `allowedMethods`, `rewritePattern`, `rewriteReplacement`, `retryEnabled`, `maxRetries`, `preserveHost`, `active` |
 | Route Operation | `httpMethod`, `pathPattern`, `resourceKey`, `actionKey`, `dataPolicyKey`, `maxBodyBytes`, `authorizationRequired`, `active` |
 | Resolve/Match probe | `path`, `method` |
 | Outbound Connection | `name`, `connectionRef`, `baseUrl`, `tlsRequired`, `active`, `version` |

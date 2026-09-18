@@ -19,3 +19,4 @@ infra/superset-native/__pycache__/
 # Docker images
 *.tar.gz
 *.tar
+*.rar

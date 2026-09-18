@@ -43,6 +43,7 @@ export function OutboundConnections({ api }: { api: AdminApi }) {
 
   const show = (row?: ConnectionRow) => {
     setEditing(row);
+    form.resetFields();
     form.setFieldsValue(row ? {
       connectionRef: row.connection_ref,
       name: row.name,

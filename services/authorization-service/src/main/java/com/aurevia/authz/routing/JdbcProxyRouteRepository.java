@@ -64,9 +64,11 @@ class JdbcProxyRouteRepository implements ProxyRouteRepository {
       .param("version",version).update()==1; }
   @Override public List<Map<String,Object>> routes(String search,UUID panelId,UUID targetId,
       Boolean active) { return database.sql("""
-      select pr.*,p.slug panel_slug,p.name_fa panel_name,st.code target_code
+      select pr.*,p.slug panel_slug,p.name_fa panel_name,st.code target_code,
+        st.gateway_base_url,st.upstream_base_path,ap.auth_mode
       from proxy_route pr join panel p on p.id=pr.panel_id
       join service_target st on st.id=pr.service_target_id
+      join outbound_auth_profile ap on ap.id=pr.outbound_auth_profile_id
       where (:search='' or lower(pr.code||' '||pr.path_prefix) like lower('%'||:search||'%'))
         and (nullif(:panel,'') is null or pr.panel_id=cast(nullif(:panel,'') as uuid))
         and (nullif(:target,'') is null or pr.service_target_id=cast(nullif(:target,'') as uuid))
@@ -76,18 +78,22 @@ class JdbcProxyRouteRepository implements ProxyRouteRepository {
       .param("target",targetId==null?"":targetId.toString())
       .param("active",active==null?"":active.toString()).query().listOfRows().stream()
       .map(JdbcProxyRouteRepository::serializableRow).toList(); }
-  @Override public Optional<Map<String,Object>> route(UUID id) { return rows(
-      "select * from proxy_route where id=:id",id).stream().findFirst()
-      .map(JdbcProxyRouteRepository::serializableRow); }
+  @Override public Optional<Map<String,Object>> route(UUID id) { return rows("""
+      select pr.*,st.gateway_base_url,st.upstream_base_path
+      from proxy_route pr join service_target st on st.id=pr.service_target_id
+      where pr.id=:id
+      """,id).stream().findFirst().map(JdbcProxyRouteRepository::serializableRow); }
   @Override public void insertRoute(RouteValue value) { database.sql("""
-      insert into proxy_route(id,code,panel_id,service_target_id,service_slug,path_prefix,
+      insert into proxy_route(id,code,panel_id,service_target_id,outbound_auth_profile_id,
+        service_slug,path_prefix,
         normalized_path_prefix,strip_prefix,rewrite_pattern,rewrite_replacement,priority,
         allowed_methods,preserve_host,retry_enabled,max_retries,active,created_by,updated_by)
-      values(:id,:code,:panel,:target,:serviceSlug,:path,:normalized,:strip,
+      values(:id,:code,:panel,:target,:authProfile,:serviceSlug,:path,:normalized,:strip,
         nullif(:pattern,''),nullif(:replacement,''),:priority,:methods,:host,:retry,
         :retries,:active,:actor,:actor)
       """).param("id",value.id()).param("code",value.code()).param("panel",value.panelId())
       .param("target",value.serviceTargetId()).param("serviceSlug",value.serviceSlug())
+      .param("authProfile",value.outboundAuthProfileId())
       .param("path",value.pathPrefix()).param("normalized",value.normalizedPathPrefix())
       .param("strip",value.stripPrefix()).param("pattern",value.rewritePattern())
       .param("replacement",value.rewriteReplacement()).param("priority",value.priority())
@@ -96,7 +102,8 @@ class JdbcProxyRouteRepository implements ProxyRouteRepository {
       .param("active",value.active()).param("actor",value.actor()).update(); }
   @Override public boolean updateRoute(UUID id,long version,RouteValue value) { return database.sql("""
       update proxy_route set code=:code,panel_id=:panel,service_target_id=:target,
-        service_slug=:serviceSlug,path_prefix=:path,normalized_path_prefix=:normalized,
+        outbound_auth_profile_id=:authProfile,service_slug=:serviceSlug,
+        path_prefix=:path,normalized_path_prefix=:normalized,
         strip_prefix=:strip,rewrite_pattern=nullif(:pattern,''),
         rewrite_replacement=nullif(:replacement,''),priority=:priority,
         allowed_methods=:methods,preserve_host=:host,retry_enabled=:retry,
@@ -104,6 +111,7 @@ class JdbcProxyRouteRepository implements ProxyRouteRepository {
       where id=:id and version=:version
       """).param("code",value.code()).param("panel",value.panelId())
       .param("target",value.serviceTargetId()).param("serviceSlug",value.serviceSlug())
+      .param("authProfile",value.outboundAuthProfileId())
       .param("path",value.pathPrefix()).param("normalized",value.normalizedPathPrefix())
       .param("strip",value.stripPrefix()).param("pattern",value.rewritePattern())
       .param("replacement",value.rewriteReplacement()).param("priority",value.priority())
@@ -172,11 +180,9 @@ class JdbcProxyRouteRepository implements ProxyRouteRepository {
   @Override public boolean targetExists(UUID id) { return database.sql(
       "select count(*) from service_target where id=:id").param("id",id)
       .query(Long.class).single()>0; }
-  @Override public long routeConflict(String prefix,int priority,UUID self) { return database.sql("""
-      select count(*) from proxy_route where normalized_path_prefix=:prefix
-        and priority=:priority and id<>:self
-      """).param("prefix",prefix).param("priority",priority).param("self",self)
-      .query(Long.class).single(); }
+  @Override public boolean authProfileExists(UUID id) { return database.sql(
+      "select count(*) from outbound_auth_profile where id=:id").param("id",id)
+      .query(Long.class).single()>0; }
 
   private List<Map<String,Object>> rows(String sql,UUID id) {
     return database.sql(sql).param("id",id).query().listOfRows();

@@ -127,21 +127,24 @@ WHERE (service_target.name,service_target.description,service_target.gateway_bas
        excluded.response_timeout_ms,excluded.max_response_size,
        excluded.outbound_auth_profile_id,excluded.active);
 
-INSERT INTO proxy_route(id,code,panel_id,service_target_id,path_prefix,normalized_path_prefix,
+INSERT INTO proxy_route(id,code,panel_id,service_target_id,outbound_auth_profile_id,
+  path_prefix,normalized_path_prefix,
   service_slug,strip_prefix,rewrite_pattern,rewrite_replacement,priority,allowed_methods,
   preserve_host,retry_enabled,max_retries,active,created_by,updated_by)
-SELECT v.id,v.code,panel.id,target.id,v.path_prefix,v.path_prefix||'/',v.service_slug,0,
+SELECT v.id,v.code,panel.id,target.id,profile.id,v.path_prefix,v.path_prefix||'/',v.service_slug,0,
   '^'||v.path_prefix,v.replacement,100,ARRAY['GET']::varchar(12)[],false,false,0,true,
   'demo-bootstrap','demo-bootstrap'
 FROM (VALUES
   ('45000000-0000-0000-0000-000000000005'::uuid,'legacy-demo-route',
-    '/api/proxy/legacy-demo','legacy-demo','/legacy-demo'),
+    '/api/proxy/legacy-demo','legacy-demo','/legacy-demo','legacy-demo-password'),
   ('45000000-0000-0000-0000-000000000006'::uuid,'oauth2-demo-route',
-    '/api/proxy/oauth2-demo','oauth2-demo','/oauth-demo')
-)v(id,code,path_prefix,service_slug,replacement)
+    '/api/proxy/oauth2-demo','oauth2-demo','/oauth-demo','public-iam-forward')
+)v(id,code,path_prefix,service_slug,replacement,profile_code)
 JOIN panel ON panel.code='ADMIN'
 JOIN service_target target ON target.code=v.service_slug
+JOIN outbound_auth_profile profile ON profile.code=v.profile_code
 ON CONFLICT(code) DO UPDATE SET panel_id=excluded.panel_id,service_target_id=excluded.service_target_id,
+  outbound_auth_profile_id=excluded.outbound_auth_profile_id,
   path_prefix=excluded.path_prefix,normalized_path_prefix=excluded.normalized_path_prefix,
   service_slug=excluded.service_slug,strip_prefix=excluded.strip_prefix,
   rewrite_pattern=excluded.rewrite_pattern,
@@ -149,13 +152,15 @@ ON CONFLICT(code) DO UPDATE SET panel_id=excluded.panel_id,service_target_id=exc
   priority=excluded.priority,preserve_host=excluded.preserve_host,
   retry_enabled=excluded.retry_enabled,max_retries=excluded.max_retries,
   active=excluded.active,version=proxy_route.version+1,updated_at=now(),updated_by='demo-bootstrap'
-WHERE (proxy_route.panel_id,proxy_route.service_target_id,proxy_route.path_prefix,
+WHERE (proxy_route.panel_id,proxy_route.service_target_id,proxy_route.outbound_auth_profile_id,
+       proxy_route.path_prefix,
        proxy_route.normalized_path_prefix,proxy_route.service_slug,proxy_route.strip_prefix,
        proxy_route.rewrite_pattern,proxy_route.rewrite_replacement,proxy_route.priority,
        proxy_route.allowed_methods,proxy_route.preserve_host,proxy_route.retry_enabled,
        proxy_route.max_retries,proxy_route.active)
   IS DISTINCT FROM
-      (excluded.panel_id,excluded.service_target_id,excluded.path_prefix,
+      (excluded.panel_id,excluded.service_target_id,excluded.outbound_auth_profile_id,
+       excluded.path_prefix,
        excluded.normalized_path_prefix,excluded.service_slug,excluded.strip_prefix,
        excluded.rewrite_pattern,excluded.rewrite_replacement,excluded.priority,
        excluded.allowed_methods,excluded.preserve_host,excluded.retry_enabled,

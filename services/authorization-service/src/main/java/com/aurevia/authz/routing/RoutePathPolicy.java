@@ -9,7 +9,7 @@ public final class RoutePathPolicy {
   private RoutePathPolicy() {}
 
   public static String path(String value) {
-    if (value == null || !value.startsWith("/") || value.length() > 2000) fail();
+    if (value == null || !value.startsWith("/") || value.length() > 500) fail();
     String lower=value.toLowerCase(Locale.ROOT);
     if (value.contains("\\") || value.contains("//") || value.indexOf('\0') >= 0
         || value.chars().anyMatch(c -> c < 0x20 || c == 0x7f)

@@ -20,7 +20,7 @@
 
 Shell مبتنی بر React و Webpack Module Federation است. قرارداد plugin نسخهٔ 1.0 با App و runtime میزبان استفاده می‌شود. BFF مبتنی بر Spring WebFlux با Cookie session ورود OIDC را انجام می‌دهد. PostgreSQL منبع registry و grant است و transactional outbox رابطه‌ها را به OpenFGA می‌نویسد. Redis محل session، vault رمز‌شده و cache رمز‌شدهٔ Legacy است.
 
-OperationalProxyController مسیر /api/proxy/{panelSlug}/{path} را از Authorization Service resolve می‌کند. route_operation منبع و business action را تعیین می‌کند؛ تصمیم OpenFGA پیش از خواندن vault یا دریافت token Legacy گرفته می‌شود. مقصد عملیاتی فقط Operation Gateway مورد اعتماد است. gatewayBaseUrl در registry اجازهٔ تبدیل BFF به یک proxy دلخواه اینترنتی را نمی‌دهد. BFF برای هر درخواست mode را از outbound_auth_profile متصل به service_target می‌گیرد.
+OperationalProxyController مسیر /api/proxy/{panelSlug}/{path} را از Authorization Service resolve می‌کند. route_operation منبع و business action را تعیین می‌کند؛ تصمیم OpenFGA پیش از خواندن vault یا دریافت token Legacy گرفته می‌شود. مقصد عملیاتی فقط originهای Gateway مورد اعتماد است. `gatewayBaseUrl` باید در allowlist استقرار BFF باشد. BFF برای هر درخواست mode را از `outbound_auth_profile` متصل به خود `proxy_route` می‌گیرد؛ یک Target می‌تواند Routeهای Forward و Legacy را هم‌زمان میزبانی کند.
 
 Resource Catalog ساختار domain و مجوزها را نگه می‌دارد. UI Manifest مسیر، navigation و runtime را نگه می‌دارد. routes داخل /api/me/context مسیرهای UI هستند و جایگزین proxy_route یا route_operation نیستند. خدمات پایین‌دست و Gateway هیچ port منتشرشده روی host ندارند.
 

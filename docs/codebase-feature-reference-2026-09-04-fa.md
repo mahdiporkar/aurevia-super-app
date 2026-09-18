@@ -333,8 +333,8 @@ DRAFT metadata
 
 ### control plane
 
-- `service_target`: target metadata، auth profile reference، connection ref، timeout و response limit.
-- `proxy_route`: panel/service slug، prefix، rewrite/strip، retry metadata و target.
+- `service_target`: مقصد Gateway، base path، timeout، TLS metadata و response limit.
+- `proxy_route`: panel/service slug، prefix، rewrite/strip، retry، target و auth profile مستقل.
 - `route_operation`: method + normalized pattern + resource/action + body/response policy.
 - `ProxyRouteAdminController.java`: CRUD و collision/format validation.
 - `RouteResolutionController.java`: read-only resolution برای runtime BFF.
@@ -397,9 +397,10 @@ Browser نباید `Authorization` بسازد. BFF headerهای کنترل‌ش�
 | آدرس token endpoint و TLS policy | approved connection registry |
 | secret URI/version metadata | DB profile |
 | access/refresh token حاصل | Redis encrypted cache با TTL |
-| route-to-profile link | `service_target.outbound_auth_profile_id` |
+| route-to-profile link | `proxy_route.outbound_auth_profile_id` |
 
-در baseline connection registry چندگانه و SecretResolver Production هنوز وجود ندارند.
+Connection registry چندگانه و FileSecretResolver برای volume فقط‌خواندنی production موجودند؛
+اتصال‌های جدید همچنان باید در egress allowlist محیط مجاز شوند.
 
 ## ۱۴. Superset
 

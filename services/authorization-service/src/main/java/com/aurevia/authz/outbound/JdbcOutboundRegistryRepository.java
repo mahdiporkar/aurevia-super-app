@@ -39,12 +39,12 @@ public class JdbcOutboundRegistryRepository implements OutboundRegistryRepositor
     .param("actor",actor).param("id",id).param("ref",p.connectionRef()).param("version",p.version()).update();}
 
   @Override public List<ProfileView> profiles(String search){return database.sql("""
-    select p.*,(select count(*) from service_target st where st.outbound_auth_profile_id=p.id) usage_count
+    select p.*,(select count(*) from proxy_route pr where pr.outbound_auth_profile_id=p.id) usage_count
     from outbound_auth_profile p
     where (:search='' or lower(p.code||' '||p.name) like lower('%'||:search||'%')) order by p.code
     """).param("search",search).query((rs,row)->profile(rs)).list();}
   @Override public Optional<ProfileView> profile(UUID id){return database.sql("""
-    select p.*,(select count(*) from service_target st where st.outbound_auth_profile_id=p.id) usage_count
+    select p.*,(select count(*) from proxy_route pr where pr.outbound_auth_profile_id=p.id) usage_count
     from outbound_auth_profile p where p.id=:id
     """).param("id",id).query((rs,row)->profile(rs)).optional();}
   @Override public Optional<RuntimeProfileView> runtimeProfile(UUID id){return database.sql("""
@@ -83,7 +83,10 @@ public class JdbcOutboundRegistryRepository implements OutboundRegistryRepositor
     where id=:id and version=:version
     """).param("active",active).param("actor",actor).param("id",id).param("version",version).update();}
   @Override public List<UsageView> usage(UUID id){return database.sql("""
-    select id,code,name,active from service_target where outbound_auth_profile_id=:id order by code
+    select pr.id,pr.code,p.name_fa||' / '||st.name name,pr.active
+    from proxy_route pr join panel p on p.id=pr.panel_id
+    join service_target st on st.id=pr.service_target_id
+    where pr.outbound_auth_profile_id=:id order by pr.code
     """).param("id",id).query((rs,row)->new UsageView(uuid(rs,"id"),rs.getString("code"),
       rs.getString("name"),rs.getBoolean("active"))).list();}
 

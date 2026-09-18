@@ -1,6 +1,8 @@
 package com.aurevia.bff.api;
 
 import com.aurevia.bff.proxy.RouteNormalizer;
+import com.aurevia.bff.proxy.GatewayTargetPolicy;
+import com.aurevia.bff.proxy.GatewayWebClientFactory;
 import com.aurevia.bff.security.TokenRefreshService;
 import com.aurevia.bff.security.TokenVaultService;
 import com.aurevia.bff.security.VaultLogoutHandler;
@@ -10,7 +12,6 @@ import com.aurevia.bff.observability.DevelopmentTokenEvidenceLogger;
 import java.security.Principal;
 import java.time.Duration;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.core.io.buffer.DataBufferUtils;
@@ -32,19 +33,22 @@ public class OperationalProxyController {
   private final AuthorizationServiceClient authorization;
   private final TokenVaultService vault;
   private final TokenRefreshService tokenRefresh;
-  private final WebClient gateway;
+  private final GatewayWebClientFactory gateways;
+  private final GatewayTargetPolicy gatewayTargets;
   private final java.util.List<OutboundTokenProvider> outboundProviders;
   private final DevelopmentTokenEvidenceLogger tokenEvidence;
 
   public OperationalProxyController(AuthorizationServiceClient authorization,
       TokenVaultService vault, TokenRefreshService tokenRefresh,
-      @Qualifier("operationGatewayClient") WebClient gateway,
+      GatewayWebClientFactory gateways,
+      GatewayTargetPolicy gatewayTargets,
       java.util.List<OutboundTokenProvider> outboundProviders,
       DevelopmentTokenEvidenceLogger tokenEvidence) {
     this.authorization = authorization;
     this.vault = vault;
     this.tokenRefresh = tokenRefresh;
-    this.gateway = gateway;
+    this.gateways = gateways;
+    this.gatewayTargets = gatewayTargets;
     this.outboundProviders=outboundProviders;
     this.tokenEvidence=tokenEvidence;
   }
@@ -102,6 +106,11 @@ public class OperationalProxyController {
     if (declaredLength > maxBody || maxBody > Integer.MAX_VALUE) return Mono.error(new ResponseStatusException(
         HttpStatus.PAYLOAD_TOO_LARGE));
     OutboundAuthMode mode=OutboundAuthMode.valueOf(route.authMode());
+    boolean validTransport=mode==OutboundAuthMode.LEGACY_SERVICE_TOKEN
+        ? "INTERNAL_LEGACY_HEADER".equals(route.credentialTransport())
+        : "USER_AUTHORIZATION_HEADER".equals(route.credentialTransport());
+    if(!validTransport) return Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+        "Outbound authentication transport does not match the route mode"));
     OutboundTokenProvider provider=outboundProviders.stream().filter(p->p.supports(mode)).findFirst()
         .orElseThrow(()->new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Outbound authentication unavailable"));
     var target=new OutboundTokenProvider.ServiceTarget(route.targetId().toString(),
@@ -110,25 +119,35 @@ public class OperationalProxyController {
     var context=new OutboundTokenProvider.RequestContext(correlationId(exchange),
         route.routeId().toString(),route.operationId().toString());
     return readBody(exchange, (int) maxBody).flatMap(body -> provider.resolve(target,session,context).flatMap(credential->
-        call(route, tokens.accessToken(), credential, exchange, body, subject, issuer)
-            .flatMap(first -> first.status().value() == 401 && route.retryEnabled()
-                && route.maxRetries()>0
-                ? retryOnce(route,handle,tokens,provider,target,session,context,credential,
-                    exchange,body,subject,issuer)
-                : Mono.just(first)))
+        callWithRetry(route,handle,tokens,provider,target,session,context,credential,
+            exchange,body,subject,issuer,route.retryEnabled()?route.maxRetries():0))
             .flatMap(response -> writeResponse(route, response, exchange)));
   }
 
-  private Mono<UpstreamResponse> retryOnce(RouteResolution route,String handle,TokenVaultService.Tokens tokens,
+  private Mono<UpstreamResponse> callWithRetry(RouteResolution route,String handle,
+      TokenVaultService.Tokens tokens,
       OutboundTokenProvider provider,OutboundTokenProvider.ServiceTarget target,
       OutboundTokenProvider.AuthenticatedSession session,OutboundTokenProvider.RequestContext context,
       OutboundCredential rejected,ServerWebExchange exchange,byte[] body,String subject,
-      String issuer){
+      String issuer,int retriesRemaining){
+    return call(route,tokens.accessToken(),rejected,exchange,body,subject,issuer)
+        .flatMap(response->response.status().value()!=401||retriesRemaining==0?Mono.just(response):
+          refreshRejectedCredential(route,handle,tokens,provider,target,session,context,rejected,
+              exchange,body,subject,issuer,retriesRemaining-1));
+  }
+
+  private Mono<UpstreamResponse> refreshRejectedCredential(RouteResolution route,String handle,
+      TokenVaultService.Tokens tokens,OutboundTokenProvider provider,
+      OutboundTokenProvider.ServiceTarget target,OutboundTokenProvider.AuthenticatedSession session,
+      OutboundTokenProvider.RequestContext context,OutboundCredential rejected,
+      ServerWebExchange exchange,byte[] body,String subject,String issuer,int retriesRemaining){
     if(rejected.legacy())return provider.invalidate(target,OutboundTokenProvider.InvalidationReason.UPSTREAM_REJECTED)
-        .then(provider.resolve(target,session,context)).flatMap(fresh->call(route,tokens.accessToken(),
-            fresh,exchange,body,subject,issuer));
-    return tokenRefresh.refresh(handle,tokens).flatMap(refreshed->call(route,refreshed.accessToken(),
-        new OutboundCredential("Bearer",refreshed.accessToken(),false),exchange,body,subject,issuer));
+        .then(provider.resolve(target,session,context)).flatMap(fresh->callWithRetry(route,handle,tokens,
+            provider,target,session,context,fresh,exchange,body,subject,issuer,retriesRemaining));
+    return tokenRefresh.refresh(handle,tokens).flatMap(refreshed->callWithRetry(route,handle,refreshed,
+        provider,target,new OutboundTokenProvider.AuthenticatedSession(subject,refreshed.accessToken()),
+        context,new OutboundCredential("Bearer",refreshed.accessToken(),false),exchange,body,subject,
+        issuer,retriesRemaining));
   }
 
   private Mono<byte[]> readBody(ServerWebExchange exchange, int maxBody) {
@@ -150,9 +169,9 @@ public class OperationalProxyController {
     tokenEvidence.dispatch(correlation,route.routeId().toString(),route.operationId().toString(),
         route.authMode(),subject,publicAccessToken,outbound);
     String query = exchange.getRequest().getURI().getRawQuery();
-    String uri = upstreamPath(route,exchange.getRequest().getPath().value())
-        + (query == null ? "" : "?" + query);
-    var request = gateway.method(exchange.getRequest().getMethod()).uri(uri)
+    var uri=gatewayTargets.resolve(route.gatewayBaseUrl(),
+        upstreamPath(route,exchange.getRequest().getPath().value()),query);
+    var request = gateways.client(route.connectTimeoutMs()).method(exchange.getRequest().getMethod()).uri(uri)
         .headers(headers -> {
           headers.remove("X-Internal-Legacy-Authorization");
           headers.setBearerAuth(publicAccessToken);
@@ -162,6 +181,9 @@ public class OperationalProxyController {
           headers.set("X-Correlation-ID", correlation);
           headers.set("X-Aurevia-Subject", subject);
           headers.set("X-Aurevia-Issuer", issuer);
+          if(route.preserveHost()&&exchange.getRequest().getHeaders().getHost()!=null) {
+            headers.setHost(exchange.getRequest().getHeaders().getHost());
+          }
         });
     Mono<UpstreamResponse> response = (body.length == 0 ? request : request.bodyValue(body))
         .exchangeToMono(upstream -> upstream.bodyToMono(byte[].class)
@@ -200,7 +222,7 @@ public class OperationalProxyController {
         RouteNormalizer.normalizePath(exchange.getRequest().getPath().value()), decision,
         route.targetKey(), route.authMode(), status, correlationId(exchange), java.time.Instant.now());
   }
-  private static String upstreamPath(RouteResolution route,String incoming) {
+  static String upstreamPath(RouteResolution route,String incoming) {
     String path=incoming;
     int strip=route.stripPrefix();
     String prefix=route.pathPrefix();
@@ -214,6 +236,8 @@ public class OperationalProxyController {
     String replacement=route.rewriteReplacement();
     if(pattern!=null && replacement!=null && pattern.startsWith("^/") && path.startsWith(pattern.substring(1)))
       path=replacement+path.substring(pattern.length()-1);
+    else if(pattern==null&&route.upstreamBasePath()!=null&&!"/".equals(route.upstreamBasePath()))
+      path="/".equals(path)?route.upstreamBasePath():route.upstreamBasePath()+path;
     return RouteNormalizer.normalizePath(path);
   }
   private static String correlationId(ServerWebExchange exchange) {

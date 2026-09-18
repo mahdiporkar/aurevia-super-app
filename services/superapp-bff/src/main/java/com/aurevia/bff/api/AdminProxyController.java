@@ -22,20 +22,25 @@ import reactor.core.publisher.Mono;
 import com.aurevia.bff.outboundauth.LegacyTokenManager;
 import com.aurevia.bff.security.SessionIdentity;
 import com.aurevia.bff.security.DynamicClientRegistrationRepository;
+import com.aurevia.bff.proxy.GatewayTargetPolicy;
+import com.aurevia.bff.proxy.GatewayWebClientFactory;
 
 @RestController
 public class AdminProxyController {
   private final WebClient authorizationClient;
-  private final WebClient operationGateway;
+  private final GatewayWebClientFactory gateways;
+  private final GatewayTargetPolicy gatewayTargets;
   private final LegacyTokenManager legacyTokens;
   private final DynamicClientRegistrationRepository identityProviders;
 
   public AdminProxyController(
       @Qualifier("authorizationWebClient") WebClient authorizationClient,
-      @Qualifier("operationGatewayClient") WebClient operationGateway,LegacyTokenManager legacyTokens,
+      GatewayWebClientFactory gateways,
+      GatewayTargetPolicy gatewayTargets,LegacyTokenManager legacyTokens,
       DynamicClientRegistrationRepository identityProviders) {
     this.authorizationClient = authorizationClient;
-    this.operationGateway = operationGateway;
+    this.gateways = gateways;
+    this.gatewayTargets = gatewayTargets;
     this.legacyTokens=legacyTokens;
     this.identityProviders=identityProviders;
   }
@@ -67,11 +72,14 @@ public class AdminProxyController {
     long started=System.nanoTime();
     return authorizationClient.get().uri("/internal/v1/registry/service-targets/{id}",id)
         .headers(headers -> actorHeaders(headers,identity)).retrieve().bodyToMono(Map.class)
-        .flatMap(target -> operationGateway.get().uri(String.valueOf(target.get("health_check_path")))
+        .flatMap(target -> gateways.client(((Number)target.get("connect_timeout_ms")).intValue())
+            .get().uri(gatewayTargets.resolve(
+                String.valueOf(target.get("gateway_base_url")),
+                String.valueOf(target.get("health_check_path")),null))
             .exchangeToMono(response -> Mono.just(ResponseEntity.ok(Map.of(
                 "healthy",response.statusCode().is2xxSuccessful(),"status",response.statusCode().value(),
-                "latencyMs",(System.nanoTime()-started)/1_000_000,"checkedTarget",target.get("code"))))))
-        .timeout(Duration.ofSeconds(10));
+                "latencyMs",(System.nanoTime()-started)/1_000_000,"checkedTarget",target.get("code")))))
+            .timeout(Duration.ofMillis(((Number)target.get("response_timeout_ms")).longValue())));
   }
 
   @RequestMapping("/api/v1/admin/{*path}")

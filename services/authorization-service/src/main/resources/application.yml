@@ -30,6 +30,8 @@ logging:
     audit-days: ${AUDIT_LOG_RETENTION_DAYS:365}
     cron: ${LOG_RETENTION_CRON:0 17 2 * * *}
 aurevia:
+  routing:
+    approved-gateway-hosts: ${OPERATION_GATEWAY_APPROVED_HOSTS:operation-gateway}
   outbox:
     max-attempts: ${OUTBOX_MAX_ATTEMPTS:12}
     claim-timeout-seconds: ${OUTBOX_CLAIM_TIMEOUT_SECONDS:120}

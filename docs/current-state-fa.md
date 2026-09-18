@@ -1,6 +1,6 @@
 # وضعیت جاری معماری و قابلیت‌های Aurevia
 
-> وضعیت سند: مرجع canonical و جاری. آخرین ممیزی با source tree: ۲۰۲۶-۰۹-۱۵.
+> وضعیت سند: مرجع canonical و جاری. آخرین ممیزی با source tree: ۲۰۲۶-۰۹-۱۷.
 > اگر یک گزارش تاریخ‌دار، راهنمای قدیمی یا فایل evidence با این سند تعارض داشت، کد همان commit
 > و این سند برای وضعیت جاری معتبرند؛ گزارش تاریخ‌دار فقط شاهد اجرای زمان خودش است.
 
@@ -24,7 +24,7 @@
 <!-- sync:packages=authorization-sdk,contracts,http-client,i18n,sh-core-ui -->
 <!-- sync:java-services=authorization-service,superapp-bff,test-legacy-service,test-sso-service,ui-artifact-security -->
 <!-- sync:core-services=aurevia-bff,auth-db,authorization-service,demo-catalog-init,mock-finance,mock-hr,mock-legacy,mock-oauth,nginx,openfga,openfga-db,openfga-migrate,operation-gateway,redis -->
-<!-- sync:latest-migration=V61 -->
+<!-- sync:latest-migration=V68 -->
 <!-- sync:admin-version=0.5.0;admin-routes=18 -->
 <!-- sync:swagger-specs=/api/v1/docs/admin/openapi,/api/v1/docs/authorization/openapi,/v3/api-docs -->
 <!-- sync:resource-types=APPLICATION,MODULE,PAGE,UI_COMPONENT,FIELD,BUSINESS_RESOURCE,EXTERNAL_RESOURCE,API_RESOURCE,DATA_RESOURCE,DATA_GOVERNANCE_RESOURCE -->
@@ -35,7 +35,7 @@
 | shared packages | contracts، HTTP client با CSRF، authorization SDK، UI guard و i18n |
 | Java | BFF، Authorization Service، policy مشترک UI artifact و دو سرویس تست اختیاری |
 | داده | PostgreSQL کنترل‌پلین، OpenFGA برای graph تصمیم runtime، Redis برای session/token vault/cache |
-| schema | ۶۱ migration ترتیبی؛ آخرین migration `V61__synchronize_hr_operation_authorization_keys.sql` |
+| schema | ۶۸ migration ترتیبی؛ آخرین migration `V68__route_level_outbound_auth.sql` |
 | Admin MFE | قرارداد `0.5.0` با ۱۸ route راهبری و navigation متناظر |
 | Resource Catalog | ۱۰ نوع معتبر از `APPLICATION` تا `DATA_GOVERNANCE_RESOURCE` مطابق validation سرویس |
 
@@ -84,7 +84,7 @@ Service داخلی. قرارداد Admin snapshot دستی نیست؛ در runti
 | authorization | resource/action/grant، inheritance، check تکی و batch، structured policy/obligation، default deny و cache کوتاه‌عمر |
 | OpenFGA | تنها writer از Authorization Service، transactional outbox، retry/dead-letter، startup reconcile و drift verification |
 | MFE governance | Panel registry، MF Manifest مستقل، Resource Manifest مستقل، fetch/draft/diff/publish، artifact revision immutable، navigation overlay و effective catalog |
-| operational proxy | service target، route و operation registry، longest-prefix resolution، محدودیت method/path/size/timeout، user-token forwarding و Legacy service token cache |
+| operational proxy | Target شبکه‌ای و Route/Auth مستقل؛ تعداد نامحدود Route ترکیبی Forward/Legacy برای هر MFE، longest-prefix/priority resolution، محدودیت method/path/size/timeout و Legacy token cache |
 | Superset | instance/integration registry، asset/grant، public→operation mapping سازگار، direct BFF connector با SSRF policy و TLS/mTLS اختیاری، health و same-origin tunnel |
 | observability | correlation ID، API log و audit log پاک‌سازی‌شده، retention، outbox state و evidence runnerهای محلی |
 

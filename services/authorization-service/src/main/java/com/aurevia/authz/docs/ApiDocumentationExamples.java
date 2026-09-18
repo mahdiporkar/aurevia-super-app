@@ -114,6 +114,7 @@ final class ApiDocumentationExamples {
       case "ProxyRouteDtos.RouteRequest" -> map(
           "code", "finance-api", "panelId", "2b6a0a84-da5b-4795-b9e7-e4fd8a93a180",
           "serviceTargetId", "3691d12f-253f-4bce-924c-e23dc8ff6b37",
+          "outboundAuthProfileId", "95dc9e52-7ca5-4ad9-858d-a2d78ae1e5bd",
           "serviceSlug", "finance-micro", "pathPrefix", "/finance-micro/api",
           "stripPrefix", 1, "priority", 100, "allowedMethods", List.of("GET", "POST", "PUT"),
           "preserveHost", false, "retryEnabled", false, "maxRetries", 0, "active", true);

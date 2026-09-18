@@ -46,8 +46,9 @@ public class RouteResolutionService {
     }
     return new ResolvedRoute(selected.routeId(),selected.operationId(),selected.panelId(),
         selected.panelSlug(),selected.routeKey(),selected.pathPrefix(),selected.targetId(),
-        selected.targetKey(),selected.stripPrefix(),selected.rewritePattern(),
-        selected.rewriteReplacement(),selected.resourceId(),selected.resourceKey(),
+        selected.targetKey(),selected.gatewayBaseUrl(),selected.upstreamBasePath(),
+        selected.stripPrefix(),selected.rewritePattern(),selected.rewriteReplacement(),
+        selected.preserveHost(),selected.resourceId(),selected.resourceKey(),
         selected.actionKey(),selected.authorizationRequired(),selected.dataPolicyKey(),
         selected.maxBodyBytes(),selected.connectTimeoutMs(),selected.responseTimeoutMs(),
         selected.maxResponseBytes(),selected.retryEnabled(),selected.maxRetries(),

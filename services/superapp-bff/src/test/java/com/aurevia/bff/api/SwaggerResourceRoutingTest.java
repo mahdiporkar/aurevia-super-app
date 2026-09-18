@@ -5,6 +5,8 @@ import com.aurevia.bff.observability.DevelopmentTokenEvidenceLogger;
 import com.aurevia.bff.security.SessionIdentity;
 import com.aurevia.bff.security.TokenRefreshService;
 import com.aurevia.bff.security.TokenVaultService;
+import com.aurevia.bff.proxy.GatewayTargetPolicy;
+import com.aurevia.bff.proxy.GatewayWebClientFactory;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Bean;
@@ -62,7 +64,8 @@ class SwaggerResourceRoutingTest {
     }
     @Bean OperationalProxyController proxy(AuthorizationServiceClient authorization) {
       return new OperationalProxyController(authorization, mock(TokenVaultService.class),
-          mock(TokenRefreshService.class), WebClient.create(), List.<OutboundTokenProvider>of(),
+          mock(TokenRefreshService.class),GatewayWebClientFactory.fixed(WebClient.create()),
+          new GatewayTargetPolicy("http://operation-gateway",""),List.<OutboundTokenProvider>of(),
           mock(DevelopmentTokenEvidenceLogger.class));
     }
   }

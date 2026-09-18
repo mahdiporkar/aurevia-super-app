@@ -25,13 +25,14 @@ public interface ProxyRouteRepository {
   long operationConflict(UUID routeId,String method,String pattern,UUID self);
   Optional<String> panelSlug(UUID panelId);
   boolean targetExists(UUID targetId);
-  long routeConflict(String prefix,int priority,UUID self);
+  boolean authProfileExists(UUID profileId);
 
   record TargetValue(UUID id,String code,String name,String description,String gatewayBaseUrl,
       String upstreamBasePath,String environment,String tlsProfileRef,String secretRef,
       String healthCheckPath,int connectTimeoutMs,int responseTimeoutMs,long maxResponseSize,
       UUID outboundAuthProfileId,boolean active,String actor) {}
-  record RouteValue(UUID id,String code,UUID panelId,UUID serviceTargetId,String serviceSlug,
+  record RouteValue(UUID id,String code,UUID panelId,UUID serviceTargetId,
+      UUID outboundAuthProfileId,String serviceSlug,
       String pathPrefix,String normalizedPathPrefix,int stripPrefix,String rewritePattern,
       String rewriteReplacement,int priority,String[] allowedMethods,boolean preserveHost,
       boolean retryEnabled,int maxRetries,boolean active,String actor) {}

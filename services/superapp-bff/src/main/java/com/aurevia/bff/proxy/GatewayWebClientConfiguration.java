@@ -7,15 +7,15 @@ import javax.net.ssl.TrustManagerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.tcp.SslProvider;
 
 @Configuration
 class GatewayWebClientConfiguration {
-  @Bean("operationGatewayClient")
-  WebClient operationGatewayClient(@Value("${aurevia.gateway.base-url}") String baseUrl,
+  @Bean
+  GatewayWebClientFactory gatewayWebClientFactory(
+      @Value("${aurevia.gateway.base-url}") String baseUrl,
       @Value("${aurevia.gateway.mtls-key-store:}") String keyStorePath,
       @Value("${aurevia.gateway.mtls-key-store-password:}") String password,
       @Value("${aurevia.gateway.mtls-trust-store:}") String trustStorePath,
@@ -28,7 +28,7 @@ class GatewayWebClientConfiguration {
         .maxConnections(200).pendingAcquireMaxCount(500).pendingAcquireTimeout(java.time.Duration.ofSeconds(2)).build();
     HttpClient client = HttpClient.create(provider).followRedirect(false)
         .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS,3000)
-        .responseTimeout(java.time.Duration.ofSeconds(30));
+        .responseTimeout(java.time.Duration.ofSeconds(120));
     if (!keyStorePath.isBlank() || !trustStorePath.isBlank()) {
       if(keyStorePath.isBlank() || trustStorePath.isBlank())throw new IllegalStateException("Both Gateway key store and trust store are required");
       KeyStore keyStore = load(keyStorePath,password);
@@ -42,9 +42,13 @@ class GatewayWebClientConfiguration {
           .keyManager(managers).trustManager(trust).build();
       client = client.secure(spec -> spec.sslContext(sslContext));
     }
-    return WebClient.builder().baseUrl(baseUrl)
-        .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
-        .clientConnector(new ReactorClientHttpConnector(client)).build();
+    return new GatewayWebClientFactory(client);
+  }
+
+  @Bean("operationGatewayClient")
+  WebClient operationGatewayClient(@Value("${aurevia.gateway.base-url}") String baseUrl,
+      GatewayWebClientFactory clients) {
+    return clients.client(3000).mutate().baseUrl(baseUrl).build();
   }
   private static KeyStore load(String path,String password)throws Exception{KeyStore store=KeyStore.getInstance("PKCS12");try(var stream=new FileInputStream(path)){store.load(stream,password.toCharArray());}return store;}
 }

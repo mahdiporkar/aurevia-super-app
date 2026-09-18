@@ -17,6 +17,8 @@ export function OutboundAuthProfiles({ api }: { api: Api }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row>();
   const [form] = Form.useForm();
+  const authMode = Form.useWatch('authMode', form);
+  const legacy = authMode === 'LEGACY_SERVICE_TOKEN';
 
   const load = useCallback(async () => {
     try {
@@ -31,6 +33,7 @@ export function OutboundAuthProfiles({ api }: { api: Api }) {
 
   const show = (row?: Row) => {
     setEditing(row);
+    form.resetFields();
     form.setFieldsValue(row ? {
       code: row.code, name: row.name, description: row.description,
       authMode: row.auth_mode, tokenConnectionRef: row.token_connection_ref,
@@ -55,6 +58,22 @@ export function OutboundAuthProfiles({ api }: { api: Api }) {
       maxTokenResponseSize: 1048576, active: true,
     });
     setOpen(true);
+  };
+
+  const changeMode = (mode: string) => {
+    form.setFieldsValue(mode === 'LEGACY_SERVICE_TOKEN' ? {
+      authMode: mode,
+      credentialTransport: 'INTERNAL_LEGACY_HEADER',
+      requestFormat: form.getFieldValue('requestFormat') ?? 'FORM_URLENCODED',
+    } : {
+      authMode: mode,
+      credentialTransport: 'USER_AUTHORIZATION_HEADER',
+      tokenConnectionRef: undefined,
+      tokenEndpointPath: undefined,
+      credentialSecretRef: undefined,
+      scope: undefined,
+      audience: undefined,
+    });
   };
 
   const save = async (value: Row) => {
@@ -110,34 +129,46 @@ export function OutboundAuthProfiles({ api }: { api: Api }) {
     <Modal open={open} width={900} title={editing ? 'ویرایش پروفایل' : 'پروفایل جدید'}
       onCancel={() => setOpen(false)} onOk={() => form.submit()}>
       <Form form={form} layout="vertical" onFinish={value => void save(value).catch(error => message.error(error.message))}>
+        <Alert showIcon type={legacy ? 'warning' : 'info'} style={{ marginBottom: 16 }}
+          message={legacy ? 'Legacy: دریافت credential فنی در BFF' : 'Forward: ارسال Access Token همان کاربر'}
+          description={legacy
+            ? 'نام کاربری/رمز یا client secret را در این فرم ننویسید؛ فقط Secret Ref را وارد کنید. Transport به‌صورت امن روی INTERNAL_LEGACY_HEADER تنظیم می‌شود.'
+            : 'در این حالت هیچ Connection یا Secret جدا لازم نیست و BFF توکن نشست کاربر را در Authorization به Gateway می‌فرستد.'} />
         <Space wrap align="start">
           <Form.Item name="code" label="کد" rules={required}><Input /></Form.Item>
           <Form.Item name="name" label="نام" rules={required}><Input /></Form.Item>
           <Form.Item name="authMode" label="Auth Mode" rules={required}>
-            <Select style={{ width: 240 }} options={['FORWARD_USER_TOKEN', 'LEGACY_SERVICE_TOKEN'].map(value => ({ value, label: value }))} />
+            <Select style={{ width: 240 }} onChange={changeMode}
+              options={['FORWARD_USER_TOKEN', 'LEGACY_SERVICE_TOKEN'].map(value => ({ value, label: value }))} />
           </Form.Item>
-          <Form.Item name="tokenConnectionRef" label="Token Connection">
-            <Select allowClear style={{ width: 300 }} options={connections.filter(item => item.active)
-              .map(item => ({ value: item.connection_ref, label: `${item.name} (${item.connection_ref})` }))} />
-          </Form.Item>
-          <Form.Item name="tokenEndpointPath" label="Token Endpoint Path"><Input placeholder="/oauth/token" /></Form.Item>
-          <Form.Item name="requestFormat" label="Request Adapter" rules={required}>
-            <Select style={{ width: 230 }} options={formats.map(value => ({ value, label: value }))} />
-          </Form.Item>
-          <Form.Item name="credentialSecretRef" label="Credential Secret Ref"><Input placeholder="secret://legacy/service-account" /></Form.Item>
-          <Form.Item name="scope" label="Scope"><Input /></Form.Item>
-          <Form.Item name="audience" label="Audience"><Input /></Form.Item>
-          <Form.Item name="tokenResponsePointer" label="Token JSON Pointer" rules={required}><Input /></Form.Item>
-          <Form.Item name="expiresInResponsePointer" label="Expires JSON Pointer" rules={required}><Input /></Form.Item>
-          <Form.Item name="tokenTypeResponsePointer" label="Token Type Pointer" rules={required}><Input /></Form.Item>
-          <Form.Item name="authorizationScheme" label="Scheme" rules={required}><Input /></Form.Item>
-          <Form.Item name="credentialTransport" label="Credential Transport" rules={required}>
-            <Select style={{ width: 260 }} options={['USER_AUTHORIZATION_HEADER', 'INTERNAL_LEGACY_HEADER'].map(value => ({ value, label: value }))} />
-          </Form.Item>
-          <Form.Item name="expirySkewSeconds" label="Expiry Skew"><InputNumber min={5} max={600} /></Form.Item>
-          <Form.Item name="connectTimeoutMs" label="Connect Timeout"><InputNumber min={100} /></Form.Item>
-          <Form.Item name="responseTimeoutMs" label="Response Timeout"><InputNumber min={100} /></Form.Item>
-          <Form.Item name="maxTokenResponseSize" label="Max Response"><InputNumber min={1024} /></Form.Item>
+          {legacy && <>
+            <Form.Item name="tokenConnectionRef" label="Token Connection" rules={required}>
+              <Select style={{ width: 300 }} options={connections.filter(item => item.active)
+                .map(item => ({ value: item.connection_ref, label: `${item.name} (${item.connection_ref})` }))} />
+            </Form.Item>
+            <Form.Item name="tokenEndpointPath" label="Token Endpoint Path" rules={required}
+              extra="مسیر نسبی روی Connection، مانند /oauth/token">
+              <Input placeholder="/oauth/token" />
+            </Form.Item>
+            <Form.Item name="requestFormat" label="Request Adapter" rules={required}>
+              <Select style={{ width: 230 }} options={formats.map(value => ({ value, label: value }))} />
+            </Form.Item>
+            <Form.Item name="credentialSecretRef" label="Credential Secret Ref" rules={required}
+              extra="فقط مرجع Secret Store؛ مقدار username/password در Secret Store قرار می‌گیرد.">
+              <Input placeholder="secret://legacy/service-account" />
+            </Form.Item>
+            <Form.Item name="scope" label="Scope"><Input /></Form.Item>
+            <Form.Item name="audience" label="Audience"><Input /></Form.Item>
+            <Form.Item name="tokenResponsePointer" label="Token JSON Pointer" rules={required}><Input /></Form.Item>
+            <Form.Item name="expiresInResponsePointer" label="Expires JSON Pointer" rules={required}><Input /></Form.Item>
+            <Form.Item name="tokenTypeResponsePointer" label="Token Type Pointer" rules={required}><Input /></Form.Item>
+            <Form.Item name="authorizationScheme" label="Scheme" rules={required}><Input /></Form.Item>
+            <Form.Item name="expirySkewSeconds" label="Expiry Skew"><InputNumber min={5} max={600} /></Form.Item>
+            <Form.Item name="connectTimeoutMs" label="Connect Timeout"><InputNumber min={100} /></Form.Item>
+            <Form.Item name="responseTimeoutMs" label="Response Timeout"><InputNumber min={100} /></Form.Item>
+            <Form.Item name="maxTokenResponseSize" label="Max Response"><InputNumber min={1024} /></Form.Item>
+          </>}
+          <Form.Item name="credentialTransport" hidden rules={required}><Input /></Form.Item>
           <Form.Item name="active" valuePropName="checked"><Checkbox>فعال</Checkbox></Form.Item>
         </Space>
         <Form.Item name="description" label="توضیح"><Input.TextArea /></Form.Item>

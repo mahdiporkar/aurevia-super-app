@@ -68,6 +68,7 @@ aurevia:
     password: ${AUTH_INTERNAL_PASSWORD:change-me}
   gateway:
     base-url: ${OPERATION_GATEWAY_URL:http://operation-gateway:80}
+    approved-base-urls: ${OPERATION_GATEWAY_APPROVED_BASE_URLS:}
     mtls-key-store: ${GATEWAY_MTLS_KEYSTORE:}
     mtls-key-store-password: ${GATEWAY_MTLS_KEYSTORE_PASSWORD:}
   superset:

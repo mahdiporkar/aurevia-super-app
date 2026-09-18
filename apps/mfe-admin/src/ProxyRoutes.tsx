@@ -12,6 +12,11 @@ type Probe = { kind: 'preview' | 'resolve'; route?: Row };
 
 const required = [{ required: true, message: 'این فیلد الزامی است' }];
 const methods = ['GET', 'HEAD', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE'];
+const safeRetryMethods = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+function segmentCount(path: string): number {
+  return path.split('/').filter(Boolean).length;
+}
 
 function normalizedActions(resource: Row): Row[] {
   if (Array.isArray(resource.actions)) return resource.actions;
@@ -68,6 +73,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
 
   const openTarget = (row?: Row) => {
     setEditingTarget(row);
+    targetForm.resetFields();
     targetForm.setFieldsValue(row ? {
       ...row, gatewayBaseUrl: row.gateway_base_url, upstreamBasePath: row.upstream_base_path,
       tlsProfileRef: row.tls_profile_ref, secretRef: row.secret_ref,
@@ -91,21 +97,23 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
 
   const openRoute = (row?: Row) => {
     setEditingRoute(row);
+    routeForm.resetFields();
     routeForm.setFieldsValue(row ? {
       ...row, panelId: row.panel_id, serviceTargetId: row.service_target_id,
+      outboundAuthProfileId: row.outbound_auth_profile_id,
       serviceSlug: row.service_slug, pathPrefix: row.path_prefix, stripPrefix: row.strip_prefix,
       rewritePattern: row.rewrite_pattern, rewriteReplacement: row.rewrite_replacement,
       allowedMethods: row.allowed_methods, preserveHost: row.preserve_host,
       retryEnabled: row.retry_enabled, maxRetries: row.max_retries,
     } : {
-      active: true, stripPrefix: 0, priority: 0, allowedMethods: ['GET'],
+      active: true, stripPrefix: 3, priority: 0, allowedMethods: ['GET'],
       preserveHost: false, retryEnabled: false, maxRetries: 0,
+      outboundAuthProfileId: authProfiles.find(profile => profile.code === 'public-iam-forward')?.id,
     });
     setRouteOpen(true);
   };
 
   const saveRoute = async (values: Row) => {
-    await api('/proxy-routes/validate', { method: 'POST', body: JSON.stringify(values) });
     await api(editingRoute ? `/proxy-routes/${editingRoute.id}?version=${editingRoute.version}` : '/proxy-routes', {
       method: editingRoute ? 'PUT' : 'POST', body: JSON.stringify(values),
     });
@@ -114,13 +122,14 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
 
   const openOperation = (row?: Row) => {
     setEditingOperation(row);
+    operationForm.resetFields();
     operationForm.setFieldsValue(row ? {
       httpMethod: row.http_method, pathPattern: row.path_pattern,
       resourceKey: row.resource_key, actionKey: row.action_key,
       authorizationRequired: row.authorization_required, dataPolicyKey: row.data_policy_key,
       active: row.active, maxBodyBytes: row.max_body_bytes,
     } : {
-      httpMethod: 'GET', pathPattern: '/api/v1/', authorizationRequired: true,
+      httpMethod: 'GET', pathPattern: '/', authorizationRequired: true,
       active: true, maxBodyBytes: 1048576,
     });
     setOperationOpen(true);
@@ -139,6 +148,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
 
   const openProbe = (nextProbe: Probe) => {
     setProbe(nextProbe);
+    probeForm.resetFields();
     probeForm.setFieldsValue(nextProbe.kind === 'preview'
       ? { path: `${nextProbe.route?.normalized_path_prefix ?? '/api/proxy/' }api/v1/employees` }
       : { path: '/hr-micro/api/v1/employees', method: 'GET' });
@@ -170,8 +180,8 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
     <Button onClick={() => void load()}>بازخوانی</Button>
     <Button type="primary" onClick={() => openTarget()}>Target جدید</Button>
   </Space>}>
-    <Alert showIcon type="info" message="مقصدها فقط Gatewayهای allowlisted هستند"
-      description="Secret و کلید خصوصی ذخیره نمی‌شود؛ فقط reference امن TLS/Secret Store ثبت می‌گردد."
+    <Alert showIcon type="info" message="Target فقط مقصد شبکه‌ای Route را تعیین می‌کند"
+      description="نوع احراز هویت برای هر Route جداگانه انتخاب می‌شود؛ بنابراین همین Target می‌تواند هم‌زمان میزبان Routeهای Legacy و Forward باشد. Gateway باید در allowlist استقرار باشد."
       style={{ marginBottom: 16 }} />
     <Table rowKey="id" loading={loading} dataSource={targets} pagination={{ pageSize: 10 }} columns={[
       { title: 'کد', dataIndex: 'code' }, { title: 'نام', dataIndex: 'name' },
@@ -197,9 +207,14 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
     <Button onClick={() => openProbe({ kind: 'resolve' })}>تست Resolution</Button>
     <Button type="primary" onClick={() => openRoute()}>مسیر جدید</Button>
   </Space>}>
+    <Alert showIcon type="info" style={{ marginBottom: 16 }}
+      message="نوع Route از Auth Profileِ Target انتخاب‌شده می‌آید"
+      description="Path Prefix می‌تواند هر مسیر امن same-origin باشد. برای هر درخواست Microfrontend یک Operation با Method، مسیر نسبی، Resource و Action تعریف کنید." />
     <Table rowKey="id" loading={loading} dataSource={routes} pagination={{ pageSize: 10 }} columns={[
       { title: 'کد', dataIndex: 'code' }, { title: 'پنل', dataIndex: 'panel_name' },
       { title: 'Prefix', dataIndex: 'normalized_path_prefix' }, { title: 'Target', dataIndex: 'target_code' },
+      { title: 'Auth', dataIndex: 'auth_mode', render: value =>
+        <Tag color={value === 'LEGACY_SERVICE_TOKEN' ? 'orange' : 'blue'}>{value ?? '—'}</Tag> },
       { title: 'اولویت', dataIndex: 'priority' },
       { title: 'Methodها', render: (_, row) => <Space wrap>{(row.allowed_methods ?? []).map((method: string) => <Tag key={method}>{method}</Tag>)}</Space> },
       { title: 'وضعیت', render: (_, row) => <Tag color={row.active ? 'green' : 'default'}>{row.active ? 'فعال' : 'غیرفعال'}</Tag> },
@@ -218,7 +233,10 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
     <Button type="primary" disabled={!selectedRoute} onClick={() => openOperation()}>Operation جدید</Button>
   </Space>}>
     {!selectedRoute ? <Alert type="info" showIcon message="ابتدا یک Route انتخاب کنید" />
-      : <Table rowKey="id" dataSource={operations} pagination={false} columns={[
+      : <><Alert type="info" showIcon style={{ marginBottom: 16 }}
+          message={`Pattern نسبت به Prefix مسیر ${selectedRoute.normalized_path_prefix} است`}
+          description="مثلاً فراخوانی GET /api/proxy/payroll/employees با Prefix برابر /api/proxy/payroll، به Operation با Pattern برابر /employees متصل می‌شود." />
+        <Table rowKey="id" dataSource={operations} pagination={false} columns={[
         { title: 'Method', dataIndex: 'http_method' }, { title: 'Pattern', dataIndex: 'normalized_path_pattern' },
         { title: 'Resource : Action', render: (_, row) => <Typography.Text code>{row.resource_key}:{row.action_key}</Typography.Text> },
         { title: 'مجوز', render: (_, row) => row.authorization_required ? <Tag color="blue">OpenFGA</Tag> : <Tag>Public</Tag> },
@@ -231,7 +249,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
             <Button danger>غیرفعال</Button>
           </Popconfirm>
         </Space> },
-      ]} />}
+      ]} /></>}
   </Card>;
 
   return <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -246,12 +264,15 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
           <Form.Item name="code" label="کد" rules={required}><Input /></Form.Item>
           <Form.Item name="name" label="نام" rules={required}><Input /></Form.Item>
           <Form.Item name="environment" label="محیط" rules={required}><Select style={{ width: 180 }} options={['OPERATION', 'STAGING'].map(value => ({ value, label: value }))} /></Form.Item>
-          <Form.Item name="outboundAuthProfileId" label="Outbound Auth Profile" rules={required}><Select style={{ width: 300 }} options={authProfiles.filter(profile => profile.active).map(profile => ({ value: profile.id, label: `${profile.name} (${profile.auth_mode})` }))} /></Form.Item>
-          <Form.Item name="gatewayBaseUrl" label="آدرس کامل Gateway" rules={[...required, serviceUrlRule()]}><Input style={{ width: 360 }} placeholder="http://operation-gateway:80" /></Form.Item>
+          <Form.Item name="outboundAuthProfileId" hidden><Input /></Form.Item>
+          <Form.Item name="gatewayBaseUrl" label="Origin کامل Gateway" rules={[...required, serviceUrlRule(true)]}
+            extra="فقط scheme/host/port؛ مسیر سرویس را در Upstream Base Path وارد کنید."><Input style={{ width: 360 }} placeholder="http://operation-gateway:80" /></Form.Item>
           <Form.Item name="upstreamBasePath" label="Upstream Base Path" rules={required}><Input /></Form.Item>
           <Form.Item name="healthCheckPath" label="Health Path" rules={required}><Input /></Form.Item>
-          <Form.Item name="tlsProfileRef" label="TLS Profile Ref"><Input placeholder="tls://gateway-client" /></Form.Item>
-          <Form.Item name="secretRef" label="Secret Ref"><Input placeholder="secret://gateway-client" /></Form.Item>
+          <Form.Item name="tlsProfileRef" label="TLS Profile Ref"
+            extra="مرجع تنظیمات TLS در استقرار Gateway؛ credential سرویس Legacy اینجا نیست."><Input placeholder="tls://gateway-client" /></Form.Item>
+          <Form.Item name="secretRef" label="Target Secret Ref"
+            extra="metadata مقصد؛ username/password سرویس Legacy را در Auth Profile به Secret Ref متصل کنید."><Input placeholder="secret://gateway-client" /></Form.Item>
           <Form.Item name="connectTimeoutMs" label="Connect Timeout"><InputNumber min={100} /></Form.Item>
           <Form.Item name="responseTimeoutMs" label="Response Timeout"><InputNumber min={100} /></Form.Item>
           <Form.Item name="maxResponseSize" label="Max Response Bytes"><InputNumber min={1024} /></Form.Item>
@@ -266,15 +287,42 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
       <Form form={routeForm} layout="vertical" onFinish={values => void saveRoute(values).catch(reason => message.error(reason.message))}>
         <Space wrap align="start">
           <Form.Item name="code" label="کد" rules={required}><Input /></Form.Item>
-          <Form.Item name="panelId" label="Panel" rules={required}><Select style={{ width: 250 }} options={panels.map(panel => ({ value: panel.id, label: `${panel.name_fa} (${panel.slug})` }))} /></Form.Item>
-          <Form.Item name="serviceTargetId" label="Service Target" rules={required}><Select style={{ width: 250 }} options={targets.map(target => ({ value: target.id, label: target.code }))} /></Form.Item>
-          <Form.Item name="serviceSlug" label="Service Slug" rules={[...required, { pattern: /^[a-z][a-z0-9-]{1,49}$/, message: 'حروف کوچک، عدد و خط تیره' }]} extra="namespace پایدار زیر /api/proxy/"><Input placeholder="legacy-payroll" /></Form.Item>
-          <Form.Item name="pathPrefix" label="Path Prefix" rules={required}><Input placeholder="/api/proxy/legacy-payroll" /></Form.Item>
-          <Form.Item name="stripPrefix" label="Strip Segments"><InputNumber min={0} max={20} /></Form.Item>
+          <Form.Item name="panelId" label="Microfrontend / Panel" rules={required}><Select style={{ width: 280 }} options={panels.map(panel => ({ value: panel.id, label: `${panel.name_fa} (${panel.slug})` }))}
+            onChange={id => {
+              const panel = panels.find(item => item.id === id);
+              if (!panel) return;
+              const slug = panel.service_slug || panel.slug;
+              const prefix = `/api/proxy/${slug}`;
+              routeForm.setFieldsValue({ serviceSlug: slug, pathPrefix: prefix, stripPrefix: segmentCount(prefix) });
+            }} /></Form.Item>
+          <Form.Item name="serviceTargetId" label="Service Target" rules={required}><Select style={{ width: 320 }} options={targets.filter(target => target.active || target.id === editingRoute?.service_target_id).map(target => {
+            const profile = authProfiles.find(item => item.id === target.outbound_auth_profile_id);
+            return { value: target.id, label: `${target.code} (پیش‌فرض: ${profile?.auth_mode ?? 'بدون پروفایل'})` };
+          })} /></Form.Item>
+          <Form.Item name="outboundAuthProfileId" label="Auth Mode این Route" rules={required}
+            extra="هر Route مستقل است؛ برای یک Microfrontend می‌توانید هم Routeهای Legacy و هم Forward بسازید.">
+            <Select style={{ width: 340 }} options={authProfiles.filter(profile => profile.active || profile.id === editingRoute?.outbound_auth_profile_id)
+              .map(profile => ({ value: profile.id, label: `${profile.name} (${profile.auth_mode})` }))} />
+          </Form.Item>
+          <Form.Item name="serviceSlug" label="Service Slug" rules={[...required, { pattern: /^[a-z][a-z0-9-]{1,49}$/, message: 'حروف کوچک، عدد و خط تیره' }]} extra="شناسه منطقی سرویس؛ Path Prefix به این قالب محدود نیست."><Input placeholder="legacy-payroll" /></Form.Item>
+          <Form.Item name="pathPrefix" label="Public Path Prefix" rules={required}
+            extra="هر مسیر same-origin امن؛ Nginx پیش‌فرض /api/** و همه namespaceهای *-micro را پویا به BFF می‌فرستد."><Input placeholder="/api/proxy/legacy-payroll" /></Form.Item>
+          <Form.Item name="stripPrefix" label="Strip Segments" extra="تعداد segmentهای ابتدای مسیر عمومی که پیش از ارسال حذف می‌شوند."><InputNumber min={0} max={20} /></Form.Item>
           <Form.Item name="priority" label="Priority"><InputNumber /></Form.Item>
-          <Form.Item name="allowedMethods" label="Allowed Methods" rules={required}><Select mode="multiple" style={{ width: 360 }} options={methods.map(value => ({ value, label: value }))} /></Form.Item>
-          <Form.Item name="rewritePattern" label="Rewrite Prefix"><Input placeholder="^/api/proxy/legacy-payroll" /></Form.Item>
-          <Form.Item name="rewriteReplacement" label="Rewrite Replacement"><Input placeholder="/legacy-payroll" /></Form.Item>
+          <Form.Item name="allowedMethods" label="Allowed Methods" rules={required}><Select mode="multiple" style={{ width: 360 }} options={methods.map(value => ({ value, label: value }))}
+            onChange={(values: string[]) => {
+              if (values.some(value => !safeRetryMethods.has(value))) routeForm.setFieldsValue({ retryEnabled: false, maxRetries: 0 });
+            }} /></Form.Item>
+          <Form.Item name="rewritePattern" label="Rewrite Prefix"
+            dependencies={['rewriteReplacement']} rules={[({ getFieldValue }) => ({ validator: (_, value) =>
+              Boolean(value) === Boolean(getFieldValue('rewriteReplacement')) ? Promise.resolve() : Promise.reject(new Error('هر دو فیلد Rewrite باید با هم تکمیل شوند')) })]}>
+            <Input placeholder="^/api/proxy/legacy-payroll" />
+          </Form.Item>
+          <Form.Item name="rewriteReplacement" label="Rewrite Replacement"
+            dependencies={['rewritePattern']} rules={[({ getFieldValue }) => ({ validator: (_, value) =>
+              Boolean(value) === Boolean(getFieldValue('rewritePattern')) ? Promise.resolve() : Promise.reject(new Error('هر دو فیلد Rewrite باید با هم تکمیل شوند')) })]}>
+            <Input placeholder="/legacy-payroll" />
+          </Form.Item>
           <Form.Item name="retryEnabled" valuePropName="checked"><Checkbox>Retry فقط برای روش‌های امن</Checkbox></Form.Item>
           <Form.Item name="maxRetries" label="Max Retries"><InputNumber min={0} max={3} /></Form.Item>
           <Form.Item name="preserveHost" valuePropName="checked"><Checkbox>Preserve Host</Checkbox></Form.Item>
@@ -288,7 +336,10 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
       <Form form={operationForm} layout="vertical" onFinish={values => void saveOperation(values).catch(reason => message.error(reason.message))}>
         <Space wrap align="start">
           <Form.Item name="httpMethod" label="HTTP Method" rules={required}><Select style={{ width: 150 }} options={methods.map(value => ({ value, label: value }))} /></Form.Item>
-          <Form.Item name="pathPattern" label="Path Pattern" rules={required}><Input style={{ width: 300 }} placeholder="/api/v1/employees/{id}" /></Form.Item>
+          <Form.Item name="pathPattern" label="Relative Path Pattern" rules={required}
+            extra="نسبت به Route Prefix؛ از {id} برای یک segment، * برای یک segment و ** برای ادامه مسیر استفاده کنید.">
+            <Input style={{ width: 340 }} placeholder="/employees/{id}" />
+          </Form.Item>
           <Form.Item name="resourceKey" label="Resource" rules={required}><Select showSearch optionFilterProp="label" style={{ width: 320 }} options={resources.map(resource => ({ value: resource.resource_key, label: `${resource.name_fa} (${resource.resource_key})` }))} onChange={() => operationForm.setFieldValue('actionKey', undefined)} /></Form.Item>
           <Form.Item noStyle shouldUpdate>{() => { const resource = resources.find(item => item.resource_key === operationForm.getFieldValue('resourceKey')); return <Form.Item name="actionKey" label="Action" rules={required}><Select style={{ width: 220 }} options={(resource?.actions ?? []).map((action: Row) => ({ value: action.key ?? action.action_key, label: `${action.nameFa ?? action.name_fa} (${action.key ?? action.action_key})` }))} /></Form.Item>; }}</Form.Item>
           <Form.Item name="dataPolicyKey" label="Data Policy"><Input /></Form.Item>

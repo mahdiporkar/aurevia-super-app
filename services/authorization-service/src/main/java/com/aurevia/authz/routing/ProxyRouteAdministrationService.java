@@ -77,7 +77,7 @@ public class ProxyRouteAdministrationService {
   }
 
   public ValidationResponse validate(RouteRequest request) {
-    validateRoute(request,null);
+    validateRoute(request);
     return new ValidationResponse(true,RoutePathPolicy.prefix(request.pathPrefix()));
   }
 
@@ -96,19 +96,20 @@ public class ProxyRouteAdministrationService {
 
   @Transactional
   public Map<String,Object> createRoute(RouteRequest request,String actor) {
-    validateRoute(request,null);
+    validateRoute(request);
     UUID id=UUID.randomUUID();
     String prefix=RoutePathPolicy.prefix(request.pathPrefix());
     routes.insertRoute(routeValue(id,request,actor));
     audit.success("PROXY_ROUTE","proxy.route.created",null,null,"PROXY_ROUTE",
         id.toString(),request.code(),"CREATE",null,
-        Map.of("pathPrefix",prefix,"targetId",request.serviceTargetId().toString()));
+        Map.of("pathPrefix",prefix,"targetId",request.serviceTargetId().toString(),
+            "authProfileId",request.outboundAuthProfileId().toString()));
     return route(id);
   }
 
   @Transactional
   public Map<String,Object> updateRoute(UUID id,long version,RouteRequest request,String actor) {
-    validateRoute(request,id);
+    validateRoute(request);
     Map<String,Object> before=route(id);
     if(!routes.updateRoute(id,version,routeValue(id,request,actor))) conflictVersion();
     Map<String,Object> after=route(id);
@@ -190,7 +191,7 @@ public class ProxyRouteAdministrationService {
 
   private ProxyRouteRepository.RouteValue routeValue(UUID id,RouteRequest request,String actor) {
     return new ProxyRouteRepository.RouteValue(id,code(request.code()),request.panelId(),
-        request.serviceTargetId(),serviceSlug(request.serviceSlug()),
+        request.serviceTargetId(),request.outboundAuthProfileId(),serviceSlug(request.serviceSlug()),
         RoutePathPolicy.path(request.pathPrefix()),RoutePathPolicy.prefix(request.pathPrefix()),
         request.stripPrefix(),nullable(request.rewritePattern()),
         nullable(request.rewriteReplacement()),request.priority(),request.allowedMethods().stream()
@@ -203,7 +204,7 @@ public class ProxyRouteAdministrationService {
     return new ProxyRouteRepository.OperationValue(id,routeId,method(request.httpMethod()),
         RoutePathPolicy.pattern(request.pathPattern()),resource(request.resourceKey(),request.actionKey()),
         limit(request.resourceKey(),500),code(request.actionKey()),request.authorizationRequired(),
-        nullable(request.dataPolicyKey()),request.active(),request.maxBodyBytes(),limit(actor,255));
+        optional(request.dataPolicyKey(),160),request.active(),request.maxBodyBytes(),limit(actor,255));
   }
 
   private void validateOperation(UUID routeId,OperationRequest request,UUID self) {
@@ -216,27 +217,19 @@ public class ProxyRouteAdministrationService {
     }
   }
 
-  private void validateRoute(RouteRequest request,UUID self) {
-    String prefix=RoutePathPolicy.prefix(request.pathPrefix());
-    String slug=routes.panelSlug(request.panelId()).orElseThrow(
+  private void validateRoute(RouteRequest request) {
+    RoutePathPolicy.prefix(request.pathPrefix());
+    routes.panelSlug(request.panelId()).orElseThrow(
         ProxyRouteAdministrationService::notFound);
-    String service=serviceSlug(request.serviceSlug());
-    if(!prefix.startsWith("/api/proxy/"+service+"/")
-        &&!prefix.startsWith("/"+slug+"-micro/")) {
-      throw bad("PREFIX_MUST_START_WITH_SERVICE_SLUG");
-    }
+    serviceSlug(request.serviceSlug());
     if(!routes.targetExists(request.serviceTargetId())) throw notFound();
+    if(!routes.authProfileExists(request.outboundAuthProfileId())) throw notFound();
     request.allowedMethods().forEach(this::method);
     if(request.retryEnabled()&&request.allowedMethods().stream()
         .anyMatch(value->!Set.of("GET","HEAD","OPTIONS").contains(value.toUpperCase(Locale.ROOT)))) {
       throw bad("RETRY_REQUIRES_SAFE_METHODS");
     }
     validateRewrite(request.rewritePattern(),request.rewriteReplacement());
-    if(routes.routeConflict(prefix,request.priority(),self==null?NO_ID:self)>0) {
-      audit.success("PROXY_ROUTE","proxy.route.prefix_collision",null,null,"PROXY_ROUTE",
-          prefix,prefix,"VALIDATE",null,Map.of("priority",request.priority()));
-      throw conflict("PREFIX_COLLISION");
-    }
   }
 
   private PreviewResponse previewRoute(Map<String,Object> route,String path) {
@@ -244,15 +237,32 @@ public class ProxyRouteAdministrationService {
     if(!path.startsWith(prefix)&&!path.equals(prefix.substring(0,prefix.length()-1))) {
       throw bad("PATH_OUTSIDE_ROUTE");
     }
-    boolean strip=((Number)route.get("strip_prefix")).intValue()>0;
-    String relative=strip?path.substring(prefix.length()-1):path;
+    String relative=strip(path,((Number)route.get("strip_prefix")).intValue());
     String pattern=(String)route.get("rewrite_pattern");
     String replacement=(String)route.get("rewrite_replacement");
-    String upstream=pattern==null?relative:relative.replaceFirst(
-        java.util.regex.Pattern.quote(pattern.substring(1)),
-        java.util.regex.Matcher.quoteReplacement(replacement));
+    if(pattern!=null&&!relative.startsWith(pattern.substring(1))) {
+      throw bad("REWRITE_PREFIX_NOT_FOUND_AFTER_STRIP");
+    }
+    String upstream=pattern==null?relative:
+        replacement+relative.substring(pattern.length()-1);
+    if(pattern==null) upstream=joinPaths(String.valueOf(route.get("upstream_base_path")),upstream);
     RoutePathPolicy.path(upstream);
     return new PreviewResponse(path,upstream,(UUID)route.get("id"));
+  }
+
+  private static String strip(String path,int count) {
+    int index=0;
+    for(int i=0;i<count;i++) {
+      index=path.indexOf('/',index+1);
+      if(index<0) return "/";
+    }
+    return count==0?path:path.substring(index);
+  }
+
+  private static String joinPaths(String base,String path) {
+    if(base==null||base.isBlank()||"/".equals(base)) return path;
+    if("/".equals(path)) return base;
+    return base+path;
   }
 
   private UUID resource(String key,String action) {
@@ -261,11 +271,13 @@ public class ProxyRouteAdministrationService {
   }
   private URI validateGateway(String value) {
     URI uri;
-    try { uri=URI.create(value); }
+    try { uri=URI.create(limit(value,500)); }
     catch(Exception failure) { throw bad("INVALID_GATEWAY_URL"); }
     String host=uri.getHost()==null?"":uri.getHost().toLowerCase(Locale.ROOT);
     if(!Set.of("http","https").contains(uri.getScheme())||uri.getUserInfo()!=null
-        ||uri.getQuery()!=null||uri.getFragment()!=null||!approvedGatewayHosts.contains(host)
+        ||uri.getQuery()!=null||uri.getFragment()!=null
+        ||!(uri.getPath().isEmpty()||"/".equals(uri.getPath()))
+        ||!approvedGatewayHosts.contains(host)
         ||isForbiddenHost(host)) throw bad("UNAPPROVED_GATEWAY_HOST");
     return uri;
   }
@@ -278,6 +290,7 @@ public class ProxyRouteAdministrationService {
       throw bad("REWRITE_PAIR_REQUIRED");
     }
     if(pattern==null||pattern.isBlank()) return;
+    if(pattern.length()>500||replacement.length()>500) throw bad("INVALID_FIELD_LENGTH");
     if(!pattern.startsWith("^/")||pattern.substring(1).contains(".")||pattern.contains("*")
         ||pattern.contains("[")||pattern.contains("(")||replacement.contains("://")) {
       throw bad("UNSAFE_REWRITE");
@@ -303,7 +316,7 @@ public class ProxyRouteAdministrationService {
     return result;
   }
   private static String reference(String value) {
-    String result=nullable(value);
+    String result=optional(value,255);
     if(result.isEmpty()) return result;
     if(!result.matches("(secret|tls)://[A-Za-z0-9._/-]+")) {
       throw bad("INVALID_SECRET_REFERENCE");
@@ -311,6 +324,9 @@ public class ProxyRouteAdministrationService {
     return result;
   }
   private static String nullable(String value) { return value==null?"":limit(value,1000).trim(); }
+  private static String optional(String value,int max) {
+    return value==null?"":limit(value,max).trim();
+  }
   private static String limit(String value,int max) {
     if(value==null||value.length()>max) throw bad("INVALID_FIELD_LENGTH");
     return value;

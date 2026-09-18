@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,7 +17,8 @@ public final class ProxyRouteDtos {
       @Min(100) @Max(120000) int responseTimeoutMs,
       @Min(1024) @Max(104857600) long maxResponseSize,UUID outboundAuthProfileId,
       boolean active) {}
-  public record RouteRequest(@NotBlank String code,UUID panelId,UUID serviceTargetId,
+  public record RouteRequest(@NotBlank String code,@NotNull UUID panelId,
+      @NotNull UUID serviceTargetId,@NotNull UUID outboundAuthProfileId,
       @NotBlank String serviceSlug,@NotBlank String pathPrefix,
       @Min(0) @Max(20) int stripPrefix,String rewritePattern,String rewriteReplacement,
       @Min(-1000) @Max(1000) int priority,@NotEmpty List<String> allowedMethods,

@@ -1,6 +1,8 @@
 package com.aurevia.bff.api;
 import com.aurevia.bff.outboundauth.*;
 import com.aurevia.bff.security.*;
+import com.aurevia.bff.proxy.GatewayTargetPolicy;
+import com.aurevia.bff.proxy.GatewayWebClientFactory;
 import java.util.Map;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -28,7 +30,9 @@ class AdminProfileActionTest {
     when(manager.test("profile")).thenReturn(Mono.just(new OutboundCredential("Bearer","opaque-test",true)));
     when(manager.validateConnection("profile")).thenReturn(Mono.empty());
     when(manager.invalidate("profile")).thenReturn(Mono.empty());
-    var controller=new AdminProxyController(client,WebClient.create(),manager,mock(DynamicClientRegistrationRepository.class));
+    var controller=new AdminProxyController(client,GatewayWebClientFactory.fixed(WebClient.create()),
+      new GatewayTargetPolicy("http://operation-gateway",""),manager,
+      mock(DynamicClientRegistrationRepository.class));
     var user=new SessionIdentity("https://issuer.example","admin-subject","admin");
     var result=switch(operation){
       case "token-test"->controller.tokenTest("profile",user);

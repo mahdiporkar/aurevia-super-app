@@ -175,6 +175,7 @@ API حاکمیتی Manifest هیچ‌گاه با Import، کاتالوگ فعا�
   "code": "finance-api",
   "panelId": "2b6a0a84-da5b-4795-b9e7-e4fd8a93a180",
   "serviceTargetId": "3691d12f-253f-4bce-924c-e23dc8ff6b37",
+  "outboundAuthProfileId": "95dc9e52-7ca5-4ad9-858d-a2d78ae1e5bd",
   "serviceSlug": "finance-micro",
   "pathPrefix": "/finance-micro/api",
   "stripPrefix": 1,
@@ -195,7 +196,10 @@ API حاکمیتی Manifest هیچ‌گاه با Import، کاتالوگ فعا�
 
 1. `outbound-connection`: آدرس پایه مقصد/token endpoint و الزام TLS؛
 2. `outbound-auth-profile`: روش دریافت و parse token و فقط reference راز؛
-3. `service-target`: اتصال route به `outboundAuthProfileId`.
+3. `proxy-route`: انتخاب `serviceTargetId` و `outboundAuthProfileId` مستقل.
+
+Auth Profile روی خود Route قرار دارد؛ بنابراین یک Target و یک Microfrontend می‌توانند هر
+تعداد Route Legacy و Forward را هم‌زمان داشته باشند.
 
 نمونه پروفایل:
 

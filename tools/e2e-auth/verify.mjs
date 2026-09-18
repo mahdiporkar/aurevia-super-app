@@ -144,7 +144,8 @@ async function register(session,mode) {
   else target=await adminApi(session,'/service-targets/'+target.id+'?version='+target.version,'PUT',targetRequest);
   const routes=await adminApi(session,'/proxy-routes');
   let route=routes.find(route=>route.code==='e2e-'+mode);
-  const routeRequest={code:'e2e-'+mode,panelId:panel.id,serviceTargetId:target.id,serviceSlug:key,pathPrefix:'/api/proxy/'+key,
+  const routeRequest={code:'e2e-'+mode,panelId:panel.id,serviceTargetId:target.id,
+    outboundAuthProfileId:profile.id,serviceSlug:key,pathPrefix:'/api/proxy/'+key,
     stripPrefix:0,rewritePattern:'^/api/proxy/'+key,rewriteReplacement:'/'+key+'-service',
     priority:100,allowedMethods:['GET'],preserveHost:false,retryEnabled:false,maxRetries:0,active:true};
   if(!route)route=await adminApi(session,'/proxy-routes','POST',routeRequest);

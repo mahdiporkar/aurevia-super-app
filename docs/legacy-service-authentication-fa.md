@@ -81,16 +81,14 @@ Token endpoint: https://legacy-auth.company.example/api/v1/hr/login
 
 ### ۱. تعریف Token Connection
 
-نسخه فعلی BFF یک connection از پیش تأییدشده را از runtime می‌خواند:
+برای هر سرویس Legacy یک اتصال مستقل در صفحه «اتصال‌های خروجی» ثبت می‌شود. نمونه:
 
 ```dotenv
-LEGACY_TOKEN_CONNECTION_REF=connection://legacy-auth
-LEGACY_TOKEN_CONNECTION_URL=https://legacy-auth.company.example
+Connection Ref: connection://legacy/hr
+Base URL:      https://legacy-auth.company.example
 ```
 
-در پروفایل فقط همین reference و path نسبی `/api/v1/hr/login` ثبت می‌شود. `tokenEndpointPath` نباید scheme، hostname، query، fragment، `..`، backslash، percent-encoding یا `//` داشته باشد. HTTP فقط برای localhost توسعه‌ای و با گزینه insecure مجاز است.
-
-متغیرهای `LEGACY_*` در compose فعلی به‌طور پیش‌فرض به BFF map نشده‌اند؛ برای دموی محلی باید آن‌ها را صریحاً به environment سرویس BFF اضافه و سرویس را restart کرد. این کار build کد نمی‌خواهد.
+در پروفایل فقط همین reference و path نسبی `/api/v1/hr/login` ثبت می‌شود. `tokenEndpointPath` نباید scheme، hostname، query، fragment، `..`، backslash، percent-encoding یا `//` داشته باشد. host/port اتصال باید در `LEGACY_ALLOWED_HOSTS` و `LEGACY_ALLOWED_PORTS` استقرار BFF مجاز باشد؛ HTTP فقط برای محیط توسعه‌ای و با گزینه insecure مجاز است.
 
 ### ۲. ثبت امن credential
 
@@ -106,7 +104,8 @@ secret://legacy/hr-prod
 {
   "secret://legacy/hr-prod": {
     "username": "demo-user",
-    "password": "replace-outside-git"
+    "password": "replace-outside-git",
+    "version": "v1"
   }
 }
 ```
@@ -157,14 +156,15 @@ Target را به Operational Gateway مورد اعتماد وصل کنید، ن�
 |---|---|
 | نام | `hr-legacy` |
 | Gateway base URL | URL ثابت Operational Gateway |
-| Outbound auth profile | پروفایل مرحله قبل |
 | وضعیت | ابتدا غیرفعال |
 
 hostname باید در `aurevia.routing.approved-gateway-hosts` باشد. نگاشت IP سرویس در Gateway باقی می‌ماند تا BFF به open proxy تبدیل نشود.
 
 ### ۶. تعریف Proxy Route و Operation
 
-Route ورودی MFE را به target وصل کرده و برای هر API operation صریح بسازید:
+Route ورودی MFE را به target وصل کرده، Auth Profile را روی همان Route انتخاب کنید و برای هر
+API operation صریح بسازید. Auth Profile دیگر خصوصیت Target نیست؛ بنابراین یک Target واحد
+می‌تواند هم Routeهای Legacy و هم Routeهای Forward داشته باشد:
 
 | Method | Public path | Gateway path | Resource | Action |
 |---|---|---|---|---|
@@ -173,6 +173,11 @@ Route ورودی MFE را به target وصل کرده و برای هر API opera
 | `GET` | `/hr-micro/api/v1/payroll` | `/api/v1/hr/payroll` | `data_resource:hr-payroll` | `read` |
 
 route عمومی، wildcard گسترده یا fallback بدون operation تعریف نکنید. هر method/path باید Resource و Action مشخص داشته باشد و OpenFGA پیش از secret، token و Gateway بررسی می‌شود.
+
+تعداد Routeهای هر Micro App محدود نیست. برای نمونه می‌توانید
+`/api/proxy/hr/legacy/**` را با `LEGACY_SERVICE_TOKEN` و
+`/api/proxy/hr/modern/**` را با `FORWARD_USER_TOKEN` به همان Target متصل کنید. اگر Prefixها
+یکسان‌اند، Operationها باید با Method/Pattern از هم جدا باشند یا Priority صریح داشته باشند.
 
 ### ۷. دسترسی، تست و فعال‌سازی
 
@@ -203,11 +208,12 @@ X-Internal-Legacy-Authorization: Bearer <legacy-service-token>
 | backend جدید پشت Gateway | معمولاً BFF خیر | تغییر configuration در Gateway |
 | قرارداد توکن اختصاصی جدید | بله | پیاده‌سازی و انتشار adapter |
 
-### محدودیت فعلی و Self-Service هدف
+### Self-Service چندسرویسی و مرز امنیتی
 
-نسخه فعلی تنها یک `LEGACY_TOKEN_CONNECTION_REF/URL` سراسری دارد؛ ادمین نمی‌تواند hostname دلخواه را فقط از UI تعریف کند. این مرز عمداً جلوی SSRF را می‌گیرد، ولی self-service چندسرویسی را محدود می‌کند.
-
-برای self-service کامل باید Outbound Connection Registry مجزا شامل `connectionRef`، `baseUrl`، TLS/truststore، client certificate، allowed paths، timeout، environment، owner و version ساخته شود. ایجاد یا تغییر connection باید approval امنیتی، تست اتصال، audit، محافظت secret و allowlist/egress policy داشته باشد؛ Auth Profile فقط به connection تأییدشده ارجاع می‌دهد.
+Outbound Connection Registry چند اتصال مستقل را پشتیبانی می‌کند و Auth Profile فقط به
+connection تأییدشده ارجاع می‌دهد. افزودن hostname جدید build کد نمی‌خواهد، اما برای جلوگیری
+از SSRF باید egress و `LEGACY_ALLOWED_HOSTS/PORTS` محیط نیز آن را مجاز کنند. Secret واقعی،
+TLS trust و client certificate همچنان مسئولیت Secret Store و تنظیمات امن استقرار هستند.
 
 ### تفکیک مسئولیت
 
