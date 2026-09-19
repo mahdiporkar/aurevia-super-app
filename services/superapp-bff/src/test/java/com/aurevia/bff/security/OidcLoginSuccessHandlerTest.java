@@ -8,7 +8,8 @@ import com.aurevia.bff.api.AuthorizationServiceClient;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -27,19 +28,24 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 class OidcLoginSuccessHandlerTest {
-  @Test void removesAuthorizedClientAfterMovingTokensToVault() {
+  @ParameterizedTest
+  @ValueSource(strings={"sub","employee_id"})
+  void syncsTheSessionSubjectAndRemovesAuthorizedClientAfterMovingTokensToVault(String subjectClaim) {
     ServerOAuth2AuthorizedClientRepository clients=mock(ServerOAuth2AuthorizedClientRepository.class);
     TokenVaultService vault=mock(TokenVaultService.class);
     AuthorizationServiceClient authorization=mock(AuthorizationServiceClient.class);
-    ClientRegistration registration=registration().build();
+    ClientRegistration registration=registration().userNameAttributeName(subjectClaim)
+        .providerConfigurationMetadata(Map.of(
+            DynamicClientRegistrationRepository.SUBJECT_CLAIM,subjectClaim)).build();
     Instant now=Instant.now();
     var access=new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER,"plain-access-token",
         now,now.plusSeconds(300));
     var authorized=new OAuth2AuthorizedClient(registration,"subject-1",access,
         new OAuth2RefreshToken("plain-refresh-token",now));
     var idToken=new OidcIdToken("plain-id-token",now,now.plusSeconds(300),Map.of(
-        "sub","subject-1","iss","https://issuer.example","preferred_username","alice"));
-    var user=new DefaultOidcUser(List.of(new SimpleGrantedAuthority("ROLE_USER")),idToken,"sub");
+        "sub","subject-1","employee_id","employee-42","iss","https://issuer.example",
+        "preferred_username","alice"));
+    var user=new DefaultOidcUser(List.of(new SimpleGrantedAuthority("ROLE_USER")),idToken,subjectClaim);
     var authentication=new OAuth2AuthenticationToken(user,user.getAuthorities(),"public-iam");
     var exchange=MockServerWebExchange.from(MockServerHttpRequest.get("/login/oauth2/code/public-iam").build());
     var webExchange=new WebFilterExchange(exchange,ignored->Mono.empty());
@@ -54,6 +60,9 @@ class OidcLoginSuccessHandlerTest {
         .onAuthenticationSuccess(webExchange,authentication)).verifyComplete();
 
     verify(clients).removeAuthorizedClient("public-iam",authentication,exchange);
+    verify(authorization).syncLogin(org.mockito.ArgumentMatchers.argThat(identity->
+        SessionIdentity.from(authentication).subject().equals(identity.get("subject"))
+            && idToken.getClaimAsString(subjectClaim).equals(identity.get("subject"))));
     verify(vault).store(org.mockito.ArgumentMatchers.argThat(tokens ->
         "plain-access-token".equals(tokens.accessToken())
             && "plain-refresh-token".equals(tokens.refreshToken())));

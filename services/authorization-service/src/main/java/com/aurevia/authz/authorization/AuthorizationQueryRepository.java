@@ -15,7 +15,8 @@ public interface AuthorizationQueryRepository {
       String routeBasePath,String description,String icon,String serviceSlug,String defaultRouteId,
       int sortOrder,String artifactVersion,String remoteEntryUrl,String artifactRemoteName,
       String artifactExposedModule,String artifactContractVersion,String artifactIntegrity,
-      String classification,String resourceDefinitionMode,String manifestJson) {}
+      String classification,String resourceDefinitionMode,String manifestJson,
+      String discoveryResourceKey) {}
   record PermissionCandidate(String resourceKey,String resourceType,String actionKey) {}
   record ResourceRecord(UUID id,UUID parentId,String resourceKey,String type,String nameFa,
       String nameEn,String ownerDomain,String classification) {}

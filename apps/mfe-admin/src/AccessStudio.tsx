@@ -1,13 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Badge, Button, Card, Col, Descriptions, Divider, Drawer, Empty, Form, Input,
   InputNumber, Modal, Progress, Row, Segmented, Select, Space, Statistic, Switch, Table,
   Tag, Tree, Typography, Popconfirm, message,
 } from 'antd';
 import { adminApi } from './api';
+import { grantProjection } from './grant-projection';
 
 type RowData = Record<string, any>;
-type SubjectType = 'USER' | 'GROUP' | 'ROLE';
+type SubjectType = 'USER' | 'GROUP' | 'ACCESS_GROUP' | 'ROLE';
 const resourceTypes = ['APPLICATION','MODULE','PAGE','UI_COMPONENT','FIELD','BUSINESS_RESOURCE','EXTERNAL_RESOURCE','API_RESOURCE','DATA_RESOURCE','DATA_GOVERNANCE_RESOURCE'] as const;
 type ResourceMeta={label:string;color:string;icon:string;hint:string};
 const typeMeta: Record<string,ResourceMeta> & Record<(typeof resourceTypes)[number],ResourceMeta> = {
@@ -30,6 +31,7 @@ function TypeTag({type}:{type:string}){const meta=typeMeta[type]??{label:type,co
 export function AccessStudio(){
   const[resources,setResources]=useState<RowData[]>([]),[actions,setActions]=useState<RowData[]>([]);
   const[users,setUsers]=useState<RowData[]>([]),[groups,setGroups]=useState<RowData[]>([]),[roles,setRoles]=useState<RowData[]>([]);
+  const[accessGroups,setAccessGroups]=useState<RowData[]>([]);
   const[panels,setPanels]=useState<RowData[]>([]);
   const[developmentMutationsEnabled,setDevelopmentMutationsEnabled]=useState(false);
   const[selected,setSelected]=useState<RowData>(),[loading,setLoading]=useState(true),[error,setError]=useState<string>();
@@ -38,11 +40,14 @@ export function AccessStudio(){
   const[editing,setEditing]=useState<RowData>(),[form]=Form.useForm();
   const[subjectType,setSubjectType]=useState<SubjectType>('USER'),[subjectId,setSubjectId]=useState<string>();
   const[grants,setGrants]=useState<RowData[]>([]),[grantLoading,setGrantLoading]=useState(false);
+  const grantSubject=useRef<string|undefined>(undefined),grantRequest=useRef(0);
+  useEffect(()=>()=>{grantSubject.current=undefined;grantRequest.current+=1},[]);
 
   const load=useCallback(async()=>{setLoading(true);setError(undefined);try{
-    const[r,a,u,g,ro,p,capabilities]=await Promise.all([api<RowData[]>('/resource-tree'),api<RowData[]>('/actions'),api<RowData[]>('/users'),api<RowData[]>('/directory-groups'),api<RowData[]>('/roles'),api<RowData[]>('/panels'),api<{developmentMutationsEnabled:boolean}>('/resource-tree/capabilities')]);
+    const[r,a,u,g,ro,p,capabilities,ag]=await Promise.all([api<RowData[]>('/resource-tree'),api<RowData[]>('/actions'),api<RowData[]>('/users'),api<RowData[]>('/directory-groups'),api<RowData[]>('/roles'),api<RowData[]>('/panels'),api<{developmentMutationsEnabled:boolean}>('/resource-tree/capabilities'),api<RowData[]>('/ou-access/access-groups')]);
     setResources(r.map((item:RowData)=>({...item,actions:Array.isArray(item.actions)?item.actions:JSON.parse(item.actions_json??'[]')})));setActions(a);setUsers(u);setGroups(g);setRoles(ro);setPanels(p);
     setDevelopmentMutationsEnabled(capabilities.developmentMutationsEnabled);
+    setAccessGroups(ag);
   }catch(reason){setError((reason as Error).message)}finally{setLoading(false)}},[]);
   useEffect(()=>{void load()},[load]);
 
@@ -53,27 +58,41 @@ export function AccessStudio(){
   const visibleIds=useMemo(()=>{if(!query&&typeFilter==='ALL')return new Set(activeResources.map(r=>r.id));const ids=new Set(filteredIds),byId=new Map(activeResources.map(r=>[r.id,r]));for(const id of filteredIds){let p=byId.get(id)?.parent_id;while(p){ids.add(p);p=byId.get(p)?.parent_id}}return ids},[activeResources,filteredIds,query,typeFilter]);
   const tree=useMemo(()=>{const nodes=new Map<string,any>();activeResources.filter(r=>visibleIds.has(r.id)).forEach(r=>nodes.set(r.id,{key:r.id,title:<Space size={6}><span style={{color:typeMeta[r.type]?.color}}>{typeMeta[r.type]?.icon}</span><span>{r.name_fa}</span><Typography.Text type="secondary" style={{fontSize:11}}>{r.resource_key}</Typography.Text>{r.panel_id&&inactivePanelIds.has(r.panel_id)&&<Tag>پنل غیرفعال</Tag>}{r.grant_count>0&&<Badge count={r.grant_count} color="#1677ff"/>}</Space>,children:[]}));const roots:any[]=[];activeResources.filter(r=>visibleIds.has(r.id)).forEach(r=>{const node=nodes.get(r.id);if(r.parent_id&&nodes.has(r.parent_id))nodes.get(r.parent_id).children.push(node);else roots.push(node)});return roots},[activeResources,inactivePanelIds,visibleIds]);
   const stats=useMemo(()=>({total:activeResources.length,assigned:activeResources.filter(r=>r.grant_count>0).length,coverage:activeResources.length?Math.round(activeResources.filter(r=>r.grant_count>0).length/activeResources.length*100):0}),[activeResources]);
-  const subjects=subjectType==='USER'?users:subjectType==='GROUP'?groups:roles;
-  const subjectLabel=(s:RowData)=>subjectType==='USER'?(s.display_name||s.username):subjectType==='GROUP'?s.display_name:(s.name_fa||s.role_key);
+  const subjects=subjectType==='USER'?users:subjectType==='GROUP'?groups:subjectType==='ACCESS_GROUP'?accessGroups:roles;
+  const subjectLabel=(s:RowData)=>subjectType==='USER'?(s.display_name||s.username):subjectType==='GROUP'?`${s.display_name} — ${s.issuer}`:subjectType==='ACCESS_GROUP'?`${s.name} — ${s.code}`:(s.name_fa||s.role_key);
 
   const openEditor=(resource?:RowData,parent?:RowData)=>{setEditing(resource);form.setFieldsValue(resource?{
     resourceKey:resource.resource_key,type:resource.type,parentId:resource.parent_id,nameFa:resource.name_fa,nameEn:resource.name_en,ownerDomain:resource.owner_domain,classification:resource.classification,externalSystem:resource.external_system,externalType:resource.external_type,externalId:resource.external_id,source:resource.source,panelId:resource.panel_id,visibilityEnabled:resource.visibility_enabled,
   }:{type:parent?'PAGE':'APPLICATION',parentId:parent?.id,panelId:parent?.panel_id,classification:'INTERNAL',source:'ADMIN',visibilityEnabled:true});setEditorOpen(true)};
   const save=async(values:RowData)=>{const baseline=editing?{resourceKey:editing.resource_key,type:editing.type,parentId:editing.parent_id,nameFa:editing.name_fa,nameEn:editing.name_en,ownerDomain:editing.owner_domain,classification:editing.classification,externalSystem:editing.external_system,externalType:editing.external_type,externalId:editing.external_id,source:editing.source,panelId:editing.panel_id,metadata:editing.metadata}:{};try{await api(editing?`/resources/${editing.id}?version=${editing.version}`:'/resources',{method:editing?'PUT':'POST',body:JSON.stringify({...baseline,...values})});message.success('منبع با موفقیت ذخیره شد');setEditorOpen(false);form.resetFields();await load()}catch(reason){message.error((reason as Error).message)}};
   const toggleAction=async(action:RowData,on:boolean)=>{if(!selected)return;try{await api<void>(`/resources/${selected.id}/actions/${action.id}`,{method:on?'PUT':'DELETE'});await load();setSelected((await api<RowData[]>('/resource-tree')).map((r:RowData)=>({...r,actions:Array.isArray(r.actions)?r.actions:JSON.parse(r.actions_json??'[]')})).find((r:RowData)=>r.id===selected.id));message.success('عملیات منبع به‌روزرسانی شد')}catch(reason){message.error((reason as Error).message)}};
-  const loadGrants=async(type:SubjectType,id:string)=>{setGrantLoading(true);try{setGrants(await api<RowData[]>(`/subjects/${type}/${id}/grants`))}catch(reason){setGrants([]);message.error((reason as Error).message)}finally{setGrantLoading(false)}};
-  const chooseSubject=(id:string)=>{setSubjectId(id);void loadGrants(subjectType,id)};
-  const changeSubjectType=(value:string|number)=>{const next=value as SubjectType;setSubjectType(next);setSubjectId(undefined);setGrants([])};
+  const loadGrants=useCallback(async(type:SubjectType,id:string,quiet=false)=>{
+    const key=`${type}:${id}`;
+    if(grantSubject.current!==key)return;
+    const request=++grantRequest.current;
+    if(!quiet)setGrantLoading(true);
+    try{const result=await api<RowData[]>(`/subjects/${type}/${id}/grants`);
+      if(grantSubject.current===key&&grantRequest.current===request)setGrants(result);
+    }catch(reason){if(grantSubject.current===key&&grantRequest.current===request){setGrants([]);message.error((reason as Error).message)}}
+    finally{if(grantSubject.current===key&&grantRequest.current===request)setGrantLoading(false)}
+  },[]);
+  const chooseSubject=(id:string)=>{grantSubject.current=`${subjectType}:${id}`;setSubjectId(id);setGrants([]);void loadGrants(subjectType,id)};
+  const changeSubjectType=(value:string|number)=>{grantSubject.current=undefined;grantRequest.current+=1;const next=value as SubjectType;setSubjectType(next);setSubjectId(undefined);setGrants([]);setGrantLoading(false)};
+  useEffect(()=>{
+    if(!subjectId||!grants.some(item=>grantProjection(item).pending))return;
+    const timer=window.setTimeout(()=>void loadGrants(subjectType,subjectId,true),2500);
+    return()=>window.clearTimeout(timer);
+  },[grants,subjectType,subjectId,loadGrants]);
   const grant=async(action:RowData)=>{if(!selected||!subjectId)return;try{await api('/grants',{method:'POST',body:JSON.stringify({subjectType,subjectId,resourceId:selected.id,actionId:action.id,relation:relationFor[action.action_key]??action.action_key,expiresAt:null})});message.success('دسترسی ثبت شد و برای همگام‌سازی با OpenFGA در صف قرار گرفت');await loadGrants(subjectType,subjectId);await load()}catch(reason){message.error((reason as Error).message)}};
   const revoke=async(grantId:string)=>{try{await api(`/grants/${grantId}`,{method:'DELETE'});message.success('لغو دسترسی در صف همگام‌سازی OpenFGA قرار گرفت');if(subjectId)await loadGrants(subjectType,subjectId);await load()}catch(reason){message.error((reason as Error).message)}};
   const deprecate=async()=>{if(!selected)return;try{await api(`/resources/${selected.id}?version=${selected.version}`,{method:'DELETE'});message.success('منبع از درخت فعال حذف و به وضعیت DEPRECATED منتقل شد');setSelected(undefined);await load()}catch(reason){message.error((reason as Error).message)}};
-  const selectedGrants=grants.filter(g=>g.resource_id===selected?.id),grantedActions=new Set(selectedGrants.map(g=>g.action_id));
+  const selectedGrants=grants.filter(g=>g.resource_id===selected?.id);
   const selectedPanelMode=panels.find(panel=>panel.id===selected?.panel_id)?.resource_definition_mode;
   useEffect(()=>{if(selected&&!activeResources.some(resource=>resource.id===selected.id))setSelected(undefined)},[activeResources,selected]);
 
   return <Space direction="vertical" size={16} style={{width:'100%'}}>
     <Card styles={{body:{padding:20}}} style={{background:'linear-gradient(135deg,#f0f5ff 0%,#fff 55%,#f9f0ff 100%)'}}>
-      <Row gutter={[20,16]} align="middle"><Col flex="auto"><Typography.Title level={3} style={{margin:0}}>استودیوی دسترسی OpenFGA</Typography.Title><Typography.Text type="secondary">طراحی درخت منابع، تعریف عملیات و تخصیص دسترسی به کاربر، گروه یا نقش در یک نمای واحد</Typography.Text></Col><Col><Button onClick={()=>void load()} loading={loading}>همگام‌سازی نما</Button></Col><Col><Button type="primary" onClick={()=>openEditor()}>+ منبع جدید</Button></Col></Row>
+      <Row gutter={[20,16]} align="middle"><Col flex="auto"><Typography.Title level={3} style={{margin:0}}>استودیوی دسترسی OpenFGA</Typography.Title><Typography.Text type="secondary">طراحی درخت منابع، تعریف عملیات و تخصیص دسترسی به کاربر، گروه یا نقش در یک نمای واحد</Typography.Text></Col><Col><Button onClick={()=>{void load();if(subjectId)void loadGrants(subjectType,subjectId)}} loading={loading}>همگام‌سازی نما</Button></Col><Col><Button type="primary" onClick={()=>openEditor()}>+ منبع جدید</Button></Col></Row>
     </Card>
     {error&&<Alert showIcon type="error" message="دریافت درخت منابع ناموفق بود" description={error} action={<Button onClick={()=>void load()}>تلاش مجدد</Button>}/>} 
     {developmentMutationsEnabled&&<Alert showIcon type="warning" message="ویرایش توسعه‌ای درخت فعال است" description="افزودن، جابه‌جایی، تغییر عملیات و حذف نرم منابع Manifest مجاز است؛ انتشار بعدی Manifest می‌تواند این تغییرها را بازنویسی کند."/>}
@@ -89,8 +108,8 @@ export function AccessStudio(){
         </Card>
         <Card title="تخصیص دسترسی" extra={<Tag color="blue">OpenFGA + Outbox</Tag>}>
           <Alert type="info" showIcon message="ابتدا نوع و هویت را انتخاب کنید؛ سپس عملیات همین منبع را فعال یا لغو کنید." style={{marginBottom:16}}/>
-          <Row gutter={[12,12]}><Col xs={24} md={8}><Segmented block value={subjectType} onChange={changeSubjectType} options={[{label:'کاربر',value:'USER'},{label:'گروه',value:'GROUP'},{label:'نقش',value:'ROLE'}]}/></Col><Col xs={24} md={16}><Select showSearch optionFilterProp="label" value={subjectId} onChange={chooseSubject} style={{width:'100%'}} placeholder={`انتخاب ${subjectType==='USER'?'کاربر':subjectType==='GROUP'?'گروه':'نقش'}`} options={subjects.map(s=>({value:s.id,label:subjectLabel(s)}))}/></Col></Row>
-          <Divider/>{!subjectId?<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="برای مشاهده و ویرایش دسترسی‌ها یک هویت انتخاب کنید"/>:<Table<RowData> size="small" loading={grantLoading} pagination={false} rowKey="id" dataSource={selected.actions as RowData[]} columns={[{title:'عملیات',render:(_,a)=><Space><strong>{a.nameFa}</strong><Tag>{a.key}</Tag></Space>},{title:'وضعیت',render:(_,a)=>grantedActions.has(a.id)?<Tag color="green">اعطا شده</Tag>:<Tag>بدون دسترسی</Tag>},{title:'',align:'left',render:(_,a)=>{const existing=selectedGrants.find(g=>g.action_id===a.id);return existing?<Button danger size="small" onClick={()=>void revoke(existing.id)}>لغو</Button>:<Button type="primary" ghost size="small" onClick={()=>void grant({id:a.id,action_key:a.key})}>اعطا</Button>}}]}/>} 
+          <Row gutter={[12,12]}><Col xs={24} md={8}><Select style={{width:'100%'}} value={subjectType} onChange={changeSubjectType} options={[{label:'کاربر',value:'USER'},{label:'گروه هویتی',value:'GROUP'},{label:'گروه OU',value:'ACCESS_GROUP'},{label:'نقش',value:'ROLE'}]}/></Col><Col xs={24} md={16}><Select showSearch optionFilterProp="label" value={subjectId} onChange={chooseSubject} style={{width:'100%'}} placeholder={`انتخاب ${subjectType==='USER'?'کاربر':subjectType==='GROUP'?'گروه هویتی':subjectType==='ACCESS_GROUP'?'گروه OU':'نقش'}`} options={subjects.map(s=>({value:s.id,label:subjectLabel(s)}))}/></Col></Row>
+          <Divider/>{!subjectId?<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="برای مشاهده و ویرایش دسترسی‌ها یک هویت انتخاب کنید"/>:<Table<RowData> size="small" loading={grantLoading} pagination={false} rowKey="id" dataSource={selected.actions as RowData[]} columns={[{title:'عملیات',render:(_,a)=><Space><strong>{a.nameFa}</strong><Tag>{a.key}</Tag></Space>},{title:'وضعیت همگام‌سازی',render:(_,a)=>{const existing=selectedGrants.find(g=>g.action_id===a.id);if(!existing)return <Tag>بدون تخصیص</Tag>;const projection=grantProjection(existing);return <Space direction="vertical" size={0}><Tag color={projection.color}>{projection.label} ({projection.status})</Tag>{projection.error&&<Typography.Text type="danger">{projection.error}</Typography.Text>}</Space>}},{title:'',align:'left',render:(_,a)=>{const existing=selectedGrants.find(g=>g.action_id===a.id);return existing?<Button danger size="small" onClick={()=>void revoke(existing.id)}>لغو</Button>:<Button type="primary" ghost size="small" onClick={()=>void grant({id:a.id,action_key:a.key})}>اعطا</Button>}}]}/>} 
         </Card>
       </Space>:<Card styles={{body:{minHeight:560,display:'grid',placeItems:'center'}}}><Empty description="یک گره از درخت انتخاب کنید"><Button type="primary" onClick={()=>openEditor()}>ساخت اولین منبع</Button></Empty></Card>}</Col>
     </Row>

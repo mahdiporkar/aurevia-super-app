@@ -27,6 +27,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class AuthorizationDecisionServiceManifestTest {
+  private static final String SUPERSET_ROOT_KEY="external_resource:superset-public";
+  private static final UUID SUPERSET_ROOT_ID=
+      UUID.fromString("33333333-3333-3333-3333-333333333333");
   private final RelationshipAuthorizationPort relationships=mock(RelationshipAuthorizationPort.class);
   private final AuthorizationQueryRepository queries=mock(AuthorizationQueryRepository.class);
   private AuthorizationDecisionService service;
@@ -126,6 +129,165 @@ class AuthorizationDecisionServiceManifestTest {
     verify(relationships,never()).check(anyString(),anyString(),anyString());
   }
 
+  @Test void supersetAssetGrantExposesOnlyReportsLandingWithoutApplicationPermission() {
+    String asset="external_resource:superset/operation-east/dashboard/7";
+    when(queries.activePanels()).thenReturn(List.of(reportsPanel("reports")));
+    when(queries.activeResources()).thenReturn(supersetCatalog(asset));
+    when(queries.permissionCandidates()).thenReturn(List.of(
+        new AuthorizationQueryRepository.PermissionCandidate(asset,"EXTERNAL_RESOURCE","view"),
+        new AuthorizationQueryRepository.PermissionCandidate(
+            "application:aurevia/reports","APPLICATION","view")));
+    allowBatchObjects(Set.of(asset));
+
+    var manifest=service.manifest("user-1","https://issuer.example");
+
+    assertThat(manifest.panels()).extracting(value->value.slug()).containsExactly("reports");
+    assertThat(manifest.uiCatalog().modules()).hasSize(1);
+    var module=manifest.uiCatalog().modules().getFirst();
+    assertThat(module.routes()).extracting(route->route.id()).containsExactly("index");
+    assertThat(module.routes().getFirst().resource()).isEqualTo(asset);
+    assertThat(manifest.permissions()).containsEntry(asset,List.of("view"))
+        .doesNotContainKey("application:aurevia/reports");
+    assertThat(service.check(new CheckRequest("user-1","https://issuer.example",
+        "application:aurevia/reports","view",Map.of(),"correlation-1"))
+        .decision().result()).isEqualTo("DENY");
+  }
+
+  @Test void chartViewAlsoExposesReportsAndRevokingItRemovesTheModule() {
+    String asset="external_resource:superset/secondary/chart/13";
+    when(queries.activePanels()).thenReturn(List.of(reportsPanel("reports")));
+    when(queries.activeResources()).thenReturn(supersetCatalog(asset));
+    when(queries.permissionCandidates()).thenReturn(List.of(
+        new AuthorizationQueryRepository.PermissionCandidate(asset,"EXTERNAL_RESOURCE","view")));
+    allowBatchObjects(Set.of(asset));
+    var before=service.manifest("user-1","https://issuer.example");
+    assertThat(before.uiCatalog().modules()).hasSize(1);
+
+    allowBatchObjects(Set.of());
+    var after=service.manifest("user-1","https://issuer.example");
+    assertThat(after.uiCatalog().modules()).isEmpty();
+    assertThat(after.panels()).isEmpty();
+    assertThat(after.version()).isNotEqualTo(before.version());
+  }
+
+  @Test void permissionsOutsideTheDiscoverySubtreeDoNotExposeReports() {
+    when(queries.activePanels()).thenReturn(List.of(reportsPanel("reports")));
+    for(String key:List.of("external_resource:other/operation/dashboard/7",
+        "external_resource:superset/integration","page:hr.employees")) {
+      when(queries.activeResources()).thenReturn(
+          List.of(supersetCatalog().getFirst(),unownedResource(key)));
+      when(queries.permissionCandidates()).thenReturn(List.of(
+          new AuthorizationQueryRepository.PermissionCandidate(key,"EXTERNAL_RESOURCE","view")));
+      allowBatchObjects(Set.of(key));
+      assertThat(service.manifest("user-1","https://issuer.example").uiCatalog().modules())
+          .as(key).isEmpty();
+    }
+  }
+
+  @Test void panelWithoutDiscoverySubtreeStaysHiddenWhenNoDeclaredRouteIsAuthorized() {
+    String asset="external_resource:superset/operation/dashboard/7";
+    when(queries.activePanels()).thenReturn(List.of(reportsPanel("reports",null)));
+    when(queries.activeResources()).thenReturn(supersetCatalog(asset));
+    when(queries.permissionCandidates()).thenReturn(List.of(
+        new AuthorizationQueryRepository.PermissionCandidate(asset,"EXTERNAL_RESOURCE","view")));
+    allowBatchObjects(Set.of(asset));
+    assertThat(service.manifest("user-1","https://issuer.example").uiCatalog().modules()).isEmpty();
+  }
+
+  @Test void authorizedDeclaredRoutesSuppressTheDiscoverabilityLandingFallback() {
+    String asset="external_resource:superset/operation/dashboard/7";
+    when(queries.activePanels()).thenReturn(List.of(reportsPanel("reports")));
+    when(queries.activeResources()).thenReturn(supersetCatalog(asset));
+    when(queries.permissionCandidates()).thenReturn(List.of(
+        new AuthorizationQueryRepository.PermissionCandidate(asset,"EXTERNAL_RESOURCE","view"),
+        new AuthorizationQueryRepository.PermissionCandidate(
+            "application:aurevia/reports","APPLICATION","admin")));
+    allowBatchObjects(Set.of(asset,"application:aurevia/reports"));
+
+    var module=service.manifest("user-1","https://issuer.example").uiCatalog().modules().getFirst();
+
+    assertThat(module.routes()).extracting(route->route.id()).containsExactly("admin");
+    assertThat(module.routes().getFirst().resource()).isEqualTo("application:aurevia/reports");
+  }
+
+  @Test void landingGuardFallsBackToAHeldActionWhenTheDeclaredActionIsNotGranted() {
+    String asset="external_resource:superset/operation/dashboard/7";
+    when(queries.activePanels()).thenReturn(List.of(reportsPanel("reports")));
+    when(queries.activeResources()).thenReturn(supersetCatalog(asset));
+    when(queries.permissionCandidates()).thenReturn(List.of(
+        new AuthorizationQueryRepository.PermissionCandidate(asset,"EXTERNAL_RESOURCE","update")));
+    allowBatchObjects(Set.of(asset));
+
+    var module=service.manifest("user-1","https://issuer.example").uiCatalog().modules().getFirst();
+
+    assertThat(module.routes()).singleElement()
+        .satisfies(route->{
+          assertThat(route.id()).isEqualTo("index");
+          assertThat(route.resource()).isEqualTo(asset);
+          assertThat(route.action()).isEqualTo("update");
+        });
+  }
+
+  @Test void theLowestOrderedAuthorizedDescendantIsTheDeterministicLandingGuard() {
+    String first="external_resource:superset/operation/chart/1";
+    String second="external_resource:superset/operation/dashboard/9";
+    when(queries.activePanels()).thenReturn(List.of(reportsPanel("reports")));
+    when(queries.activeResources()).thenReturn(supersetCatalog(second,first));
+    when(queries.permissionCandidates()).thenReturn(List.of(
+        new AuthorizationQueryRepository.PermissionCandidate(first,"EXTERNAL_RESOURCE","view"),
+        new AuthorizationQueryRepository.PermissionCandidate(second,"EXTERNAL_RESOURCE","view")));
+    allowBatchObjects(Set.of(first,second));
+
+    var manifest=service.manifest("user-1","https://issuer.example");
+
+    assertThat(manifest.uiCatalog().modules().getFirst().routes().getFirst().resource())
+        .isEqualTo(first);
+    // Discoverability never widens the permission set it was derived from.
+    assertThat(manifest.permissions()).containsOnlyKeys(first,second);
+  }
+
+  private static AuthorizationQueryRepository.PanelRecord reportsPanel(String slug) {
+    return reportsPanel(slug,SUPERSET_ROOT_KEY);
+  }
+
+  private static AuthorizationQueryRepository.PanelRecord reportsPanel(String slug,
+      String discoveryResourceKey) {
+    return new AuthorizationQueryRepository.PanelRecord(
+        UUID.fromString("22222222-2222-2222-2222-222222222222"),"REPORTS",slug,
+        "Reports","Reports","/reports","Reports catalog","dashboard",
+        "reports","index",20,"1.0.0","https://static.example.test/reports/remoteEntry.js",
+        "aurevia_reports","./bootstrap","1",null,"REAL","HYBRID","""
+        {
+          "routes":[
+            {"key":"index","path":"","requiredResource":"application:aurevia/reports","requiredAction":"view"},
+            {"key":"settings","path":"settings","requiredResource":"application:aurevia/reports","requiredAction":"view"},
+            {"key":"admin","path":"admin","requiredResource":"application:aurevia/reports","requiredAction":"admin"}
+          ],
+          "navigation":[{"key":"reports-menu","type":"PAGE","routeKey":"index","title":"Reports"}]
+        }
+        """,discoveryResourceKey);
+  }
+
+  /** Superset assets are registered as children of the logical Superset catalog resource. */
+  private static List<AuthorizationQueryRepository.ResourceRecord> supersetCatalog(
+      String... assetKeys) {
+    List<AuthorizationQueryRepository.ResourceRecord> catalog=new java.util.ArrayList<>();
+    catalog.add(new AuthorizationQueryRepository.ResourceRecord(SUPERSET_ROOT_ID,null,
+        SUPERSET_ROOT_KEY,"EXTERNAL_RESOURCE","سوپرست","Superset","reports","REAL"));
+    for(String key:assetKeys) {
+      catalog.add(new AuthorizationQueryRepository.ResourceRecord(
+          UUID.nameUUIDFromBytes(key.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+          SUPERSET_ROOT_ID,key,"EXTERNAL_RESOURCE",key,key,"reports","REAL"));
+    }
+    return List.copyOf(catalog);
+  }
+
+  private static AuthorizationQueryRepository.ResourceRecord unownedResource(String key) {
+    return new AuthorizationQueryRepository.ResourceRecord(
+        UUID.nameUUIDFromBytes(key.getBytes(java.nio.charset.StandardCharsets.UTF_8)),null,
+        key,"EXTERNAL_RESOURCE",key,key,"other","REAL");
+  }
+
   private void allowBatchObjects(Set<String> allowed) {
     when(relationships.checkBatch(anyList())).thenAnswer(invocation->{
       List<RelationshipCheck> checks=invocation.getArgument(0);
@@ -141,7 +303,8 @@ class AuthorizationDecisionServiceManifestTest {
         "مدیریت","Administration","/management","مدیریت سامانه","control",
         "admin","denied",10,"0.2.0",
         "https://static.example.test/admin/remoteEntry.js","aurevia_admin","./bootstrap",
-        "1.0",null,"REAL","HYBRID","""
+        "1.0",null,"REAL","HYBRID",// no discovery subtree: declared routes are the only path
+        """
         {
           "schemaVersion":"1.0",
           "microfrontend":{"key":"admin","name":"Administration","version":"0.2.0"},
@@ -156,6 +319,6 @@ class AuthorizationDecisionServiceManifestTest {
             {"key":"allowed-menu","type":"PAGE","routeKey":"allowed","title":"منابع","order":20}
           ]
         }
-        """);
+        """,null);
   }
 }

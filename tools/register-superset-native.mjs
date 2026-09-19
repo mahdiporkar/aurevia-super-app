@@ -56,12 +56,7 @@ for(const asset of assets){
   if(!grant)grant=await api('/superset-assets/'+asset.id+'/grants','POST',{subjectType:'USER',subjectId:user.id,level:'VIEW'});
   grants.push({assetId:asset.id,grantId:grant.id??grant.grantId});
 }
-// The Reports MFE itself needs view permission in addition to the three BI assets.
-const resources=await api('/resources');const actions=await api('/actions');const existingGrants=await api('/users/'+user.id+'/grants');
-const reportsResource=resources.find(resource=>resource.resource_key==='application:aurevia/reports');
-const view=actions.find(action=>action.action_key==='view');
-if(reportsResource&&view&&!existingGrants.some(grant=>grant.resource_id===reportsResource.id&&grant.action_key==='view'&&grant.status==='ACTIVE'))
-  await api('/grants','POST',{subjectType:'USER',subjectId:user.id,resourceId:reportsResource.id,actionId:view.id});
+// Asset grants also expose the Reports landing route; runtime access remains asset-scoped.
 const result=safeResponse({registeredAt:new Date().toISOString(),instances,mappingId:mapping.id,assets,grants,
   viewer:{username:viewerUsername,userId:user.id,subject:identity.subject,issuer:identity.issuer},reports},[password,viewerPassword]);
 writeFileSync('.tmp/superset-native/registration.json',JSON.stringify(result,null,2)+'\n');

@@ -42,14 +42,13 @@ public class IdentitySyncService {
       identities.addMembership(userId,groupId);
       current.add(groupId);
       if(!previous.contains(groupId)) {
-        identities.enqueueMembership(userId,groupId,subjectKey,group.externalId(),
+        identities.enqueueMembership(userId,groupId,subjectKey,
             "GROUP_MEMBERSHIP_WRITE",version);
       }
     }
     for(UUID removed:previous) {
       if(current.contains(removed)) continue;
-      identities.enqueueMembership(userId,removed,subjectKey,
-          identities.directoryGroupExternalId(removed),"GROUP_MEMBERSHIP_DELETE",version);
+      identities.enqueueMembership(userId,removed,subjectKey,"GROUP_MEMBERSHIP_DELETE",version);
       identities.removeMembership(userId,removed);
     }
     return new LoginIdentityResponse(userId,subjectKey,request.groups().size(),directoryResult.ouId(),

@@ -19,7 +19,8 @@ class JdbcIdentitySyncRepository implements IdentitySyncRepository {
   }
   @Override public Optional<UUID> directoryGroupId(String issuer,String externalId) {
     return database.sql("""
-        select id from directory_group where issuer=:issuer and external_id=:external
+        select id from directory_group where issuer=:issuer
+          and (external_id=:external or (:external like '/%' and normalized_path=:external))
         """).param("issuer",issuer).param("external",externalId).query(UUID.class).optional();
   }
   @Override public long incrementMembershipVersion(UUID userId) {
@@ -38,6 +39,16 @@ class JdbcIdentitySyncRepository implements IdentitySyncRepository {
   }
   @Override public UUID upsertDirectoryGroup(String issuer,String externalId,String path,
       String displayName) {
+    // A full-path OIDC claim may refer to a group imported with an opaque external ID.
+    // Resolve it only within the same issuer and preserve the stable group identity.
+    Optional<UUID> existing=directoryGroupId(issuer,externalId);
+    if(existing.isPresent()) {
+      return database.sql("""
+          update directory_group set normalized_path=:path,display_name=:displayName,
+            status='ACTIVE',sync_at=now() where id=:id returning id
+          """).param("id",existing.get()).param("path",path)
+          .param("displayName",displayName).query(UUID.class).single();
+    }
     return database.sql("""
         insert into directory_group(issuer,external_id,normalized_path,display_name,sync_at)
         values(:issuer,:externalId,:path,:displayName,now())
@@ -53,24 +64,20 @@ class JdbcIdentitySyncRepository implements IdentitySyncRepository {
         on conflict do nothing
         """).param("user",userId).param("group",groupId).update();
   }
-  @Override public String directoryGroupExternalId(UUID groupId) {
-    return database.sql("select external_id from directory_group where id=:id")
-        .param("id",groupId).query(String.class).single();
-  }
   @Override public void removeMembership(UUID userId,UUID groupId) {
     database.sql("delete from user_group_membership where user_id=:user and group_id=:group")
         .param("user",userId).param("group",groupId).update();
   }
   @Override public void enqueueMembership(UUID userId,UUID groupId,String subjectKey,
-      String groupExternalId,String event,long version) {
+      String event,long version) {
     database.sql("""
         insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
         values('group-membership',:user,:event,
           jsonb_build_object('user','user:'||:subjectKey,'relation','member',
-            'object','group:'||:groupExternal),
+            'object','group:directory/'||cast(:group as text)),
           :event||':'||:user||':'||:group||':'||:version)
         """).param("user",userId).param("group",groupId).param("event",event)
-        .param("subjectKey",subjectKey).param("groupExternal",groupExternalId)
+        .param("subjectKey",subjectKey)
         .param("version",version).update();
   }
 }

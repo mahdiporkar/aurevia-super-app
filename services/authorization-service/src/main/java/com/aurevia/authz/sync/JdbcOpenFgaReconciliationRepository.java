@@ -14,7 +14,8 @@ class JdbcOpenFgaReconciliationRepository implements OpenFgaReconciliationReposi
     Set<ReconciliationTuple> tuples=new LinkedHashSet<>();
     tuples.addAll(database.sql("""
       select case g.subject_type when 'USER' then 'user:'||u.canonical_user_id
-        when 'GROUP' then 'group:'||dg.external_id||'#member'
+        when 'GROUP' then 'group:directory/'||dg.id||'#member'
+        when 'ACCESS_GROUP' then 'group:'||lower(ag.code)||'#member'
         when 'ROLE' then 'role:'||ar.role_key||'#assignee' end "user",
         g.relation,
         case r.type when 'APPLICATION' then 'application:'||regexp_replace(r.resource_key,'^application:','')
@@ -22,9 +23,14 @@ class JdbcOpenFgaReconciliationRepository implements OpenFgaReconciliationReposi
           else 'resource:'||replace(r.resource_key,':','/') end object
       from authorization_grant g left join app_user u on g.subject_type='USER' and u.id=g.subject_id
       left join directory_group dg on g.subject_type='GROUP' and dg.id=g.subject_id
+      left join access_group ag on g.subject_type='ACCESS_GROUP' and ag.id=g.subject_id
       left join application_role ar on g.subject_type='ROLE' and ar.id=g.subject_id
       join resource r on r.id=g.resource_id
       where g.status='ACTIVE' and (g.expires_at is null or g.expires_at>now())
+        and ((g.subject_type='USER' and u.id is not null)
+          or (g.subject_type='GROUP' and dg.status='ACTIVE')
+          or (g.subject_type='ACCESS_GROUP' and ag.active)
+          or (g.subject_type='ROLE' and ar.status='ACTIVE'))
       """).query(ReconciliationTuple.class).list());
     tuples.addAll(database.sql("""
       select case p.type when 'APPLICATION' then 'application:'||regexp_replace(p.resource_key,'^application:','')
@@ -36,9 +42,9 @@ class JdbcOpenFgaReconciliationRepository implements OpenFgaReconciliationReposi
       from resource c join resource p on p.id=c.parent_id where c.status='ACTIVE'
       """).query(ReconciliationTuple.class).list());
     tuples.addAll(database.sql("""
-      select 'user:'||u.canonical_user_id "user",'member' relation,'group:'||g.external_id object
+      select 'user:'||u.canonical_user_id "user",'member' relation,'group:directory/'||g.id object
       from user_group_membership m join app_user u on u.id=m.user_id
-      join directory_group g on g.id=m.group_id
+      join directory_group g on g.id=m.group_id where g.status='ACTIVE'
       """).query(ReconciliationTuple.class).list());
     tuples.addAll(database.sql("""
       select distinct 'user:'||u.canonical_user_id "user",'member' relation,'group:'||lower(g.code) object
@@ -55,11 +61,18 @@ class JdbcOpenFgaReconciliationRepository implements OpenFgaReconciliationReposi
     tuples.addAll(database.sql("""
       select 'user:'||u.canonical_user_id "user",'assignee' relation,'role:'||r.role_key object
       from user_role_assignment x join app_user u on u.id=x.user_id
-      join application_role r on r.id=x.role_id where x.expires_at is null or x.expires_at>now()
+      join application_role r on r.id=x.role_id where r.status='ACTIVE'
+        and (x.expires_at is null or x.expires_at>now())
       union all
-      select 'group:'||g.external_id||'#member','assignee','role:'||r.role_key
+      select 'group:directory/'||g.id||'#member','assignee','role:'||r.role_key
       from group_role_assignment x join directory_group g on g.id=x.group_id
-      join application_role r on r.id=x.role_id where x.expires_at is null or x.expires_at>now()
+      join application_role r on r.id=x.role_id where r.status='ACTIVE' and g.status='ACTIVE'
+        and (x.expires_at is null or x.expires_at>now())
+      union all
+      select 'group:'||lower(g.code)||'#member','assignee','role:'||r.role_key
+      from access_group_role_assignment x join access_group g on g.id=x.access_group_id
+      join application_role r on r.id=x.role_id where r.status='ACTIVE' and g.active
+        and (x.expires_at is null or x.expires_at>now())
       """).query(ReconciliationTuple.class).list());
     return tuples;
   }

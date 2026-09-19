@@ -63,6 +63,7 @@ public class IdentityAdministrationService {
     if (repository.updateRoleStatus(id, version, active) != 1) {
       throw new OptimisticLockingFailureException("role changed or missing");
     }
+    repository.enqueueRoleStatus(id, version + 1, active);
     audit(actor, active ? "ROLE_ACTIVATED" : "ROLE_DEACTIVATED", "role", role.roleKey());
     return new MutationResult(id, version + 1);
   }

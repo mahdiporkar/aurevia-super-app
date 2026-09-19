@@ -1,6 +1,7 @@
 package com.aurevia.authz.sync;
 
 import com.aurevia.authz.openfga.RelationshipAuthorizationPort;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.List;
@@ -50,6 +51,13 @@ public final class OutboxReconciler {
   private final int claimTimeoutSeconds;
   private final Timer projectionLatency;
 
+  /*
+   * projectionLatency records both outcomes, so it cannot answer "how many projections
+   * actually reached OpenFGA". These counters separate the two outcomes explicitly.
+   */
+  private final Counter projectionApplied;
+  private final Counter projectionFailed;
+
   /**
    * False while startup reconciliation owns the outbox.
    * AtomicBoolean makes the transition safely visible to scheduler threads.
@@ -70,6 +78,16 @@ public final class OutboxReconciler {
     this.claimTimeoutSeconds = claimTimeoutSeconds;
     this.projectionLatency =
         metrics.timer("aurevia.openfga.projection.latency");
+
+    this.projectionApplied =
+        Counter.builder("aurevia.openfga.projection.applied")
+            .description("Outbox events successfully projected into OpenFGA")
+            .register(metrics);
+
+    this.projectionFailed =
+        Counter.builder("aurevia.openfga.projection.failed")
+            .description("Outbox events whose OpenFGA projection failed and will be retried")
+            .register(metrics);
 
     this.scheduledReconciliationEnabled =
         new AtomicBoolean(!reconcileOnStartup);
@@ -193,6 +211,8 @@ public final class OutboxReconciler {
      * another retry.
      */
     markApplied(event.id(), owner);
+
+    projectionApplied.increment();
   }
 
   private void markApplied(UUID id, UUID owner) {
@@ -209,6 +229,8 @@ public final class OutboxReconciler {
       UUID owner,
       String error
   ) {
+
+    projectionFailed.increment();
 
     outbox.markRetry(
         id,

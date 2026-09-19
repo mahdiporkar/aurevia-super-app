@@ -45,6 +45,9 @@ class AdminAuthorizationInterceptor implements HandlerInterceptor {
     if (("GET".equals(method) || "HEAD".equals(method)) && uri.contains("/logs/audit")) {
       return "can_manage";
     }
+    // Diagnostics expose another subject's effective authorization graph. Reading it is an
+    // administrative act, not ordinary navigation, so can_view is deliberately not enough.
+    if (uri.contains("/diagnostics/")) return "can_manage";
     if ("GET".equals(method) || "HEAD".equals(method)) return "can_view";
     if ("DELETE".equals(method)) return "can_delete";
     if ("PUT".equals(method) || "PATCH".equals(method)) return "can_edit";

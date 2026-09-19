@@ -65,7 +65,9 @@ public final class AccessModels {
       String relation,
       Instant expiresAt,
       String status,
-      long version) {}
+      long version,
+      String projectionStatus,
+      String projectionError) {}
 
   public record MutationResult(UUID id, long version) {}
   public record GrantResult(UUID id, long version, boolean existing) {}

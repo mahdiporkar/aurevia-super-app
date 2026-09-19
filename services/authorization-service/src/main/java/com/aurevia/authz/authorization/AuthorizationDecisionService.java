@@ -120,7 +120,8 @@ public class AuthorizationDecisionService {
     // separate application:aurevia/{slug} grant here made directly granted pages disappear
     // from /api/me/context (allowedMicros and uiCatalog.modules).
     List<UiModuleDefinition> modules=allPanels.stream()
-        .map(panel->uiModule(panel,permissions)).filter(Objects::nonNull).toList();
+        .map(panel->uiModule(panel,permissions,discoveryGuard(panel,permissions,catalog)))
+        .filter(Objects::nonNull).toList();
     Set<UUID> modulePanelIds=modules.stream().map(UiModuleDefinition::registrationId)
         .collect(java.util.stream.Collectors.toSet());
     List<PanelSummary> publicPanels=allPanels.stream()
@@ -135,25 +136,37 @@ public class AuthorizationDecisionService {
   }
 
   private UiModuleDefinition uiModule(AuthorizationQueryRepository.PanelRecord panel,
-      Map<String,List<String>> permissions) {
+      Map<String,List<String>> permissions,RouteGuard discoveryGuard) {
     try {
       JsonNode manifest=json.readTree(panel.manifestJson());
       List<UiRoute> routes=new ArrayList<>();
       Set<String> routeIds=new HashSet<>();
+      DeclaredRoute landing=null;
       for(JsonNode route:manifest.path("routes")) {
         String resource=first(textOrNull(route,"requiredResource"),
             preferredText(route,"resourceKey","resource"));
         String action=first(textOrNull(route,"requiredAction"),
             textOrNull(route,"action"),"view");
-        if(resource==null||!permissions.getOrDefault(resource,List.of()).contains(action)) continue;
+        if(resource==null)continue;
         String routeId=preferredText(route,"key","id");
         if(routeId==null)continue;
         String path=route.path("path").asText().replaceFirst("^/+","");
-        routes.add(new UiRoute(routeId,path,
-            textOrDefault(route,"title",routeId),resource,action));
+        String title=textOrDefault(route,"title",routeId);
+        if(path.isEmpty()&&landing==null)landing=new DeclaredRoute(routeId,title,action);
+        if(!permissions.getOrDefault(resource,List.of()).contains(action))continue;
+        routes.add(new UiRoute(routeId,path,title,resource,action));
         routeIds.add(routeId);
       }
-      if(routes.isEmpty()) return null;
+      if(routes.isEmpty()) {
+        // None of the declared routes is authorized. The panel stays discoverable only when
+        // the subject holds a permission inside the resource subtree the panel presents, and
+        // the landing route is then guarded by that permission the subject actually has.
+        if(discoveryGuard==null||landing==null)return null;
+        String action=discoveryGuard.actions().contains(landing.action())?landing.action()
+            :discoveryGuard.actions().stream().sorted().findFirst().orElseThrow();
+        routes.add(new UiRoute(landing.id(),"",landing.title(),discoveryGuard.resource(),action));
+        routeIds.add(landing.id());
+      }
       Map<String,AuthorizationQueryRepository.MenuOverride> overrides=
           queries.menuOverrides(panel.id()).stream().collect(Collectors.toMap(
               AuthorizationQueryRepository.MenuOverride::menuId,value->value));
@@ -232,6 +245,52 @@ public class AuthorizationDecisionService {
       throw new IllegalStateException("stored UI manifest is invalid",failure);
     }
   }
+
+  /**
+   * Resolves the permission that keeps a micro frontend discoverable when none of its declared
+   * routes is authorized.
+   *
+   * <p>A panel may exist to present a resource subtree that it does not declare route by route,
+   * such as the Reports panel presenting the Superset catalog. Its landing route then names an
+   * application-level resource that an asset-level subject legitimately does not hold.
+   * {@code panel.discovery_resource_key} names that subtree in the registry, so the rule is
+   * declarative registry data instead of a slug-specific branch.</p>
+   *
+   * <p>The returned guard is always a permission the subject already holds. No permission is
+   * created, no sibling route becomes visible, and every runtime request continues to authorize
+   * its own resource.</p>
+   */
+  private static RouteGuard discoveryGuard(AuthorizationQueryRepository.PanelRecord panel,
+      Map<String,List<String>> permissions,
+      List<AuthorizationQueryRepository.ResourceRecord> catalog) {
+    String root=panel.discoveryResourceKey();
+    if(root==null||root.isBlank())return null;
+    Map<UUID,AuthorizationQueryRepository.ResourceRecord> byId=new HashMap<>();
+    catalog.forEach(resource->byId.put(resource.id(),resource));
+    return catalog.stream()
+        .filter(resource->!permissions.getOrDefault(resource.resourceKey(),List.of()).isEmpty())
+        .filter(resource->descendsFrom(resource,root,byId))
+        .map(AuthorizationQueryRepository.ResourceRecord::resourceKey)
+        .sorted().findFirst()
+        .map(resourceKey->new RouteGuard(resourceKey,permissions.get(resourceKey)))
+        .orElse(null);
+  }
+
+  private static boolean descendsFrom(AuthorizationQueryRepository.ResourceRecord resource,
+      String ancestorKey,Map<UUID,AuthorizationQueryRepository.ResourceRecord> byId) {
+    Set<UUID> visited=new HashSet<>();
+    for(var cursor=resource;cursor!=null&&visited.add(cursor.id());
+        cursor=cursor.parentId()==null?null:byId.get(cursor.parentId())) {
+      if(ancestorKey.equals(cursor.resourceKey()))return true;
+    }
+    return false;
+  }
+
+  /** A route declared by a manifest, retained before its authorization is known. */
+  private record DeclaredRoute(String id,String title,String action) {}
+
+  /** An effective permission used as the guard of a discoverability landing route. */
+  private record RouteGuard(String resource,List<String> actions) {}
 
   private static String textOrNull(JsonNode parent,String field) {
     JsonNode value=parent.get(field);

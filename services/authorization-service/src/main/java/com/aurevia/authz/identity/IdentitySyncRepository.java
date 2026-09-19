@@ -13,8 +13,6 @@ public interface IdentitySyncRepository {
   UUID upsertDirectoryGroup(String issuer,String externalId,String normalizedPath,
       String displayName);
   void addMembership(UUID userId,UUID groupId);
-  String directoryGroupExternalId(UUID groupId);
   void removeMembership(UUID userId,UUID groupId);
-  void enqueueMembership(UUID userId,UUID groupId,String subjectKey,String groupExternalId,
-      String event,long version);
+  void enqueueMembership(UUID userId,UUID groupId,String subjectKey,String event,long version);
 }

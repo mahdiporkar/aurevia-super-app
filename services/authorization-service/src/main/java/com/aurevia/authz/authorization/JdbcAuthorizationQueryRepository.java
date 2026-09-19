@@ -23,7 +23,8 @@ class JdbcAuthorizationQueryRepository implements AuthorizationQueryRepository {
           a.remote_name as "artifactRemoteName",a.exposed_module as "artifactExposedModule",
           a.contract_version as "artifactContractVersion",a.integrity as "artifactIntegrity",
           p.classification,p.resource_definition_mode as "resourceDefinitionMode",
-          a.manifest_snapshot::text as "manifestJson"
+          a.manifest_snapshot::text as "manifestJson",
+          p.discovery_resource_key as "discoveryResourceKey"
         from panel p join ui_module_artifact a on a.id=p.active_artifact_id
           and a.validation_status='VALID'
         where p.active and (:demoEnabled or p.classification='REAL')

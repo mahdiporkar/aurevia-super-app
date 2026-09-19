@@ -91,9 +91,21 @@ public class JdbcAccessRepository implements AccessRepository {
     return database.sql("""
         select g.id,g.resource_id,r.resource_key,r.name_fa resource_name_fa,
           r.name_en resource_name_en,g.action_id,a.action_key,a.name_fa action_name_fa,
-          g.relation,g.expires_at,g.status::text status,g.version
+          g.relation,g.expires_at,g.status::text status,g.version,
+          case when projection.id is null then 'UNKNOWN'
+            when projection.dead_lettered_at is not null then 'FAILED'
+            when projection.processed_at is not null then
+              case when projection.event_type='GRANT_DELETE' then 'REVOKED' else 'APPLIED' end
+            when projection.attempts>0 then 'RETRYING' else 'PENDING' end projection_status,
+          projection.last_error projection_error
         from authorization_grant g join resource r on r.id=g.resource_id
         join action a on a.id=g.action_id
+        left join lateral (
+          select e.id,e.event_type,e.processed_at,e.dead_lettered_at,e.attempts,e.last_error
+          from outbox_event e where e.aggregate_type='grant' and e.aggregate_id=g.id
+            and e.event_type in ('GRANT_WRITE','GRANT_DELETE')
+          order by e.sequence desc limit 1
+        ) projection on true
         where g.subject_type=cast(:type as subject_type) and g.subject_id=:id
           and g.status='ACTIVE'
         order by r.resource_key,a.action_key
@@ -103,7 +115,8 @@ public class JdbcAccessRepository implements AccessRepository {
             rs.getString("resource_name_fa"), rs.getString("resource_name_en"),
             uuid(rs, "action_id"), rs.getString("action_key"), rs.getString("action_name_fa"),
             rs.getString("relation"), instant(rs, "expires_at"), rs.getString("status"),
-            rs.getLong("version"))).list();
+            rs.getLong("version"),rs.getString("projection_status"),
+            rs.getString("projection_error"))).list();
   }
 
   @Override
@@ -253,6 +266,12 @@ public class JdbcAccessRepository implements AccessRepository {
   }
   @Override public void createGrant(UUID id, String type, UUID subject, UUID resource, UUID action,
       String relation, Instant expiresAt) {
+    if("ROLE".equals(type)) {
+      String status=database.sql("select status::text from application_role where id=:id for update")
+          .param("id",subject).query(String.class).optional().orElse(null);
+      if(!"ACTIVE".equals(status))
+        throw new IllegalArgumentException("Role must be active before granting access");
+    }
     database.sql("""
         insert into authorization_grant(id,subject_type,subject_id,resource_id,action_id,relation,expires_at)
         values(:id,cast(:type as subject_type),:subject,:resource,:action,:relation,:expires)
@@ -261,6 +280,12 @@ public class JdbcAccessRepository implements AccessRepository {
         .param("expires", expiresAt).update();
   }
   @Override public boolean isActiveGrant(UUID id) {
+    // Serialize role grant changes with role activation/deactivation projection.
+    database.sql("""
+        select ar.id from authorization_grant g join application_role ar
+          on g.subject_type='ROLE' and ar.id=g.subject_id
+        where g.id=:id for update of ar
+        """).param("id",id).query(UUID.class).list();
     return database.sql("select count(*) from authorization_grant where id=:id and status='ACTIVE'")
         .param("id", id).query(Long.class).single() > 0;
   }
@@ -274,7 +299,7 @@ public class JdbcAccessRepository implements AccessRepository {
         insert into outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
         select 'grant',g.id,:event,
           jsonb_build_object(
-            'user',case g.subject_type when 'USER' then 'user:'||u.canonical_user_id when 'GROUP' then 'group:'||dg.external_id||'#member' when 'ACCESS_GROUP' then 'group:'||lower(ag.code)||'#member' when 'ROLE' then 'role:'||ar.role_key||'#assignee' end,
+            'user',case g.subject_type when 'USER' then 'user:'||u.canonical_user_id when 'GROUP' then 'group:directory/'||dg.id||'#member' when 'ACCESS_GROUP' then 'group:'||lower(ag.code)||'#member' when 'ROLE' then 'role:'||ar.role_key||'#assignee' end,
             'relation',g.relation,
             'object',case when r.type='APPLICATION' then 'application:'||regexp_replace(r.resource_key,'^application:','') when r.type='EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(r.resource_key,'^external_resource:',''),':','/') else 'resource:'||replace(r.resource_key,':','/') end),
           :event||':'||g.id||':'||cast(:version as text)

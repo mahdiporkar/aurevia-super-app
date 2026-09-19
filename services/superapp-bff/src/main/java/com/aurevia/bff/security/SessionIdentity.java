@@ -37,19 +37,26 @@ public record SessionIdentity(String issuer, String subject, String username)
   }
 
   public static SessionIdentity from(OAuth2AuthenticationToken oauth) {
-    if (oauth.getPrincipal() instanceof OidcUser oidc) return from(oidc);
     Map<String, Object> claims = oauth.getPrincipal().getAttributes();
-    String issuer = value(claims.get("iss"));
-    return new SessionIdentity(issuer, value(claims.get("sub")),
-        optional(claims.get("preferred_username"), value(claims.get("sub"))));
+    String issuer = oauth.getPrincipal() instanceof OidcUser oidc
+        ? issuer(oidc) : value(claims.get("iss"));
+    // The registration's subject claim determines the authenticated name. Using
+    // the standard sub claim here would disagree with login-sync for custom IdPs.
+    String subject = optional(oauth.getName(), value(claims.get("sub")));
+    return new SessionIdentity(issuer, subject,
+        optional(claims.get("preferred_username"), subject));
   }
 
   private static SessionIdentity from(OidcUser oidc) {
     Map<String, Object> claims = oidc.getAttributes();
-    String issuer = oidc.getIdToken().getIssuer() == null
-        ? value(claims.get("iss")) : oidc.getIdToken().getIssuer().toString();
-    return new SessionIdentity(issuer, value(claims.get("sub")),
-        optional(claims.get("preferred_username"), value(claims.get("sub"))));
+    String subject = optional(oidc.getName(), value(claims.get("sub")));
+    return new SessionIdentity(issuer(oidc), subject,
+        optional(claims.get("preferred_username"), subject));
+  }
+
+  private static String issuer(OidcUser oidc) {
+    return oidc.getIdToken().getIssuer() == null
+        ? value(oidc.getAttributes().get("iss")) : oidc.getIdToken().getIssuer().toString();
   }
 
   private static String value(Object value) {

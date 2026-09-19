@@ -16,6 +16,7 @@ public interface IdentityRepository {
   Optional<RoleSnapshot> role(UUID id);
   int updateRole(UUID id, long version, RoleCommand command);
   int updateRoleStatus(UUID id, long version, boolean active);
+  void enqueueRoleStatus(UUID id, long version, boolean active);
   long upsertRoleAssignment(String subjectType, UUID subjectId, UUID roleId,
       java.time.Instant expiresAt, String actor);
   OptionalLong roleAssignmentVersion(String subjectType, UUID subjectId, UUID roleId);
