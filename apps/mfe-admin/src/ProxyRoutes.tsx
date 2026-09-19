@@ -14,6 +14,34 @@ const required = [{ required: true, message: 'این فیلد الزامی اس�
 const methods = ['GET', 'HEAD', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE'];
 const safeRetryMethods = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+/** Validation codes returned by the Authorization Service, translated for administrators. */
+const validationMessages: Record<string, string> = {
+  INVALID_CODE: 'کد باید با حرف کوچک شروع شود و فقط حروف کوچک، عدد و خط تیره داشته باشد',
+  INVALID_FIELD_LENGTH: 'طول یکی از فیلدها بیش از حد مجاز است',
+  INVALID_GATEWAY_URL: 'آدرس Gateway معتبر نیست؛ فقط origin (scheme://host[:port]) مجاز است',
+  INVALID_HTTP_METHOD: 'متد HTTP پشتیبانی نمی‌شود',
+  INVALID_RESOURCE_ACTION: 'Action انتخاب‌شده به این منبع متصل نیست یا منبع فعال نیست',
+  INVALID_SECRET_REFERENCE: 'ارجاع Secret معتبر نیست',
+  INVALID_SERVICE_SLUG: 'Service Slug باید با حرف کوچک شروع شود و فقط حروف کوچک، عدد و خط تیره داشته باشد',
+  INVALID_CANONICAL_PATH: 'مسیر معتبر نیست: باید با / شروع شود و بدون //، ..، \، ?، # یا کدگذاری درصدی باشد',
+  INVALID_PATH_PATTERN: 'الگوی مسیر فقط می‌تواند شامل بخش‌های ثابت، {name}، * و ** پایانی باشد',
+  PATH_OUTSIDE_ROUTE: 'مسیر آزمایشی زیر Prefix این Route نیست',
+  RETRY_REQUIRES_SAFE_METHODS: 'Retry فقط برای متدهای امن (GET, HEAD, OPTIONS) مجاز است',
+  REWRITE_PAIR_REQUIRED: 'Rewrite Pattern و Replacement باید با هم تعیین شوند',
+  REWRITE_PREFIX_NOT_FOUND_AFTER_STRIP: 'پس از حذف Segmentها، مسیر با Rewrite Pattern شروع نمی‌شود',
+  STRIP_PREFIX_EXCEEDS_PATH_PREFIX: 'تعداد Segmentهای حذف‌شده نمی‌تواند از تعداد Segmentهای Prefix بیشتر باشد',
+  UNAPPROVED_GATEWAY_HOST: 'این Gateway در فهرست مقصدهای تأییدشدهٔ BFF نیست',
+  UNSAFE_REWRITE: 'Rewrite باید با ^/ شروع شود و بدون regex، *، ( یا :// باشد',
+  AMBIGUOUS_OPERATION: 'این عملیات با یک عملیات فعال دیگر هم‌پوشانی دارد و انتخاب مسیر را مبهم می‌کند',
+  DUPLICATE_OPERATION: 'عملیاتی با همین متد و الگو در این Route وجود دارد',
+};
+
+export function describeError(reason: unknown): string {
+  const raw = reason instanceof Error ? reason.message : String(reason);
+  const code = raw.trim().split(/[\s:]/)[0] ?? '';
+  return validationMessages[code] ? `${validationMessages[code]} (${code})` : raw;
+}
+
 function segmentCount(path: string): number {
   return path.split('/').filter(Boolean).length;
 }
@@ -58,7 +86,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
       setTargets(nextTargets); setAuthProfiles(nextProfiles); setRoutes(nextRoutes);
       setPanels(nextPanels);
       setResources(nextResources.map(resource => ({ ...resource, actions: normalizedActions(resource) })));
-    } catch (reason) { setError((reason as Error).message); }
+    } catch (reason) { setError(describeError(reason)); }
     finally { setLoading(false); }
   }, [api]);
 
@@ -66,7 +94,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
     try {
       setSelectedRoute(route);
       setOperations(await api<Row[]>(`/proxy-routes/${route.id}/operations`));
-    } catch (reason) { message.error((reason as Error).message); }
+    } catch (reason) { message.error(describeError(reason)); }
   };
 
   useEffect(() => { void load(); }, [load]);
@@ -173,7 +201,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
           content: <pre style={{ direction: 'ltr', whiteSpace: 'pre-wrap' }}>{JSON.stringify(result, null, 2)}</pre> });
       }
       setProbe(undefined);
-    } catch (reason) { message.error((reason as Error).message); }
+    } catch (reason) { message.error(describeError(reason)); }
   };
 
   const targetTab = <Card title="Service Targets" extra={<Space>
@@ -192,11 +220,11 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
         <Button onClick={() => openTarget(row)}>ویرایش</Button>
         <Button onClick={() => void api<Row>(`/service-targets/${row.id}/health-check`, { method: 'POST' })
           .then(result => message[result.healthy ? 'success' : 'warning'](`Gateway: HTTP ${result.status} — ${result.latencyMs}ms`))
-          .catch(reason => message.error(reason.message))}>تست اتصال</Button>
+          .catch(reason => message.error(describeError(reason)))}>تست اتصال</Button>
         <Popconfirm title="وضعیت تغییر کند؟" onConfirm={() => api<void>(
           `/service-targets/${row.id}/status?version=${row.version}`,
           { method: 'PATCH', body: JSON.stringify({ active: !row.active }) }).then(load)
-          .catch(reason => message.error(reason.message))}>
+          .catch(reason => message.error(describeError(reason)))}>
           <Button>{row.active ? 'غیرفعال' : 'فعال'}</Button>
         </Popconfirm>
       </Space> },
@@ -245,7 +273,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
           <Button onClick={() => openOperation(row)}>ویرایش</Button>
           <Popconfirm title="Operation غیرفعال شود؟" onConfirm={() => api<void>(
             `/proxy-routes/${selectedRoute.id}/operations/${row.id}?version=${row.version}`,
-            { method: 'DELETE' }).then(() => loadOperations(selectedRoute)).catch(reason => message.error(reason.message))}>
+            { method: 'DELETE' }).then(() => loadOperations(selectedRoute)).catch(reason => message.error(describeError(reason)))}>
             <Button danger>غیرفعال</Button>
           </Popconfirm>
         </Space> },
@@ -259,7 +287,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
 
     <Modal open={targetOpen} title={editingTarget ? 'ویرایش Service Target' : 'Service Target جدید'}
       onCancel={() => setTargetOpen(false)} onOk={() => targetForm.submit()} width={800}>
-      <Form form={targetForm} layout="vertical" onFinish={values => void saveTarget(values).catch(reason => message.error(reason.message))}>
+      <Form form={targetForm} layout="vertical" onFinish={values => void saveTarget(values).catch(reason => message.error(describeError(reason)))}>
         <Space wrap align="start">
           <Form.Item name="code" label="کد" rules={required}><Input /></Form.Item>
           <Form.Item name="name" label="نام" rules={required}><Input /></Form.Item>
@@ -284,7 +312,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
 
     <Modal open={routeOpen} title={editingRoute ? 'ویرایش Proxy Route' : 'Proxy Route جدید'}
       onCancel={() => setRouteOpen(false)} onOk={() => routeForm.submit()} width={850}>
-      <Form form={routeForm} layout="vertical" onFinish={values => void saveRoute(values).catch(reason => message.error(reason.message))}>
+      <Form form={routeForm} layout="vertical" onFinish={values => void saveRoute(values).catch(reason => message.error(describeError(reason)))}>
         <Space wrap align="start">
           <Form.Item name="code" label="کد" rules={required}><Input /></Form.Item>
           <Form.Item name="panelId" label="Microfrontend / Panel" rules={required}><Select style={{ width: 280 }} options={panels.map(panel => ({ value: panel.id, label: `${panel.name_fa} (${panel.slug})` }))}
@@ -333,7 +361,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
 
     <Modal open={operationOpen} title={editingOperation ? 'ویرایش Route Operation' : 'Route Operation جدید'}
       onCancel={() => setOperationOpen(false)} onOk={() => operationForm.submit()} width={760}>
-      <Form form={operationForm} layout="vertical" onFinish={values => void saveOperation(values).catch(reason => message.error(reason.message))}>
+      <Form form={operationForm} layout="vertical" onFinish={values => void saveOperation(values).catch(reason => message.error(describeError(reason)))}>
         <Space wrap align="start">
           <Form.Item name="httpMethod" label="HTTP Method" rules={required}><Select style={{ width: 150 }} options={methods.map(value => ({ value, label: value }))} /></Form.Item>
           <Form.Item name="pathPattern" label="Relative Path Pattern" rules={required}

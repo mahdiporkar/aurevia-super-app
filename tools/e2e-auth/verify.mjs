@@ -190,11 +190,16 @@ async function main() {
       }
     }
   }
-  // Poll the real projected context instead of assuming a fixed outbox delay.
-  for(let i=0;i<60;i++) {
-    const context=await sessions['dual-access'].json('/api/me/context');
-    if(context.status===200&&['test-sso','test-legacy'].every(key=>context.body.allowedApplications?.includes(key)))break;
-    await delay(1000);
+  // Poll the real projected context of every session instead of assuming a fixed outbox
+  // delay. Waiting only for the dual-access user left the other users' grants racing the
+  // outbox worker and produced a spurious AUTH-LEGACY-LEGACY failure.
+  for(const [suffix,modes] of Object.entries(access)) {
+    const expected=modes.map(mode=>'test-'+mode);
+    for(let i=0;i<60;i++) {
+      const context=await sessions[suffix].json('/api/me/context');
+      if(context.status===200&&expected.every(key=>context.body.allowedApplications?.includes(key)))break;
+      await delay(1000);
+    }
   }
   const diagnostics=[];
   for(const [suffix,modes] of Object.entries(access))for(const mode of ['sso','legacy']) {

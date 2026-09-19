@@ -1,6 +1,5 @@
 package com.aurevia.authz.routing;
 
-import java.util.Locale;
 import java.util.regex.Pattern;
 
 /** Canonical, deliberately small route-pattern language. Administrator regex is never executed. */
@@ -8,24 +7,42 @@ public final class RoutePathPolicy {
   private static final Pattern SEGMENT = Pattern.compile("[A-Za-z0-9._~-]+|\\{[A-Za-z][A-Za-z0-9_]{0,63}}|\\*");
   private RoutePathPolicy() {}
 
+  // Encodings that would change path structure if decoded: / \ . ? # and % itself.
+  private static final Pattern STRUCTURAL_ENCODING =
+      Pattern.compile("(?i)%(2f|5c|2e|3f|23|25)");
+  private static final Pattern MALFORMED_ENCODING = Pattern.compile("%(?![0-9A-Fa-f]{2})");
+
+  /**
+   * Canonical form of a runtime request path. Well-formed percent-encodings of ordinary
+   * characters (for example {@code %20}) are kept opaque and compared byte-for-byte; encodings
+   * that would alter path structure are rejected so no double-decoding ambiguity exists.
+   */
   public static String path(String value) {
     if (value == null || !value.startsWith("/") || value.length() > 500) fail();
-    String lower=value.toLowerCase(Locale.ROOT);
     if (value.contains("\\") || value.contains("//") || value.indexOf('\0') >= 0
         || value.chars().anyMatch(c -> c < 0x20 || c == 0x7f)
-        || lower.contains("%") || value.contains("?") || value.contains("#")) fail();
+        || value.contains("?") || value.contains("#")
+        || STRUCTURAL_ENCODING.matcher(value).find()
+        || MALFORMED_ENCODING.matcher(value).find()) fail();
     for (String segment:value.split("/",-1)) if (segment.equals(".") || segment.equals("..")) fail();
     return value.length()>1 && value.endsWith("/") ? value.substring(0,value.length()-1) : value;
   }
 
-  public static String prefix(String value) {
+  /** Route definitions (prefixes, patterns, rewrites, base paths) never contain encodings. */
+  public static String definition(String value) {
     String normalized=path(value);
+    if (normalized.contains("%")) fail();
+    return normalized;
+  }
+
+  public static String prefix(String value) {
+    String normalized=definition(value);
     return normalized.equals("/") ? "/" : normalized+"/";
   }
 
   public static String pattern(String value) {
-    String normalized=path(value);
-    if (normalized.equals("/**")) return normalized;
+    String normalized=definition(value);
+    if (normalized.equals("/") || normalized.equals("/**")) return normalized;
     String[] parts=normalized.substring(1).split("/",-1);
     for(int i=0;i<parts.length;i++) {
       if (parts[i].equals("**") && i==parts.length-1) continue;

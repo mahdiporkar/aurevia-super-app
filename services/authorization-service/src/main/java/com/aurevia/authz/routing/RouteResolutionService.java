@@ -1,5 +1,6 @@
 package com.aurevia.authz.routing;
 
+import com.aurevia.authz.semantics.ResourceObjectKey;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -53,7 +54,24 @@ public class RouteResolutionService {
         selected.maxBodyBytes(),selected.connectTimeoutMs(),selected.responseTimeoutMs(),
         selected.maxResponseBytes(),selected.retryEnabled(),selected.maxRetries(),
         selected.tlsProfileRef(),selected.authProfileId(),selected.authMode(),
-        selected.authProfileVersion(),selected.credentialTransport());
+        selected.authProfileVersion(),selected.credentialTransport(),
+        ResourceObjectKey.from(selected.resourceType(),selected.resourceKey()),
+        upstreamPath(selected,canonical));
+  }
+
+  /**
+   * A route whose rewrite cannot apply to a matched path is a configuration defect, not a
+   * missing route: report it distinctly so the administrator sees the real cause.
+   */
+  private static String upstreamPath(RouteResolutionRepository.Candidate route,String canonical) {
+    try {
+      return UpstreamPathPolicy.upstreamPath(new UpstreamPathPolicy.Transformation(
+          route.stripPrefix(),route.rewritePattern(),route.rewriteReplacement(),
+          route.upstreamBasePath()),canonical);
+    } catch(IllegalArgumentException misconfigured) {
+      throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+          "Route path transformation failed: "+misconfigured.getMessage());
+    }
   }
 
   private static boolean prefixMatch(String path,String prefix) {

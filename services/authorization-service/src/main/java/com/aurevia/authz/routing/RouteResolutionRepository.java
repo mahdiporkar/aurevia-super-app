@@ -11,7 +11,7 @@ public interface RouteResolutionRepository {
       String allowedMethods,boolean retryEnabled,int maxRetries,UUID panelId,String panelSlug,
       UUID targetId,String targetKey,String gatewayBaseUrl,String upstreamBasePath,
       String tlsProfileRef,boolean preserveHost,UUID operationId,String pathPattern,
-      UUID resourceId,String resourceKey,String actionKey,boolean authorizationRequired,
+      UUID resourceId,String resourceKey,String resourceType,String actionKey,boolean authorizationRequired,
       String dataPolicyKey,long maxBodyBytes,int connectTimeoutMs,int responseTimeoutMs,
       long maxResponseBytes,UUID authProfileId,String authMode,long authProfileVersion,
       String credentialTransport) {}

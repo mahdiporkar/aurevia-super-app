@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -88,7 +89,7 @@ public class OperationalProxyController {
     if (!route.authorizationRequired()) return Mono.empty();
     Map<String, Object> request = Map.of(
         "subjectId", identity.subject(), "issuer", identity.issuer(),
-        "resource", "resource:" + route.resourceKey().replace(':','/'),
+        "resource", canonicalObject(route),
         "action", route.actionKey(), "context", Map.of(
             "panel",route.panelSlug(),"httpMethod",exchange.getRequest().getMethod().name(),
             "normalizedPath",RouteNormalizer.normalizePath(exchange.getRequest().getPath().value()),
@@ -170,7 +171,8 @@ public class OperationalProxyController {
         route.authMode(),subject,publicAccessToken,outbound);
     String query = exchange.getRequest().getURI().getRawQuery();
     var uri=gatewayTargets.resolve(route.gatewayBaseUrl(),
-        upstreamPath(route,exchange.getRequest().getPath().value()),query);
+        route.upstreamPath()!=null?route.upstreamPath()
+            :upstreamPath(route,exchange.getRequest().getPath().value()),query);
     var request = gateways.client(route.connectTimeoutMs()).method(exchange.getRequest().getMethod()).uri(uri)
         .headers(headers -> {
           headers.remove("X-Internal-Legacy-Authorization");
@@ -192,6 +194,12 @@ public class OperationalProxyController {
                 upstream.headers().asHttpHeaders(), bytes)));
     long timeout = route.responseTimeoutMs();
     return response.timeout(Duration.ofMillis(timeout))
+        // Distinguish the two ways an upstream can fail us so operators see the real cause.
+        .onErrorMap(java.util.concurrent.TimeoutException.class, error ->
+            new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT,
+                "Upstream did not respond within " + timeout + " ms"))
+        .onErrorMap(WebClientRequestException.class, error ->
+            new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Upstream connection failed"))
         .doOnNext(value->tokenEvidence.result(correlation,route.routeId().toString(),value.status().value()));
   }
 
@@ -222,6 +230,17 @@ public class OperationalProxyController {
         RouteNormalizer.normalizePath(exchange.getRequest().getPath().value()), decision,
         route.targetKey(), route.authMode(), status, correlationId(exchange), java.time.Instant.now());
   }
+  /**
+   * The Authorization Service computes the OpenFGA object from the resource's registered type.
+   * The historical fallback assumed every operation resource was a {@code resource:} object,
+   * which denied operations bound to APPLICATION or EXTERNAL_RESOURCE resources.
+   */
+  static String canonicalObject(RouteResolution route) {
+    if(route.resourceObject()!=null&&!route.resourceObject().isBlank())return route.resourceObject();
+    return "resource:"+route.resourceKey().replace(':','/');
+  }
+
+  /** Fallback only for an Authorization Service that predates {@code upstreamPath}. */
   static String upstreamPath(RouteResolution route,String incoming) {
     String path=incoming;
     int strip=route.stripPrefix();

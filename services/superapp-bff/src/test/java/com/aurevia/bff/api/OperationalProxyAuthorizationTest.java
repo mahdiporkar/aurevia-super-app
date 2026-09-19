@@ -81,7 +81,7 @@ class OperationalProxyAuthorizationTest {
       route.authorizationRequired(),route.dataPolicyKey(),route.maxBodyBytes(),
       route.connectTimeoutMs(),route.responseTimeoutMs(),route.maxResponseBytes(),
       route.retryEnabled(),route.maxRetries(),route.tlsProfileRef(),route.authProfileId(),
-      route.authMode(),route.authProfileVersion(),route.credentialTransport());
+      route.authMode(),route.authProfileVersion(),route.credentialTransport(),null,null);
     assertThat(OperationalProxyController.upstreamPath(route,
       "/api/proxy/test-sso/employees/42")).isEqualTo("/payroll/employees/42");
   }
@@ -91,7 +91,7 @@ class OperationalProxyAuthorizationTest {
       "test-target","http://operation-gateway","/",0,"^/api/proxy/test-sso",
       "/test-sso-service",false,id,"page:test-sso.home",
       "view",true,null,0,3000,5000,65536,false,0,null,id,mode.name(),1,
-      mode==OutboundAuthMode.LEGACY_SERVICE_TOKEN?"INTERNAL_LEGACY_HEADER":"USER_AUTHORIZATION_HEADER");
+      mode==OutboundAuthMode.LEGACY_SERVICE_TOKEN?"INTERNAL_LEGACY_HEADER":"USER_AUTHORIZATION_HEADER",null,null);
   }
   private static GatewayTargetPolicy targets() {
     return new GatewayTargetPolicy("http://operation-gateway","");

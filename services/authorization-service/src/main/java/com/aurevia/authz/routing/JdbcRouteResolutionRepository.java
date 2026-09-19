@@ -24,6 +24,7 @@ class JdbcRouteResolutionRepository implements RouteResolutionRepository {
           pr.preserve_host as "preserveHost",
           ro.id as "operationId",ro.normalized_path_pattern as "pathPattern",
           ro.resource_id as "resourceId",ro.resource_key as "resourceKey",
+          r.type::text as "resourceType",
           ro.action_key as "actionKey",ro.authorization_required as "authorizationRequired",
           ro.data_policy_key as "dataPolicyKey",ro.max_body_bytes as "maxBodyBytes",
           st.connect_timeout_ms as "connectTimeoutMs",
@@ -35,6 +36,7 @@ class JdbcRouteResolutionRepository implements RouteResolutionRepository {
         join service_target st on st.id=pr.service_target_id
         join outbound_auth_profile ap on ap.id=pr.outbound_auth_profile_id
         join route_operation ro on ro.proxy_route_id=pr.id
+        join resource r on r.id=ro.resource_id
         where p.active and pr.active and st.active and ap.active and ro.active
           and ro.http_method=:method
         """).param("method",httpMethod).query(Candidate.class).list();

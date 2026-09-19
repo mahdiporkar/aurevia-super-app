@@ -182,9 +182,9 @@ public class ProxyRouteAdministrationService {
     URI gateway=validateGateway(request.gatewayBaseUrl());
     return new ProxyRouteRepository.TargetValue(id,code(request.code()),limit(request.name(),255),
         nullable(request.description()),gateway.toString(),
-        RoutePathPolicy.path(request.upstreamBasePath()),code(request.environment()),
+        RoutePathPolicy.definition(request.upstreamBasePath()),code(request.environment()),
         reference(request.tlsProfileRef()),reference(request.secretRef()),
-        RoutePathPolicy.path(request.healthCheckPath()),request.connectTimeoutMs(),
+        RoutePathPolicy.definition(request.healthCheckPath()),request.connectTimeoutMs(),
         request.responseTimeoutMs(),request.maxResponseSize(),request.outboundAuthProfileId(),
         request.active(),limit(actor,255));
   }
@@ -192,7 +192,7 @@ public class ProxyRouteAdministrationService {
   private ProxyRouteRepository.RouteValue routeValue(UUID id,RouteRequest request,String actor) {
     return new ProxyRouteRepository.RouteValue(id,code(request.code()),request.panelId(),
         request.serviceTargetId(),request.outboundAuthProfileId(),serviceSlug(request.serviceSlug()),
-        RoutePathPolicy.path(request.pathPrefix()),RoutePathPolicy.prefix(request.pathPrefix()),
+        RoutePathPolicy.definition(request.pathPrefix()),RoutePathPolicy.prefix(request.pathPrefix()),
         request.stripPrefix(),nullable(request.rewritePattern()),
         nullable(request.rewriteReplacement()),request.priority(),request.allowedMethods().stream()
             .map(this::method).toArray(String[]::new),request.preserveHost(),request.retryEnabled(),
@@ -218,7 +218,10 @@ public class ProxyRouteAdministrationService {
   }
 
   private void validateRoute(RouteRequest request) {
-    RoutePathPolicy.prefix(request.pathPrefix());
+    String prefix=RoutePathPolicy.prefix(request.pathPrefix());
+    if(request.stripPrefix()<0||request.stripPrefix()>UpstreamPathPolicy.segments(prefix)) {
+      throw bad("STRIP_PREFIX_EXCEEDS_PATH_PREFIX");
+    }
     routes.panelSlug(request.panelId()).orElseThrow(
         ProxyRouteAdministrationService::notFound);
     serviceSlug(request.serviceSlug());
@@ -237,32 +240,18 @@ public class ProxyRouteAdministrationService {
     if(!path.startsWith(prefix)&&!path.equals(prefix.substring(0,prefix.length()-1))) {
       throw bad("PATH_OUTSIDE_ROUTE");
     }
-    String relative=strip(path,((Number)route.get("strip_prefix")).intValue());
-    String pattern=(String)route.get("rewrite_pattern");
-    String replacement=(String)route.get("rewrite_replacement");
-    if(pattern!=null&&!relative.startsWith(pattern.substring(1))) {
-      throw bad("REWRITE_PREFIX_NOT_FOUND_AFTER_STRIP");
+    // Same policy as runtime resolution: the preview is exactly what the BFF will send.
+    String upstream;
+    try {
+      upstream=UpstreamPathPolicy.upstreamPath(new UpstreamPathPolicy.Transformation(
+          ((Number)route.get("strip_prefix")).intValue(),(String)route.get("rewrite_pattern"),
+          (String)route.get("rewrite_replacement"),
+          route.get("upstream_base_path")==null?null:String.valueOf(route.get("upstream_base_path"))),
+          path);
+    } catch(IllegalArgumentException failure) {
+      throw bad(failure.getMessage());
     }
-    String upstream=pattern==null?relative:
-        replacement+relative.substring(pattern.length()-1);
-    if(pattern==null) upstream=joinPaths(String.valueOf(route.get("upstream_base_path")),upstream);
-    RoutePathPolicy.path(upstream);
     return new PreviewResponse(path,upstream,(UUID)route.get("id"));
-  }
-
-  private static String strip(String path,int count) {
-    int index=0;
-    for(int i=0;i<count;i++) {
-      index=path.indexOf('/',index+1);
-      if(index<0) return "/";
-    }
-    return count==0?path:path.substring(index);
-  }
-
-  private static String joinPaths(String base,String path) {
-    if(base==null||base.isBlank()||"/".equals(base)) return path;
-    if("/".equals(path)) return base;
-    return base+path;
   }
 
   private UUID resource(String key,String action) {
@@ -295,7 +284,7 @@ public class ProxyRouteAdministrationService {
         ||pattern.contains("[")||pattern.contains("(")||replacement.contains("://")) {
       throw bad("UNSAFE_REWRITE");
     }
-    RoutePathPolicy.path(pattern.substring(1));RoutePathPolicy.path(replacement);
+    RoutePathPolicy.definition(pattern.substring(1));RoutePathPolicy.definition(replacement);
   }
   private Map<String,Object> operation(UUID id) {
     return routes.operation(id).orElseThrow(ProxyRouteAdministrationService::notFound);

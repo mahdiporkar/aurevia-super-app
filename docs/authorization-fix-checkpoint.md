@@ -98,3 +98,11 @@ Run locally: start `postgres:16-alpine` (55432), `redis:7-alpine --requirepass t
 - Nothing committed.
 
 **Next task: prompt 2 (MFE registration / network policy).** Permission scope is closed.
+
+## Session 3 — Proxy Routing task COMPLETE (2026-09-20)
+Uncommitted, on top of the (also uncommitted) session-2 permission work. Prompt 2 (MFE registration/network policy) still **not started**.
+
+Routing bugs found/fixed: R1 BFF hardcoded `resource:` when authorizing (denied APPLICATION/EXTERNAL_RESOURCE-bound operations) → authz now returns `resourceObject`; R2 BFF/preview divergence on path transformation (non-matching rewrite silently dropped base path at runtime) → single `UpstreamPathPolicy`, authz returns `upstreamPath`, runtime 422 on misapplied rewrite; R3 no `stripPrefix ≤ prefix segments` validation → `STRIP_PREFIX_EXCEEDS_PATH_PREFIX`; R4 any `%`-encoded runtime path was 400 → safe encodings kept opaque, structural ones rejected; R5 upstream timeout/connection failure surfaced as 500 → 504/502; R6 root `/` operation pattern rejected → accepted; R7 E2E harness race (polled only dual user) → polls all.
+Files: `routing/{UpstreamPathPolicy(new),RoutePathPolicy,RouteResolutionService,RouteResolutionRepository,JdbcRouteResolutionRepository,ResolvedRoute,ProxyRouteAdministrationService}.java`, tests `routing/{RouteResolutionServiceTest(new,12),UpstreamPathPolicyTest(new,14),RoutePathPolicyTest(+3)}`, BFF `api/{OperationalProxyController,RouteResolution}.java`, tests `api/{OperationalProxyForwardingTest(new,10),OperationalProxyAuthorizationTest}`, `apps/mfe-admin/src/ProxyRoutes.tsx` (+`describeError`, `proxy-route-errors.test.ts`), `tools/e2e-auth/verify.mjs`, `docs/proxy-routing-legacy-forward-fa.md` (new).
+E2E: `tools/e2e-auth` **41/41 PASS** incl. BROWSER-* (Keycloak via `identity:up`; jars via `./mvnw -Pe2e-sso-legacy -pl services/test-legacy-service,services/test-sso-service -am package -DskipTests`). Stacks left running: core compose, identity-demo, e2e-auth.
+Backend: authz 236 (35 skipped = permission integration classes without env), bff 108, ui-artifact-security 8. Frontend typecheck clean; mfe-admin 35 tests.

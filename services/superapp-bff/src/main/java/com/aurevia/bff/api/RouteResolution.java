@@ -10,4 +10,7 @@ public record RouteResolution(UUID routeId,UUID operationId,UUID panelId,String 
     String actionKey,boolean authorizationRequired,String dataPolicyKey,long maxBodyBytes,
     int connectTimeoutMs,int responseTimeoutMs,long maxResponseBytes,boolean retryEnabled,
     int maxRetries,String tlsProfileRef,UUID authProfileId,String authMode,
-    long authProfileVersion,String credentialTransport) {}
+    long authProfileVersion,String credentialTransport,
+    // Additive (authorization-service >= this release): canonical OpenFGA object of the
+    // operation resource and the fully transformed downstream path. Null from older servers.
+    String resourceObject,String upstreamPath) {}

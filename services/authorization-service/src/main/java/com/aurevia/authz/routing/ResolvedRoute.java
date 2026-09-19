@@ -10,4 +10,6 @@ public record ResolvedRoute(UUID routeId,UUID operationId,UUID panelId,String pa
     String actionKey,boolean authorizationRequired,String dataPolicyKey,long maxBodyBytes,
     int connectTimeoutMs,int responseTimeoutMs,long maxResponseBytes,boolean retryEnabled,
     int maxRetries,String tlsProfileRef,UUID authProfileId,String authMode,
-    long authProfileVersion,String credentialTransport) {}
+    long authProfileVersion,String credentialTransport,
+    // Additive: computed by the Authorization Service so the BFF never re-derives them.
+    String resourceObject,String upstreamPath) {}
