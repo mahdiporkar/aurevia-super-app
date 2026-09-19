@@ -64,15 +64,20 @@ public class SupersetAssetService {
       String instance,String path, String method, String query, String assetType, String assetId) {
     String user = identities.openFgaUser(issuer, subject);
     if(!integrations.canAccess(issuer,subject,integration,instance)) {
-      return new RuntimeAccess("DENY","SUPERSET_INTEGRATION_DENIED");
+      return new RuntimeAccess("DENY","SUPERSET_INTEGRATION_DENIED", false);
     }
     if (relationships.check(user, "can_manage", "application:aurevia")) {
-      return new RuntimeAccess("ALLOW", "SUPERSET_ADMIN_ALLOWED");
+      return new RuntimeAccess("ALLOW", "SUPERSET_ADMIN_ALLOWED", true);
     }
-    List<AssetView> allowed = repository.publishedAssets(instance).stream()
+    List<AssetView> published = repository.publishedAssets(instance);
+    List<AssetView> allowed = published.stream()
         .filter(asset -> canView(issuer, subject, asset)).toList();
     boolean hinted = assetId != null && !assetId.isBlank();
-    boolean matched = allowed.stream().anyMatch(asset -> matches(asset, path, query, assetType, assetId));
+    List<AssetView> matchedAssets = published.stream()
+        .filter(asset -> matches(asset, path, query, assetType, assetId)).toList();
+    boolean matched = matchedAssets.stream().anyMatch(allowed::contains);
+    boolean editAllowed = matchedAssets.stream()
+        .anyMatch(asset -> relationships.check(user, "can_edit", assetObject(asset)));
     boolean read = Set.of("GET", "HEAD", "OPTIONS").contains(method.toUpperCase(Locale.ROOT));
     boolean common = read && isCommonRuntimePath(path);
     boolean favoriteStatus = read && canReadFavoriteStatus(allowed,path,query);
@@ -86,7 +91,7 @@ public class SupersetAssetService {
     boolean granted = !allowed.isEmpty()
         && ((read && matched) || favoriteStatus || common || telemetry || exploreForm || (dataQuery && hinted && matched));
     return new RuntimeAccess(granted ? "ALLOW" : "DENY",
-        granted ? "SUPERSET_ASSET_ALLOWED" : "SUPERSET_ASSET_DENIED");
+        granted ? "SUPERSET_ASSET_ALLOWED" : "SUPERSET_ASSET_DENIED", editAllowed);
   }
 
   @Transactional
@@ -138,9 +143,11 @@ public class SupersetAssetService {
   }
 
   private boolean canView(String issuer, String subject, AssetView asset) {
-    String object = "external_resource:"
+    return relationships.check(identities.openFgaUser(issuer, subject), "can_view", assetObject(asset));
+  }
+  private static String assetObject(AssetView asset) {
+    return "external_resource:"
         + asset.resourceKey().replaceFirst("^external_resource:", "").replace(':', '/');
-    return relationships.check(identities.openFgaUser(issuer, subject), "can_view", object);
   }
   private static boolean isCommonRuntimePath(String path) {
     return path.equals("/") || path.startsWith("/login") || path.startsWith("/logout")

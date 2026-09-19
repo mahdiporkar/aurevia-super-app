@@ -21,7 +21,7 @@ public final class SupersetAssetModels {
   public record SubjectOption(UUID id, String type, String key, String label) {}
   public record LevelOption(String level, String actionKey, String label) {}
   public record AccessOptions(List<SubjectOption> subjects, List<LevelOption> levels) {}
-  public record RuntimeAccess(String result, String reasonCode) {}
+  public record RuntimeAccess(String result, String reasonCode, boolean editAllowed) {}
   public record CreateResult(UUID id, UUID resourceId, String resourceKey, boolean existing) {}
   public record ExistingAsset(UUID id, UUID resourceId, String resourceKey) {}
   public record GrantTarget(UUID resourceId, UUID actionId) {}

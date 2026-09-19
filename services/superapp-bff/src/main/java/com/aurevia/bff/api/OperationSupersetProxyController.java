@@ -154,7 +154,8 @@ public class OperationSupersetProxyController {
               integrationCode,String.valueOf(target.get("operation_code")),safePath,
               exchange.getRequest().getMethod().name(),rawQuery,hint.type(),hint.id())
             .flatMap(decision -> "ALLOW".equals(decision.get("result"))
-                ? forward(exchange,identity,selectAssetTarget(target,safePath),safePath,rawQuery,body,integrationCode)
+                ? forward(exchange,identity,selectAssetTarget(target,safePath),safePath,rawQuery,body,
+                    integrationCode,Boolean.TRUE.equals(decision.get("editAllowed")))
                 : Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN,
                     String.valueOf(decision.get("reasonCode")))));
       });
@@ -172,7 +173,8 @@ public class OperationSupersetProxyController {
   }
 
   private Mono<Void> forward(ServerWebExchange exchange, SessionIdentity identity,
-      Map target,String safePath,String rawQuery,byte[] body,String publicInstance) {
+      Map target,String safePath,String rawQuery,byte[] body,String publicInstance,
+      boolean editAllowed) {
     URI base;
     URI origin;
     try {
@@ -197,6 +199,7 @@ public class OperationSupersetProxyController {
           if("REMOTE_USER".equals(String.valueOf(target.get("auth_mode")))) {
             headers.set("X-Aurevia-Subject", identity.subject());
             headers.set("X-Aurevia-Issuer", identity.issuer());
+            if (editAllowed) headers.set("X-Aurevia-Superset-Edit", "true");
           }
           headers.set("X-Correlation-ID", correlationId(exchange));
           headers.set("X-Forwarded-Proto", exchange.getRequest().getURI().getScheme());

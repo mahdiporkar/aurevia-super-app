@@ -39,6 +39,7 @@ public class JdbcAccessRepository implements AccessRepository {
           count(distinct g.id) grant_count
         from resource r
         left join authorization_grant g on g.resource_id=r.id and g.status='ACTIVE'
+        where r.status='ACTIVE'
         group by r.id order by r.resource_key
         """).query((rs, row) -> resource(rs, List.of())).list();
     Map<UUID, List<ActionSummary>> actionsByResource = new LinkedHashMap<>();
