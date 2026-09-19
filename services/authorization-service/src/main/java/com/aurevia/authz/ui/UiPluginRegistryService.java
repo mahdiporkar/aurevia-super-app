@@ -122,7 +122,12 @@ public class UiPluginRegistryService {
     String declaredContract=textOrNull(runtime,"contractVersion");
     if(declaredRemote==null||declaredRemoteName==null||declaredModule==null||declaredContract==null)
       throw new IllegalArgumentException("MF manifest runtime integration fields are required");
-    artifactPolicy.validate(declaredRemote,textOrNull(runtime,"integrity"));
+    // Deterministic override rule: the administrator's deployment settings on the panel are
+    // the effective runtime values. The manifest's runtime block is informational: it must be
+    // a well-formed URL so the diff is meaningful, but it is never network-validated and never
+    // subject to the SRI requirement, because it is not what the BFF will fetch.
+    if(!declaredRemote.matches("^https?://\\S+\\.js$"))
+      throw new IllegalArgumentException("MF manifest runtime.remoteEntry must be an absolute JavaScript URL");
     String effectiveRemote=artifactPolicy.validate(panel.remoteEntryPath(),panel.integrity());
     ArtifactRequest effective=new ArtifactRequest(version,effectiveRemote,panel.remoteName(),
         panel.exposedModule(),panel.contractVersion(),panel.integrity(),root.toString());

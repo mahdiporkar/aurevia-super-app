@@ -56,8 +56,10 @@ public final class MicroFrontendArtifactController {
       return Mono.fromCallable(()->targets.resolveAsset(
               String.valueOf(remote.get("remoteEntryUrl")),assetPath))
           .subscribeOn(Schedulers.boundedElastic())
+          // The policy's own message says which precondition failed (DNS, scheme, network
+          // policy, traversal, origin escape); collapsing them hid the real cause from operators.
           .onErrorMap(IllegalArgumentException.class,error->new ResponseStatusException(
-              BAD_GATEWAY,"registered MFE target was rejected by network policy",error))
+              BAD_GATEWAY,"MFE target rejected: "+error.getMessage(),error))
           .flatMap(target->artifacts.get().uri(target).exchangeToMono(response->{
             if(response.statusCode().is3xxRedirection())return response.releaseBody().then(
                 Mono.error(new ResponseStatusException(BAD_GATEWAY,
@@ -74,7 +76,7 @@ public final class MicroFrontendArtifactController {
               BAD_GATEWAY,"MFE artifact exceeded the configured response-size limit",error))
           .onErrorMap(WebClientRequestException.class,error->new ResponseStatusException(
               isTimeout(error)?GATEWAY_TIMEOUT:BAD_GATEWAY,
-              isTimeout(error)?"MFE artifact request timed out":"MFE artifact is unavailable",error));
+              isTimeout(error)?"MFE artifact request timed out":describeTransport(error),error));
     });
   }
 
@@ -86,6 +88,16 @@ public final class MicroFrontendArtifactController {
     valid=valid&&(!path.endsWith(".css")||value.startsWith("text/css"));
     if(!valid)throw new ResponseStatusException(BAD_GATEWAY,
         "MFE artifact response has an unexpected content type");
+  }
+
+  /** Distinguishes DNS, connection and TLS failures without exposing the upstream host. */
+  static String describeTransport(Throwable failure) {
+    for(Throwable cursor=failure;cursor!=null;cursor=cursor.getCause()) {
+      if(cursor instanceof java.net.UnknownHostException)return "MFE artifact host could not be resolved (DNS)";
+      if(cursor instanceof javax.net.ssl.SSLException)return "MFE artifact TLS handshake failed";
+      if(cursor instanceof java.net.ConnectException)return "MFE artifact connection was refused or unreachable";
+    }
+    return "MFE artifact is unavailable";
   }
 
   private static boolean isTimeout(Throwable failure) {

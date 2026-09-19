@@ -36,10 +36,9 @@ public final class UiArtifactUriPolicy {
     this.allowHttp=allowHttp;
     this.developmentHost=validateDevelopmentHost(developmentHost);
     this.allowedPrivateCidrs=parseCidrs(allowedPrivateCidrs);
-    if(this.networkMode!=NetworkMode.DEVELOPMENT&&!this.developmentHost.isEmpty()) {
-      throw new IllegalArgumentException(
-          "UI artifact development host is permitted only in DEVELOPMENT network policy");
-    }
+    // The loopback bridge is a DEVELOPMENT-only feature: outside that mode the value is
+    // ignored rather than fatal, so switching an installation to UNRESTRICTED never fails
+    // startup because a development default was left in the environment.
   }
 
   /** Offline-safe validation used when registry configuration is saved or checked at startup. */
@@ -108,6 +107,13 @@ public final class UiArtifactUriPolicy {
   }
 
   private void validateLiteralAddress(String host,String label) {
+    // A loopback *name* has a known address; judging it at registration time keeps
+    // registration and fetch-time policy in agreement (a localhost MFE must not be
+    // saveable in a mode whose runtime fetch will refuse it).
+    if(isLoopbackHost(host)) {
+      validateAddress(InetAddress.getLoopbackAddress(),label);
+      return;
+    }
     if(!isIpLiteral(host))return;
     try { validateAddress(InetAddress.getByName(host),label); }
     catch(UnknownHostException failure) {

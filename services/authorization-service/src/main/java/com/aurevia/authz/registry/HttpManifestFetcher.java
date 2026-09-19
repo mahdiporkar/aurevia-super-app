@@ -49,8 +49,17 @@ final class HttpManifestFetcher implements ResourceManifestFetcher {
     } catch(InterruptedException failure) {
       Thread.currentThread().interrupt();
       throw new IllegalArgumentException("manifest fetch was interrupted",failure);
+    } catch(java.net.http.HttpTimeoutException failure) {
+      throw new IllegalArgumentException("manifest fetch timed out",failure);
+    } catch(java.net.UnknownHostException failure) {
+      throw new IllegalArgumentException("manifest host could not be resolved (DNS)",failure);
+    } catch(javax.net.ssl.SSLException failure) {
+      throw new IllegalArgumentException("manifest TLS handshake failed",failure);
+    } catch(java.net.ConnectException failure) {
+      throw new IllegalArgumentException("manifest connection was refused or unreachable",failure);
     } catch(Exception failure) {
-      throw new IllegalArgumentException("unable to fetch manifest",failure);
+      throw new IllegalArgumentException("unable to fetch manifest: "
+          +failure.getClass().getSimpleName(),failure);
     }
   }
 }
