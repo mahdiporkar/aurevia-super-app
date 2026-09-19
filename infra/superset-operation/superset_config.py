@@ -1,5 +1,36 @@
 import os
 from flask_appbuilder.const import AUTH_REMOTE_USER
+from superset.security.manager import SupersetSecurityManager
+
+
+def _remote_edit_users():
+    return {
+        username.strip()
+        for username in os.getenv("SUPERSET_REMOTE_EDIT_USERS", "administrator,report-designer").split(",")
+        if username.strip()
+    }
+
+
+class AureviaSecurityManager(SupersetSecurityManager):
+    """Give configured report designers the native Superset edit affordances."""
+
+    def auth_user_remote_user(self, username):
+        user = super().auth_user_remote_user(username)
+        if user is None or username not in _remote_edit_users():
+            return user
+
+        editor_role = self.find_role("Alpha")
+        if editor_role is None or editor_role in user.roles:
+            return user
+
+        user.roles.append(editor_role)
+        from superset import db
+
+        db.session.commit()
+        return user
+
+
+CUSTOM_SECURITY_MANAGER = AureviaSecurityManager
 
 
 class AureviaRemoteUserMiddleware:
