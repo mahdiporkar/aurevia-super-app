@@ -429,11 +429,14 @@ const runningSuperset=spawnSync('docker',[...supersetComposePrefix,'ps','--statu
 if(runningSuperset.status===0
     && runningSuperset.stdout.split(/\r?\n/).includes('superset-operation')) {
   const supersetHealth=await request('/api/integrations/superset/public-default/health',{
-    headers:{accept:'text/plain','x-correlation-id':`e2e-superset-${Date.now()}`},
+    headers:{accept:'application/json','x-correlation-id':`e2e-superset-${Date.now()}`},
   });
   const healthBody=await supersetHealth.text();
   assert.equal(supersetHealth.status,200,
     `Dynamic Superset proxy failed with HTTP ${supersetHealth.status}: ${healthBody}`);
+  const health=JSON.parse(healthBody);
+  assert.equal(health.status,'ACTIVE','Superset integration is not active');
+  assert.equal(health.upstreamStatus,200,'Superset upstream health check failed');
   supersetRuntime='verified';
 }
 
