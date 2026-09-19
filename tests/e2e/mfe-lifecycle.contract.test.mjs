@@ -54,6 +54,9 @@ test('Core starts without Superset and the demo has an independent lifecycle',as
       `${name} must have an independent demo service`);
   }
   assert.doesNotMatch(`${nginx}\n${gateway}`,/proxy_pass\s+http:\/\/(public|operation)-superset/);
+  assert.match(nginx,
+    /\$http_referer\s+~\*\s+"\^https\?:\/\/\[\^\/\]\+\/\(reports-runtime\|superset\|explore\|api\/v1\/superset-instances\)\//,
+    'registry-aware Superset pages must keep root-relative API calls on the Superset proxy');
   assert.doesNotMatch(pkg.scripts['infra:up'],/profile\s+superset|compose[.]superset-demo[.]yml/);
   assert.match(pkg.scripts['superset:up'],/compose[.]superset-demo[.]yml/);
   assert.match(pkg.scripts['superset:down'],/compose[.]superset-demo[.]yml/);
