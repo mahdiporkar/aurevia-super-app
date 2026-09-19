@@ -69,7 +69,7 @@ public class RuntimePolicyService {
     // OpenFGA canonicalizes only the resource-type separator. The resource id itself may
     // legitimately contain dots or further slashes and must remain byte-for-byte stable.
     String registryKey = toRegistryKey(key);
-    return policies.activeResource(key,registryKey)
+    return policies.activeResource(key,registryKey,canonicalObject)
         .orElseThrow(() -> new IllegalArgumentException(
             "Resource is not registered for canonical key '" + registryKey + "'"));
   }

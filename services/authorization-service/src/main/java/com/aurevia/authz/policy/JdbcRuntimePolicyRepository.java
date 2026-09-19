@@ -10,13 +10,21 @@ import org.springframework.stereotype.Repository;
 class JdbcRuntimePolicyRepository implements RuntimePolicyRepository {
   private final JdbcClient database;
   JdbcRuntimePolicyRepository(JdbcClient database) { this.database=database; }
-  @Override public Optional<ResourceContext> activeResource(String key,String registryKey) {
+  @Override public Optional<ResourceContext> activeResource(String key,String registryKey,String canonicalObject) {
     return database.sql("""
         select r.id,r.classification,r.owner_domain as "ownerDomain",
           coalesce(sa.owner_external_id,r.external_id) as "ownerId"
         from resource r left join superset_asset sa on sa.resource_id=r.id
-        where (r.resource_key=:key or r.resource_key=:registryKey) and r.status='ACTIVE'
-        """).param("key",key).param("registryKey",registryKey)
+        where (r.resource_key=:key or r.resource_key=:registryKey
+          or case r.type
+            when 'APPLICATION' then 'application:'||regexp_replace(r.resource_key,'^application:','')
+            when 'EXTERNAL_RESOURCE' then 'external_resource:'
+              ||replace(regexp_replace(r.resource_key,'^(external:|external_resource:)',''),':','/')
+            else 'resource:'||replace(r.resource_key,':','/') end=:canonical)
+          and r.status='ACTIVE'
+        order by (r.resource_key=:key) desc,(r.resource_key=:registryKey) desc
+        limit 1
+        """).param("key",key).param("registryKey",registryKey).param("canonical",canonicalObject)
         .query(ResourceContext.class).optional();
   }
   @Override public List<PolicyRow> activePolicies(UUID resourceId,String actionKey) {

@@ -74,3 +74,27 @@ Missing as automated login→`/api/me/context` tests: **A, B, C, D, E, F, G, I, 
 - OpenFGA store `01M2TR7FJZHN29JNWDAPPRCY4A`, URL `http://openfga:8080` (inside network).
 - `npm run infra:up` preflight needs OpenFGA already up; use `docker compose --env-file .env -f infra/docker-compose/compose.yml up -d --build` directly.
 - No python on host; use perl/node for scripted edits.
+
+## Session 2 — permission task COMPLETE (2026-09-19)
+Baseline commit `2e9fbcc`. Work below is **uncommitted** on top of it.
+
+### New root causes (confirmed by real-stack test, all fixed)
+| # | Cause | Fix |
+|---|---|---|
+| A7 | `expires_at` never enforced at runtime; expired grants/role assignments stayed effective until restart | `sync/ExpirationSweeper` + `ExpirationRepository`/`JdbcExpirationRepository` (30s sweep, reuses `GRANT_DELETE` / `ROLE_ASSIGNMENT_DELETE` projection; metrics `aurevia.authorization.expired.*`) |
+| A8 | `JdbcAccessRepository.createGrant` and `JdbcIdentityRepository.upsertRoleAssignment` bound `java.time.Instant` directly → PG "Can't infer the SQL type"; **any grant/assignment with `expiresAt` failed** | bind as `OffsetDateTime` |
+| A9 | `RuntimePolicyService.loadResource` rebuilt the registry key with `/`→`:`; Superset assets use slash keys → every `/authorize/check` on a Superset asset returned `POLICY_EVALUATION_ERROR` even when OpenFGA allowed | `RuntimePolicyRepository.activeResource(key, registryKey, canonicalObject)` also matches the computed canonical object |
+
+### Files this session
+`.gitlab-ci.yml` (PG/Redis/OpenFGA services + env + guard), `tools/verify-permission-integration-tests.mjs`, `package.json` (`test:permission:verify`), `docs/permission-definition-and-operation-fa.md` (new), `docs/current-state-fa.md` (stale V68 marker → V72, pre-existing docs:verify failure), `access/JdbcAccessRepository.java`, `identity/JdbcIdentityRepository.java`, `policy/{RuntimePolicyRepository,JdbcRuntimePolicyRepository,RuntimePolicyService}.java`, `sync/{ExpirationRepository,JdbcExpirationRepository,ExpirationSweeper}.java`, `test/support/PermissionStack.java`, `test/sync/PermissionLifecycleIntegrationTest.java` (13 scenarios), `test/resources/openfga/authorization-model.json`.
+
+### Test results (real PostgreSQL 16 + OpenFGA + Redis 7 via docker)
+authz 207 / bff 98 / ui-artifact-security 8 — 313 run, 0 fail, 0 err, **0 skip**. Permission integration classes executed: Lifecycle 13, Reconciliation 11, Diagnostics 11. `npm run docs:verify` PASS.
+Run locally: start `postgres:16-alpine` (55432), `redis:7-alpine --requirepass testpass` (56379), `openfga/openfga run` (58080); export `AUREVIA_TEST_JDBC_URL=jdbc:postgresql://localhost:55432/postgres AUREVIA_TEST_JDBC_USER=postgres AUREVIA_TEST_JDBC_PASSWORD=postgres AUREVIA_TEST_OPENFGA_URL=http://127.0.0.1:58080 AUREVIA_TEST_REDIS_HOST=localhost AUREVIA_TEST_REDIS_PORT=56379 AUREVIA_TEST_REDIS_PASSWORD=testpass`; `./mvnw -o test`; `npm run test:permission:verify`.
+
+### Remaining (permission)
+- Browser-level login → `/api/me/context` E2E not automated (BFF hop covered by existing BFF unit tests; authz side covered end-to-end by `PermissionLifecycleIntegrationTest`).
+- MFE discoverability of Reports asserted by unit tests + live compose check, not in the lifecycle test (fresh DB has no active Reports artifact).
+- Nothing committed.
+
+**Next task: prompt 2 (MFE registration / network policy).** Permission scope is closed.

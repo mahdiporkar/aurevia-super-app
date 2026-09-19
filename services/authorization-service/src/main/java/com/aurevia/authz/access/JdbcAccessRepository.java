@@ -277,7 +277,7 @@ public class JdbcAccessRepository implements AccessRepository {
         values(:id,cast(:type as subject_type),:subject,:resource,:action,:relation,:expires)
         """).param("id", id).param("type", type).param("subject", subject)
         .param("resource", resource).param("action", action).param("relation", relation)
-        .param("expires", expiresAt).update();
+        .param("expires", expiresAt == null ? null : java.time.OffsetDateTime.ofInstant(expiresAt, java.time.ZoneOffset.UTC)).update();
   }
   @Override public boolean isActiveGrant(UUID id) {
     // Serialize role grant changes with role activation/deactivation projection.

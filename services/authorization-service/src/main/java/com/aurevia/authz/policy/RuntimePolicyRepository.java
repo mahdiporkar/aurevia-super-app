@@ -5,7 +5,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 interface RuntimePolicyRepository {
-  Optional<ResourceContext> activeResource(String canonicalKey,String registryKey);
+  /** Matches the historical colon key, the registry key, or the resource whose canonical OpenFGA object equals {@code canonicalObject}. */
+  Optional<ResourceContext> activeResource(String canonicalKey,String registryKey,String canonicalObject);
   List<PolicyRow> activePolicies(UUID resourceId,String actionKey);
   Optional<OrgContext> primaryOrganization(String issuer,String subject);
 

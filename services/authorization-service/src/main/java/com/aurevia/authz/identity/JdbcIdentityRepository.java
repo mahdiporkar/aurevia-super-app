@@ -112,7 +112,7 @@ public class JdbcIdentityRepository implements IdentityRepository {
           on conflict(user_id,role_id) do update set expires_at=excluded.expires_at,
             assigned_by=excluded.assigned_by,assigned_at=now(),updated_at=now(),
             version=user_role_assignment.version+1 returning version
-          """).param("subject", subjectId).param("role", roleId).param("expires", expiresAt)
+          """).param("subject", subjectId).param("role", roleId).param("expires", expiresAt == null ? null : java.time.OffsetDateTime.ofInstant(expiresAt, java.time.ZoneOffset.UTC))
           .param("actor", safeActor).query(Long.class).single();
       case "DIRECTORY_GROUP" -> database.sql("""
           insert into group_role_assignment(group_id,role_id,expires_at,assigned_by)
@@ -120,7 +120,7 @@ public class JdbcIdentityRepository implements IdentityRepository {
           on conflict(group_id,role_id) do update set expires_at=excluded.expires_at,
             assigned_by=excluded.assigned_by,assigned_at=now(),updated_at=now(),
             version=group_role_assignment.version+1 returning version
-          """).param("subject", subjectId).param("role", roleId).param("expires", expiresAt)
+          """).param("subject", subjectId).param("role", roleId).param("expires", expiresAt == null ? null : java.time.OffsetDateTime.ofInstant(expiresAt, java.time.ZoneOffset.UTC))
           .param("actor", safeActor).query(Long.class).single();
       case "ACCESS_GROUP" -> database.sql("""
           insert into access_group_role_assignment(access_group_id,role_id,expires_at,assigned_by)
@@ -128,7 +128,7 @@ public class JdbcIdentityRepository implements IdentityRepository {
           on conflict(access_group_id,role_id) do update set expires_at=excluded.expires_at,
             assigned_by=excluded.assigned_by,assigned_at=now(),updated_at=now(),
             version=access_group_role_assignment.version+1 returning version
-          """).param("subject", subjectId).param("role", roleId).param("expires", expiresAt)
+          """).param("subject", subjectId).param("role", roleId).param("expires", expiresAt == null ? null : java.time.OffsetDateTime.ofInstant(expiresAt, java.time.ZoneOffset.UTC))
           .param("actor", safeActor).query(Long.class).single();
       default -> throw new IllegalArgumentException("unsupported subject type");
     };

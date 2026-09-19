@@ -9,7 +9,23 @@ frontend:
 backend:
   image: maven:3.9.16-eclipse-temurin-21
   stage: test
-  script: [mvn -B verify]
+  # Real PostgreSQL, Redis and OpenFGA: the permission integration tests must execute here.
+  services:
+    - {name: "postgres:16-alpine", alias: postgres}
+    - {name: "redis:7-alpine", alias: redis, command: ["redis-server", "--requirepass", "ci-redis"]}
+    - {name: "openfga/openfga:v1.8.0", alias: openfga, command: ["run"]}
+  variables:
+    POSTGRES_PASSWORD: postgres
+    AUREVIA_TEST_JDBC_URL: "jdbc:postgresql://postgres:5432/postgres"
+    AUREVIA_TEST_JDBC_USER: postgres
+    AUREVIA_TEST_JDBC_PASSWORD: postgres
+    AUREVIA_TEST_OPENFGA_URL: "http://openfga:8080"
+    AUREVIA_TEST_REDIS_HOST: redis
+    AUREVIA_TEST_REDIS_PORT: "6379"
+    AUREVIA_TEST_REDIS_PASSWORD: ci-redis
+  script:
+    - mvn -B verify
+    - node tools/verify-permission-integration-tests.mjs
 compose:
   image: docker:29.1.2-cli
   stage: validate
