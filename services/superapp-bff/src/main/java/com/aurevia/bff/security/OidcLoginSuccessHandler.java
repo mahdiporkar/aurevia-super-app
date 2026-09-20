@@ -15,6 +15,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.web.server.WebFilterExchange;
 import org.springframework.security.web.server.authentication.ServerAuthenticationSuccessHandler;
 import org.springframework.security.web.server.authentication.RedirectServerAuthenticationSuccessHandler;
+import org.springframework.security.web.server.savedrequest.NoOpServerRequestCache;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -32,6 +33,8 @@ public class OidcLoginSuccessHandler implements ServerAuthenticationSuccessHandl
     this.authorizedClients = authorizedClients;
     this.tokenVault = tokenVault;
     this.authorization = authorization;
+    // The Shell owns navigation; stale login/error requests must never override its landing page.
+    this.redirect.setRequestCache(NoOpServerRequestCache.getInstance());
   }
 
   @Override

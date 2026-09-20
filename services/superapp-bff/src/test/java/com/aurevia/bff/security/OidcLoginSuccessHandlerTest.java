@@ -3,6 +3,7 @@ package com.aurevia.bff.security;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.aurevia.bff.api.AuthorizationServiceClient;
 import java.time.Instant;
@@ -24,6 +25,7 @@ import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.security.web.server.WebFilterExchange;
+import org.springframework.security.web.server.savedrequest.WebSessionServerRequestCache;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -48,6 +50,10 @@ class OidcLoginSuccessHandlerTest {
     var user=new DefaultOidcUser(List.of(new SimpleGrantedAuthority("ROLE_USER")),idToken,subjectClaim);
     var authentication=new OAuth2AuthenticationToken(user,user.getAuthorities(),"public-iam");
     var exchange=MockServerWebExchange.from(MockServerHttpRequest.get("/login/oauth2/code/public-iam").build());
+    var session=exchange.getSession().block();
+    var previousRequest=MockServerWebExchange.builder(MockServerHttpRequest.get("/login?error")
+        .accept(org.springframework.http.MediaType.TEXT_HTML)).session(session).build();
+    new WebSessionServerRequestCache().saveRequest(previousRequest).block();
     var webExchange=new WebFilterExchange(exchange,ignored->Mono.empty());
     when(clients.loadAuthorizedClient("public-iam",authentication,exchange))
         .thenReturn(Mono.just(authorized));
@@ -58,6 +64,8 @@ class OidcLoginSuccessHandlerTest {
 
     StepVerifier.create(new OidcLoginSuccessHandler(clients,vault,authorization)
         .onAuthenticationSuccess(webExchange,authentication)).verifyComplete();
+
+    assertEquals(java.net.URI.create("/"),exchange.getResponse().getHeaders().getLocation());
 
     verify(clients).removeAuthorizedClient("public-iam",authentication,exchange);
     verify(authorization).syncLogin(org.mockito.ArgumentMatchers.argThat(identity->

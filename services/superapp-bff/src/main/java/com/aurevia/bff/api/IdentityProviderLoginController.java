@@ -15,6 +15,10 @@ import reactor.core.publisher.Mono;
 public class IdentityProviderLoginController {
   private final AuthorizationServiceClient authorization;
   public IdentityProviderLoginController(AuthorizationServiceClient authorization){this.authorization=authorization;}
+  @GetMapping("/login")
+  public ResponseEntity<Void> loginLanding() {
+    return ResponseEntity.status(HttpStatus.FOUND).location(URI.create("/")).build();
+  }
   @GetMapping("/auth/providers")
   public Mono<List<AuthorizationServiceClient.IdentityProviderSummary>> providers(
       @RequestParam(required=false) String tenant,@RequestParam(required=false) String domain){
