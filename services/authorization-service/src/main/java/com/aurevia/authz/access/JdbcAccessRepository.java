@@ -247,6 +247,16 @@ public class JdbcAccessRepository implements AccessRepository {
         """).param("resource", resourceId).param("action", actionId)
         .query(GrantTarget.class).optional();
   }
+  @Override public boolean subjectExists(String type, UUID subject) {
+    String sql = switch (type) {
+      case "USER" -> "select count(*) from app_user where id=:id and status='ACTIVE'";
+      case "GROUP" -> "select count(*) from directory_group where id=:id and status='ACTIVE'";
+      case "ACCESS_GROUP" -> "select count(*) from access_group where id=:id and active";
+      case "ROLE" -> "select count(*) from application_role where id=:id";
+      default -> throw new IllegalArgumentException("unsupported subject type");
+    };
+    return database.sql(sql).param("id", subject).query(Long.class).single() > 0;
+  }
   @Override public void archiveExpiredGrant(String type, UUID subject, UUID resource, UUID action) {
     database.sql("""
         update authorization_grant set status='ARCHIVED',version=version+1

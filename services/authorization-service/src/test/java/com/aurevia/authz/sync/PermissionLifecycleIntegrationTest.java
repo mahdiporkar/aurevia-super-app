@@ -106,6 +106,8 @@ class PermissionLifecycleIntegrationTest {
   @Autowired OutboxReconciler outbox;
   @Autowired OutboxMetricsRepository outboxMetrics;
   @Autowired ExpirationSweeper expiration;
+  @Autowired com.aurevia.authz.registry.PanelAdministrationService panels;
+  @Autowired com.aurevia.authz.ui.UiPluginRegistryService plugins;
   @Autowired TestRestTemplate http;
   @LocalServerPort int port;
 
@@ -398,6 +400,94 @@ class PermissionLifecycleIntegrationTest {
         .extracting(asset -> asset.externalId()).containsExactly("9" + catalog.numeric);
   }
 
+  @Test void twoUsersWithDifferentDashboardsNeverSeeEachOthersAssetsAndRevokeRemovesReports() {
+    Catalog catalog = catalog("superset-pair");
+    Subject userA = login("olga-superset-a", List.of());
+    Subject userB = login("pete-superset-b", List.of());
+    String idA = "7" + catalog.numeric, idB = "6" + catalog.numeric, idChart = "5" + catalog.numeric;
+    var dashboardA = superset.create(new AssetCommand(idA, "DASHBOARD", "Dashboard A",
+        "/superset/dashboard/" + idA + "/", null, true, "operation-default"), ACTOR);
+    var dashboardB = superset.create(new AssetCommand(idB, "DASHBOARD", "Dashboard B",
+        "/superset/dashboard/" + idB + "/", null, true, "operation-default"), ACTOR);
+    var chartA = superset.create(new AssetCommand(idChart, "CHART", "Chart A",
+        "/explore/?slice_id=" + idChart, null, true, "operation-default"), ACTOR);
+    var grantA = superset.grant(dashboardA.id(), "USER", userA.userId, "VIEW", ACTOR);
+    superset.grant(dashboardB.id(), "USER", userB.userId, "VIEW", ACTOR);
+    awaitAllowed(userA, dashboardA.resourceKey(), true);
+    awaitAllowed(userB, dashboardB.resourceKey(), true);
+
+    // Server-side listing is filtered by effective authorization, per user.
+    assertThat(superset.assetsForSubject(ISSUER, userA.subject, "operation-default"))
+        .extracting(asset -> asset.externalId()).containsExactly(idA);
+    assertThat(superset.assetsForSubject(ISSUER, userB.subject, "operation-default"))
+        .extracting(asset -> asset.externalId()).containsExactly(idB);
+    // Runtime access is checked again per asset: the other dashboard and the chart are denied.
+    assertThat(superset.accessForSubject(ISSUER, userA.subject, "operation-default",
+        "/superset/dashboard/" + idB + "/", "GET", "", "DASHBOARD", idB).result()).isEqualTo("DENY");
+    assertThat(superset.accessForSubject(ISSUER, userA.subject, "operation-default",
+        "/explore/", "GET", "slice_id=" + idChart, "CHART", idChart).result()).isEqualTo("DENY");
+    assertThat(superset.accessForSubject(ISSUER, userB.subject, "operation-default",
+        "/superset/dashboard/" + idA + "/", "GET", "", "DASHBOARD", idA).result()).isEqualTo("DENY");
+    // Reports discoverability comes from the asset alone, never from a broad grant.
+    assertThat(contextPermissions(userA)).containsKey(dashboardA.resourceKey())
+        .doesNotContainKey(dashboardB.resourceKey()).doesNotContainKey(chartA.resourceKey())
+        .doesNotContainKey("application:aurevia/reports");
+    assertThat(panelSlugs(manifest(userA))).contains("reports");
+
+    // Revoke: the asset, the runtime access and the Reports panel all disappear for user A only.
+    access.revoke(grantA.id(), ACTOR);
+    awaitAllowed(userA, dashboardA.resourceKey(), false);
+    assertThat(superset.assetsForSubject(ISSUER, userA.subject, "operation-default")).isEmpty();
+    assertThat(superset.accessForSubject(ISSUER, userA.subject, "operation-default",
+        "/superset/dashboard/" + idA + "/", "GET", "", "DASHBOARD", idA).result()).isEqualTo("DENY");
+    assertThat(panelSlugs(manifest(userA))).doesNotContain("reports");
+    assertThat(superset.assetsForSubject(ISSUER, userB.subject, "operation-default"))
+        .extracting(asset -> asset.externalId()).containsExactly(idB);
+  }
+
+  @Test void manuallyCreatedMicroFrontendAndResourceTreeBehaveLikeAnImportedOne() {
+    String suffix = "acc" + Integer.toHexString(UUID.randomUUID().hashCode() & 0xffff);
+    UUID view = database.sql("select id from action where action_key='view'").query(UUID.class).single();
+    UUID create = database.sql("select id from action where action_key='create'").query(UUID.class).single();
+    // Micro registered through the Admin service with a network remoteEntry.
+    UUID panelId = panels.create(new com.aurevia.authz.registry.PanelModels.PanelCommand(
+        "ACC" + suffix.toUpperCase(), "حسابداری", "Accounting", "", suffix, suffix, "aurevia_" + suffix,
+        "invoice-list", "http://10.20.1.15:3000/remoteEntry.js", "./plugin", "/" + suffix, "1.0.0", "1.0",
+        null, "MANUAL", "REAL", null, null, true, 90), ACTOR).id();
+    // Resource tree created manually: application → module → pages, with actions attached.
+    UUID application = access.createResource(resource("application:aurevia/" + suffix, "APPLICATION", null, panelId), ACTOR).id();
+    UUID module = access.createResource(resource("module:" + suffix + ".invoice", "MODULE", application, panelId), ACTOR).id();
+    UUID list = access.createResource(resource("page:" + suffix + ".invoice.list", "PAGE", module, panelId), ACTOR).id();
+    UUID details = access.createResource(resource("page:" + suffix + ".invoice.details", "PAGE", module, panelId), ACTOR).id();
+    for (UUID id : List.of(application, module, list, details)) access.attachAction(id, view, ACTOR);
+    access.attachAction(list, create, ACTOR);
+    // MF manifest published manually (no fetch): routes reference the manual resources by key.
+    String manifestJson = """
+        {"schemaVersion":"1.0","microfrontend":{"key":"%1$s","name":"Accounting","version":"1.0.0"},
+         "runtime":{"remoteEntry":"http://10.20.1.15:3000/remoteEntry.js","remoteName":"aurevia_%1$s","exposedModule":"./plugin","contractVersion":"1.0"},
+         "defaultRouteKey":"invoice-list",
+         "routes":[{"key":"invoice-list","path":"invoices","requiredResource":"page:%1$s.invoice.list","requiredAction":"view","title":"Invoices"},
+                   {"key":"invoice-details","path":"invoices/:id","requiredResource":"page:%1$s.invoice.details","requiredAction":"view","title":"Invoice"}],
+         "navigation":[{"key":"nav-invoices","type":"PAGE","routeKey":"invoice-list","title":"Invoices","order":10}]}
+        """.formatted(suffix);
+    var published = plugins.publish(panelId, ACTOR, new com.aurevia.authz.api.dto.UiPluginDtos.ArtifactRequest(
+        "1.0.0", "http://10.20.1.15:3000/remoteEntry.js", "aurevia_" + suffix, "./plugin", "1.0", null, manifestJson));
+    long panelVersion = database.sql("select version from panel where id=:id").param("id", panelId).query(Long.class).single();
+    plugins.activate(panelId, published.id(), panelVersion);
+
+    Subject userX = login("xavier-" + suffix, List.of());
+    access.grant(new GrantCommand(null, "USER", userX.userId, list, view, null), ACTOR);
+    awaitAllowed(userX, "page:" + suffix + ".invoice.list", true);
+
+    Map<String, Object> context = manifest(userX);
+    assertThat(panelSlugs(context)).contains(suffix);
+    assertThat(moduleRouteIds(context, suffix)).containsExactly("invoice-list");
+    assertThat(contextPermissions(userX)).containsKey("page:" + suffix + ".invoice.list")
+        .doesNotContainKey("page:" + suffix + ".invoice.details")
+        .doesNotContainKey("application:aurevia/" + suffix);
+    assertThat(decision(userX, "page:" + suffix + ".invoice.details")).isEqualTo("DENY");
+  }
+
   // ---------------------------------------------------------------- diagnostics
 
   @Test void diagnosticsNameTheContributingPathAndTheProjectionState() {
@@ -457,8 +547,27 @@ class PermissionLifecycleIntegrationTest {
   }
 
   private static ResourceCommand resource(String key, String type, UUID parent) {
+    return resource(key, type, parent, null);
+  }
+
+  private static ResourceCommand resource(String key, String type, UUID parent, UUID panelId) {
     return new ResourceCommand(key, type, parent, key, key, "hr", "INTERNAL", null, null, null,
-        "ADMIN", null, true, Map.of());
+        "ADMIN", panelId, true, Map.of());
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<String> panelSlugs(Map<String, Object> manifest) {
+    return ((List<Map<String, Object>>) manifest.get("panels")).stream()
+        .map(panel -> String.valueOf(panel.get("slug"))).toList();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<String> moduleRouteIds(Map<String, Object> manifest, String moduleKey) {
+    Map<String, Object> catalog = (Map<String, Object>) manifest.get("uiCatalog");
+    return ((List<Map<String, Object>>) catalog.get("modules")).stream()
+        .filter(module -> moduleKey.equals(module.get("moduleKey")))
+        .flatMap(module -> ((List<Map<String, Object>>) module.get("routes")).stream())
+        .map(route -> String.valueOf(route.get("id"))).toList();
   }
 
   /** The real login path: identity_provider lookup, app_user/external_identity upsert, groups. */

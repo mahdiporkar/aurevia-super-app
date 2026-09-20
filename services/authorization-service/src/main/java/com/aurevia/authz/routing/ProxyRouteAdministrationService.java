@@ -111,6 +111,12 @@ public class ProxyRouteAdministrationService {
   public Map<String,Object> updateRoute(UUID id,long version,RouteRequest request,String actor) {
     validateRoute(request);
     Map<String,Object> before=route(id);
+    // Shrinking allowedMethods must not strand active operations that can no longer resolve.
+    List<String> methods=request.allowedMethods().stream().map(this::method).toList();
+    if(operations(id).stream().anyMatch(row->Boolean.TRUE.equals(row.get("active"))
+        &&!methods.contains(String.valueOf(row.get("http_method"))))) {
+      throw bad("ROUTE_METHODS_EXCLUDE_ACTIVE_OPERATION");
+    }
     if(!routes.updateRoute(id,version,routeValue(id,request,actor))) conflictVersion();
     Map<String,Object> after=route(id);
     audit.success("PROXY_ROUTE","proxy.route.updated",null,null,"PROXY_ROUTE",
@@ -208,13 +214,34 @@ public class ProxyRouteAdministrationService {
   }
 
   private void validateOperation(UUID routeId,OperationRequest request,UUID self) {
-    route(routeId);
+    Map<String,Object> route=route(routeId);
     String verb=method(request.httpMethod());
     String pattern=RoutePathPolicy.pattern(request.pathPattern());
     resource(request.resourceKey(),request.actionKey());
+    // An operation whose method the route never admits can never resolve at runtime.
+    if(!allowedMethods(route).contains(verb)) throw bad("METHOD_NOT_ALLOWED_BY_ROUTE");
     if(routes.operationConflict(routeId,verb,pattern,self==null?NO_ID:self)>0) {
       throw conflict("DUPLICATE_OPERATION");
     }
+    // Same specificity + overlapping shape = runtime 409. Refuse it while configuring instead.
+    if(request.active()) {
+      int specificity=RoutePathPolicy.specificity(pattern);
+      boolean ambiguous=operations(routeId).stream()
+          .filter(row->Boolean.TRUE.equals(row.get("active"))&&verb.equals(row.get("http_method"))
+              &&!String.valueOf(row.get("id")).equals(String.valueOf(self)))
+          .map(row->String.valueOf(row.get("normalized_path_pattern")))
+          .anyMatch(existing->RoutePathPolicy.specificity(existing)==specificity
+              &&RoutePathPolicy.overlaps(existing,pattern));
+      if(ambiguous) throw conflict("AMBIGUOUS_OPERATION");
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<String> allowedMethods(Map<String,Object> route) {
+    Object value=route.get("allowed_methods");
+    if(value instanceof List<?> list) return list.stream().map(String::valueOf).map(String::toUpperCase).toList();
+    return Arrays.stream(String.valueOf(value).replaceAll("[{}\\[\\]\" ]","").split(","))
+        .map(String::toUpperCase).toList();
   }
 
   private void validateRoute(RouteRequest request) {

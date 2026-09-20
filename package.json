@@ -46,6 +46,7 @@
     "superset:native:verify": "node tools/verify-superset-native.mjs",
     "test:permission:verify": "node tools/verify-permission-integration-tests.mjs",
     "e2e:mfe:external": "node tools/mfe-external-e2e.mjs",
+    "e2e:enterprise-hr": "node tools/enterprise-hr-e2e.mjs",
     "superset:native:evidence": "node tools/collect-superset-native-evidence.mjs",
     "mfe:preflight": "node tools/mfe-demo-preflight.mjs",
     "mfe:build": "npm run build --workspace=@aurevia/mfe-admin && npm run build --workspace=@aurevia/mfe-hr && npm run build --workspace=@aurevia/mfe-finance && npm run build --workspace=@aurevia/mfe-reports",

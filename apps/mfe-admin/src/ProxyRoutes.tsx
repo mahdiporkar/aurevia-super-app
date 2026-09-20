@@ -111,7 +111,8 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
     } : {
       active: true, environment: 'OPERATION', upstreamBasePath: '/', healthCheckPath: '/health',
       connectTimeoutMs: 3000, responseTimeoutMs: 10000, maxResponseSize: 10485760,
-      outboundAuthProfileId: authProfiles.find(profile => profile.code === 'public-iam-forward')?.id,
+      // Authentication mode belongs to the Route; a Target is only a network destination.
+      outboundAuthProfileId: null,
     });
     setTargetOpen(true);
   };
@@ -236,7 +237,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
     <Button type="primary" onClick={() => openRoute()}>مسیر جدید</Button>
   </Space>}>
     <Alert showIcon type="info" style={{ marginBottom: 16 }}
-      message="نوع Route از Auth Profileِ Target انتخاب‌شده می‌آید"
+      message="حالت احراز هویت (Forward یا Legacy) روی خود Route تعیین می‌شود؛ Service Target فقط مقصد شبکه است"
       description="Path Prefix می‌تواند هر مسیر امن same-origin باشد. برای هر درخواست Microfrontend یک Operation با Method، مسیر نسبی، Resource و Action تعریف کنید." />
     <Table rowKey="id" loading={loading} dataSource={routes} pagination={{ pageSize: 10 }} columns={[
       { title: 'کد', dataIndex: 'code' }, { title: 'پنل', dataIndex: 'panel_name' },
@@ -324,8 +325,7 @@ export function ProxyRouteManagement({ api, section }: { api: AdminApi; section:
               routeForm.setFieldsValue({ serviceSlug: slug, pathPrefix: prefix, stripPrefix: segmentCount(prefix) });
             }} /></Form.Item>
           <Form.Item name="serviceTargetId" label="Service Target" rules={required}><Select style={{ width: 320 }} options={targets.filter(target => target.active || target.id === editingRoute?.service_target_id).map(target => {
-            const profile = authProfiles.find(item => item.id === target.outbound_auth_profile_id);
-            return { value: target.id, label: `${target.code} (پیش‌فرض: ${profile?.auth_mode ?? 'بدون پروفایل'})` };
+            return { value: target.id, label: `${target.code} — ${target.gateway_base_url ?? ''}${target.upstream_base_path ?? ''}` };
           })} /></Form.Item>
           <Form.Item name="outboundAuthProfileId" label="Auth Mode این Route" rules={required}
             extra="هر Route مستقل است؛ برای یک Microfrontend می‌توانید هم Routeهای Legacy و هم Forward بسازید.">

@@ -179,6 +179,12 @@ public class AccessAdministrationService {
     String subjectType = normalizeSubjectType(command.subjectType() == null ? "USER" : command.subjectType());
     UUID subjectId = command.subjectId() != null ? command.subjectId() : command.userId();
     if (subjectId == null) throw new IllegalArgumentException("A subject is required");
+    // A grant whose subject does not exist would produce an outbox event with a null OpenFGA
+    // subject and retry forever; refuse it here so "saved" always means "projectable".
+    if (!repository.subjectExists(subjectType, subjectId)) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+          subjectType + " subject does not exist or is inactive");
+    }
     GrantTarget target = repository.grantTarget(command.resourceId(), command.actionId())
         .orElseThrow(() -> new IllegalArgumentException(
             "Action is not attached to an active resource"));

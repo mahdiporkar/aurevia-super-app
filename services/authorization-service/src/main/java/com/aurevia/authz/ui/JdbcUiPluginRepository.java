@@ -62,13 +62,15 @@ class JdbcUiPluginRepository implements UiPluginRepository {
           validation_status,created_by)
         values(:id,:panel,:version,:url,:name,:module,:contract,:schema,:integrity,
           cast(:manifest as jsonb),:checksum,:source,
-          case when :source is null then null else now() end,'VALID',:actor)
+          case when cast(:source as varchar) is null then null else now() end,'VALID',:actor)
         """).param("id",value.id()).param("panel",value.panelId())
         .param("version",value.artifactVersion()).param("url",value.remoteEntryUrl())
         .param("name",value.remoteName()).param("module",value.exposedModule())
         .param("contract",value.contractVersion()).param("schema",value.schemaVersion())
-        .param("integrity",value.integrity()).param("manifest",value.manifest())
-        .param("checksum",value.checksum()).param("source",value.sourceUrl())
+        .param("integrity",value.integrity(),java.sql.Types.VARCHAR).param("manifest",value.manifest())
+        .param("checksum",value.checksum())
+        // A manually published artifact has no source URL; the null must carry a SQL type.
+        .param("source",value.sourceUrl(),java.sql.Types.VARCHAR)
         .param("actor",value.actor()).update();
   }
 

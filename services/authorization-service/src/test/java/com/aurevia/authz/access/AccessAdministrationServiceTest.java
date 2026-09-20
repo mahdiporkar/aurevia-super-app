@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -23,6 +25,27 @@ class AccessAdministrationServiceTest {
   private final AccessAdministrationService service=new AccessAdministrationService(repository,
       new AuthorizationSemanticsRegistry(),mock(AuditTrail.class),
       new ResourceTreeDevelopmentPolicy(false));
+
+  @Test void grantRefusesASubjectThatCannotBeProjectedAndAcceptsEveryRealSubjectType() {
+    UUID resource=UUID.randomUUID(), action=UUID.randomUUID();
+    when(repository.grantTarget(resource,action)).thenReturn(Optional.of(new GrantTarget("PAGE","view")));
+    when(repository.activeGrant(anyString(),any(),any(),any())).thenReturn(Optional.empty());
+    UUID ghost=UUID.randomUUID();
+    when(repository.subjectExists("USER",ghost)).thenReturn(false);
+    org.assertj.core.api.Assertions.assertThatThrownBy(()->service.grant(
+        new GrantCommand(null,"USER",ghost,resource,action,null),"admin"))
+        .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+        .hasMessageContaining("does not exist");
+    verify(repository,never()).createGrant(any(),anyString(),any(),any(),any(),anyString(),any());
+    verify(repository,never()).enqueueGrant(any(),anyString(),anyLong());
+
+    for(String type:java.util.List.of("USER","GROUP","ACCESS_GROUP","ROLE")) {
+      UUID subject=UUID.randomUUID();
+      when(repository.subjectExists(type,subject)).thenReturn(true);
+      service.grant(new GrantCommand(null,type,subject,resource,action,null),"admin");
+      verify(repository).createGrant(any(),eq(type),eq(subject),eq(resource),eq(action),eq("viewer"),any());
+    }
+  }
 
   @Test void manifestModeRejectsManualResourceCreation() {
     UUID panel=UUID.randomUUID();UUID parent=UUID.randomUUID();

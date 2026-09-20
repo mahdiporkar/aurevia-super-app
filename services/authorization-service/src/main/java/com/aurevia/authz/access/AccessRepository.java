@@ -27,6 +27,8 @@ public interface AccessRepository {
   void detachAction(UUID resourceId, UUID actionId);
   void createUser(UUID id, UserCommand command);
   Optional<GrantTarget> grantTarget(UUID resourceId, UUID actionId);
+  /** True when the subject row exists and can be projected as an OpenFGA subject. */
+  boolean subjectExists(String subjectType, UUID subjectId);
   void archiveExpiredGrant(String subjectType, UUID subjectId, UUID resourceId, UUID actionId);
   Optional<ExistingGrant> activeGrant(String subjectType, UUID subjectId, UUID resourceId, UUID actionId);
   void createGrant(UUID id, String subjectType, UUID subjectId, UUID resourceId, UUID actionId,

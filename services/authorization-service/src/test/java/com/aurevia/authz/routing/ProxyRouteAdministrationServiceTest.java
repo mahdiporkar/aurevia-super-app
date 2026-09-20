@@ -47,4 +47,34 @@ class ProxyRouteAdministrationServiceTest {
     return new RouteRequest(code,panel,target,profile,"mixed-service","/custom/mixed-api",
         2,null,null,100,List.of("GET"),false,false,0,true);
   }
+
+  @Test void operationsThatCanNeverResolveAreRefusedWhileConfiguring() {
+    var repository=mock(ProxyRouteRepository.class);
+    UUID routeId=UUID.randomUUID();
+    when(repository.route(routeId)).thenReturn(Optional.of(Map.<String,Object>of(
+        "id",routeId,"active",true,"allowed_methods",List.of("GET"))));
+    when(repository.resourceAction(any(),any())).thenReturn(Optional.of(UUID.randomUUID()));
+    when(repository.operationConflict(any(),any(),any(),any())).thenReturn(0L);
+    when(repository.operation(any())).thenAnswer(i->Optional.of(Map.<String,Object>of("id",i.getArgument(0,UUID.class))));
+    when(repository.operations(routeId)).thenReturn(List.of(Map.<String,Object>of(
+        "id",UUID.randomUUID(),"active",true,"http_method","GET",
+        "normalized_path_pattern","/employees/{id}")));
+    var service=new ProxyRouteAdministrationService(repository,mock(AuditTrail.class),
+        mock(RouteResolutionService.class),"operation-gateway");
+
+    // Route only admits GET: a POST operation would never resolve.
+    org.assertj.core.api.Assertions.assertThatThrownBy(()->service.createOperation(routeId,
+        operation("POST","/employees"),"operator")).hasMessageContaining("METHOD_NOT_ALLOWED_BY_ROUTE");
+    // Same specificity and overlapping shape as the existing active operation: a runtime 409.
+    org.assertj.core.api.Assertions.assertThatThrownBy(()->service.createOperation(routeId,
+        operation("GET","/employees/*"),"operator")).hasMessageContaining("AMBIGUOUS_OPERATION");
+    // A more specific literal sibling is fine.
+    service.createOperation(routeId,operation("GET","/employees/me"),"operator");
+    verify(repository).insertOperation(any());
+  }
+
+  private static com.aurevia.authz.api.dto.ProxyRouteDtos.OperationRequest operation(String method,String pattern) {
+    return new com.aurevia.authz.api.dto.ProxyRouteDtos.OperationRequest(method,pattern,
+        "page:hr.employees","view",true,null,true,0);
+  }
 }

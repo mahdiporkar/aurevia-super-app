@@ -24,7 +24,7 @@
 <!-- sync:packages=authorization-sdk,contracts,http-client,i18n,sh-core-ui -->
 <!-- sync:java-services=authorization-service,superapp-bff,test-legacy-service,test-sso-service,ui-artifact-security -->
 <!-- sync:core-services=aurevia-bff,auth-db,authorization-service,demo-catalog-init,mock-finance,mock-hr,mock-legacy,mock-oauth,nginx,openfga,openfga-db,openfga-migrate,operation-gateway,redis -->
-<!-- sync:latest-migration=V72 -->
+<!-- sync:latest-migration=V73 -->
 <!-- sync:admin-version=0.5.0;admin-routes=18 -->
 <!-- sync:swagger-specs=/api/v1/docs/admin/openapi,/api/v1/docs/authorization/openapi,/v3/api-docs -->
 <!-- sync:resource-types=APPLICATION,MODULE,PAGE,UI_COMPONENT,FIELD,BUSINESS_RESOURCE,EXTERNAL_RESOURCE,API_RESOURCE,DATA_RESOURCE,DATA_GOVERNANCE_RESOURCE -->
@@ -35,7 +35,7 @@
 | shared packages | contracts، HTTP client با CSRF، authorization SDK، UI guard و i18n |
 | Java | BFF، Authorization Service، policy مشترک UI artifact و دو سرویس تست اختیاری |
 | داده | PostgreSQL کنترل‌پلین، OpenFGA برای graph تصمیم runtime، Redis برای session/token vault/cache |
-| schema | ۷۲ migration ترتیبی؛ آخرین migration `V72__demo_viewer_superset_asset_only_access.sql` |
+| schema | ۷۳ migration ترتیبی؛ آخرین migration `V73__route_owned_auth_mode_and_contract_normalization.sql` |
 | Admin MFE | قرارداد `0.5.0` با ۱۸ route راهبری و navigation متناظر |
 | Resource Catalog | ۱۰ نوع معتبر از `APPLICATION` تا `DATA_GOVERNANCE_RESOURCE` مطابق validation سرویس |
 

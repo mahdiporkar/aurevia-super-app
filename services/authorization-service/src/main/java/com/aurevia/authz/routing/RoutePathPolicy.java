@@ -63,6 +63,23 @@ public final class RoutePathPolicy {
     return i==actual.length;
   }
 
+  /**
+   * True when some request path could match both patterns. Used at configuration time so an
+   * ambiguous pair (equal specificity) is refused when saved, not discovered by a user's 409.
+   */
+  public static boolean overlaps(String first,String second) {
+    String[] a=first.substring(1).split("/",-1), b=second.substring(1).split("/",-1);
+    int i=0;
+    for(;i<a.length&&i<b.length;i++) {
+      if(a[i].equals("**")||b[i].equals("**")) return true;
+      boolean wildA=a[i].equals("*")||a[i].startsWith("{"), wildB=b[i].equals("*")||b[i].startsWith("{");
+      if(!wildA&&!wildB&&!a[i].equals(b[i])) return false;
+    }
+    if(i<a.length) return a[i].equals("**");
+    if(i<b.length) return b[i].equals("**");
+    return true;
+  }
+
   public static int specificity(String pattern) {
     int score=0;
     for(String segment:pattern.split("/")) score += segment.equals("**")?0:(segment.equals("*")||segment.startsWith("{"))?1:10;
