@@ -5,8 +5,9 @@ request. Superset still needs datasource permission to render an otherwise
 authorized dashboard after the remote-user session is established. This
 bootstrap is idempotent: it grants ``datasource_access`` to the local read
 role and gives explicitly configured report designers Superset's native
-``Alpha`` role so the edit controls can render. The BFF remains authoritative
-for which dashboard mutation is allowed.
+``Alpha`` role. Dashboard ownership is synchronized from the BFF's current
+asset-level edit decision, so a revoked Aurevia grant removes the native edit
+affordance on the next dashboard request.
 """
 
 import os
@@ -82,17 +83,18 @@ def main() -> None:
             ).split(",")
             if username.strip()
         }
-        editors = []
+        editor_roles_added = []
         for username in editor_usernames:
             user = security_manager.find_user(username=username)
-            if user is not None and editor_role not in user.roles:
+            if user is None:
+                continue
+            if editor_role not in user.roles:
                 user.roles.append(editor_role)
-                editors.append(username)
-
+                editor_roles_added.append(username)
         db.session.commit()
         print(
             f"Configured datasource read access for Gamma ({len(tables)} tables); "
-            f"Superset editors updated: {', '.join(sorted(editors)) or 'none'}"
+            f"Superset editor roles updated: {', '.join(sorted(editor_roles_added)) or 'none'}"
         )
 
 

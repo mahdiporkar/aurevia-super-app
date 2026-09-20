@@ -27,7 +27,7 @@ services:
     image: aurevia/superset:5.0.0-postgres
     build: {context: ../.., dockerfile: infra/superset/Dockerfile}
     command: [superset, run, -h, 0.0.0.0, -p, "8088", --with-threads]
-    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@superset-operation-db:5432/superset_operation", SUPERSET_REMOTE_USER_ROLE: "${SUPERSET_REMOTE_USER_ROLE:-Gamma}", SUPERSET_REMOTE_EDIT_USERS: "${SUPERSET_REMOTE_EDIT_USERS:-administrator,report-designer}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
+    environment: {SUPERSET_SECRET_KEY: "${OPERATION_SUPERSET_SECRET_KEY:-change-me-operation}", SUPERSET_DATABASE_URI: "postgresql+psycopg2://superset_operation:${OPERATION_SUPERSET_DB_PASSWORD:-change-me}@superset-operation-db:5432/superset_operation", SUPERSET_REMOTE_USER_ROLE: "${SUPERSET_REMOTE_USER_ROLE:-Gamma}", SUPERSET_REMOTE_EDIT_USERS: "${SUPERSET_REMOTE_EDIT_USERS:-administrator,report-designer}", SUPERSET_AUREVIA_DASHBOARD_IDS: "${SUPERSET_AUREVIA_DASHBOARD_IDS:-}", SUPERSET_AUREVIA_DASHBOARD_TITLES: "${SUPERSET_AUREVIA_DASHBOARD_TITLES:-Sales Dashboard}", SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py}
     volumes: [../superset-operation/superset_config.py:/app/pythonpath/superset_config.py:ro, superset-operation-home:/app/superset_home]
     depends_on: {superset-operation-init: {condition: service_completed_successfully}}
     ports: ["127.0.0.1:8088:8088"]

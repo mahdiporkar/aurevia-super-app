@@ -51,7 +51,12 @@ public class SupersetAssetService {
   }
 
   public List<AssetView> assetsForSubject(String issuer, String subject, String instance) {
-    return repository.publishedAssets(instance).stream()
+    String user = identities.openFgaUser(issuer, subject);
+    List<AssetView> published = repository.publishedAssets(instance);
+    if (relationships.check(user, "can_manage", "application:aurevia")) {
+      return published;
+    }
+    return published.stream()
         .filter(asset -> canView(issuer, subject, asset)).toList();
   }
 
@@ -69,6 +74,10 @@ public class SupersetAssetService {
     if (relationships.check(user, "can_manage", "application:aurevia")) {
       return new RuntimeAccess("ALLOW", "SUPERSET_ADMIN_ALLOWED", true);
     }
+    // The Superset designer role receives editor on the Superset catalog root.
+    // OpenFGA inheritance makes that permission effective for every registered
+    // dashboard and chart, while a viewer still needs an explicit asset grant.
+    boolean designer = relationships.check(user, "can_edit", "external_resource:superset-public");
     List<AssetView> published = repository.publishedAssets(instance);
     List<AssetView> allowed = published.stream()
         .filter(asset -> canView(issuer, subject, asset)).toList();
@@ -83,13 +92,23 @@ public class SupersetAssetService {
     boolean favoriteStatus = read && canReadFavoriteStatus(allowed,path,query);
     boolean telemetry = "POST".equalsIgnoreCase(method) && path.startsWith("/superset/log");
     boolean dataQuery = "POST".equalsIgnoreCase(method) && path.startsWith("/api/v1/chart/data");
+    // Superset persists a viewer's native-filter selection through this POST.
+    // It does not alter the dashboard definition, and denying it stops the
+    // dashboard SPA before it requests charts for a VIEW-only user.
+    boolean dashboardFilterState = "POST".equalsIgnoreCase(method)
+        && path.matches("/api/v1/dashboard/\\d{1,20}/filter_state(?:/[^/]+)?/?");
     // Explore stores transient form state before fetching a saved chart. This is
     // a cache operation, not a chart update, and still needs that chart's grant.
     boolean exploreForm = "POST".equalsIgnoreCase(method)
         && path.matches("/api/v1/explore/form_data/?")
         && "CHART".equalsIgnoreCase(assetType) && hinted && matched;
+    boolean dashboardOrChartWrite = path.matches("/api/v1/(dashboard|chart)/.*")
+        && Set.of("POST", "PUT", "PATCH", "DELETE").contains(method.toUpperCase(Locale.ROOT));
+    boolean designerWrite = designer && matched && editAllowed && dashboardOrChartWrite;
     boolean granted = !allowed.isEmpty()
-        && ((read && matched) || favoriteStatus || common || telemetry || exploreForm || (dataQuery && hinted && matched));
+        && ((read && matched) || favoriteStatus || common || telemetry || exploreForm
+            || (dataQuery && hinted && matched) || (dashboardFilterState && matched)
+            || designerWrite || (designer && read));
     return new RuntimeAccess(granted ? "ALLOW" : "DENY",
         granted ? "SUPERSET_ASSET_ALLOWED" : "SUPERSET_ASSET_DENIED", editAllowed);
   }
@@ -181,7 +200,10 @@ public class SupersetAssetService {
     String queryKey = "DASHBOARD".equalsIgnoreCase(asset.assetType()) ? "dashboard_id" : "slice_id";
     boolean dashboardDependencies = "DASHBOARD".equalsIgnoreCase(asset.assetType())
         && path.matches("/api/v1/dashboard/" + java.util.regex.Pattern.quote(id) + "/(?:charts|datasets)/?");
-    return dashboardDependencies
+    boolean dashboardFilterState = "DASHBOARD".equalsIgnoreCase(asset.assetType())
+        && path.matches("/api/v1/dashboard/" + java.util.regex.Pattern.quote(id)
+            + "/filter_state(?:/[^/]+)?/?");
+    return dashboardDependencies || dashboardFilterState
         || path.matches(".*/" + kind + "/" + java.util.regex.Pattern.quote(id) + "/?$")
         || query.matches("(?:^|.*&)" + queryKey + "=" + java.util.regex.Pattern.quote(id) + "(?:&.*)?");
   }

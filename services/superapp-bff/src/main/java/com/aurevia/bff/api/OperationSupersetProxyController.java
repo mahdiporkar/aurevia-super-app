@@ -81,6 +81,19 @@ public class OperationSupersetProxyController {
     }
     return exchange.getSession().flatMap(session -> {
       session.getAttributes().put(SELECTED_INSTANCE,publicInstance);
+      // The instance URL is a one-time selector, not a stable Superset SPA
+      // location. Leaving the browser on it causes Superset 5 to resolve some
+      // chunks against the selector path on a later tab open. Persist selection
+      // first, then use the canonical same-origin dashboard URL.
+      String safePath = RouteNormalizer.normalizePath(path == null || path.isBlank() ? "/" : path);
+      if (HttpMethod.GET.equals(exchange.getRequest().getMethod())
+          && safePath.matches("/superset/dashboard/\\d{1,20}/?")) {
+        String query = exchange.getRequest().getURI().getRawQuery();
+        exchange.getResponse().setStatusCode(HttpStatus.FOUND);
+        exchange.getResponse().getHeaders().set(HttpHeaders.LOCATION,
+            safePath + (query == null || query.isBlank() ? "" : "?" + query));
+        return exchange.getResponse().setComplete();
+      }
       return proxyFor(publicInstance,path,exchange,principal,false);
     });
   }
@@ -195,6 +208,12 @@ public class OperationSupersetProxyController {
           REQUEST_HEADERS.forEach(name -> copyHeader(exchange.getRequest().getHeaders(), headers, name));
           if(!"STATIC_ASSETS".equals(String.valueOf(target.get("auth_mode")))) {
             copyNamespacedCookies(exchange,headers,publicInstance);
+          }
+          if(!"STATIC_ASSETS".equals(String.valueOf(target.get("auth_mode")))) {
+            // The BFF has already returned ALLOW for this exact request. Native
+            // Superset roles are shared, so this header carries the per-user
+            // decision across the private BFF-to-Superset hop.
+            headers.set("X-Aurevia-Superset-Access", "true");
           }
           if("REMOTE_USER".equals(String.valueOf(target.get("auth_mode")))) {
             headers.set("X-Aurevia-Subject", identity.subject());

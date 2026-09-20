@@ -57,6 +57,15 @@ test('Core starts without Superset and the demo has an independent lifecycle',as
   assert.match(nginx,
     /\$http_referer\s+~\*\s+"\^https\?:\/\/\[\^\/\]\+\/\(reports-runtime\|superset\|explore\|api\/v1\/superset-instances\)\//,
     'registry-aware Superset pages must keep root-relative API calls on the Superset proxy');
+  assert.match(nginx,
+    /location ~ "\^\/api\/v1\/superset-instances\/\[a-z\]\[a-z0-9-\]\{2,79\}\//,
+    'instance-aware Superset pages must have their own edge route');
+  assert.match(nginx,
+    /location ~ "\^\/api\/v1\/superset-instances[\s\S]*?Referrer-Policy same-origin always;/,
+    'instance-aware Superset pages must preserve a same-origin referer for their root-relative API calls');
+  assert.match(nginx,
+    /location ~ \^\/api\/v1\/\(dashboard\|chart\|dataset\|database\|explore\|security\|menu\|annotation/,
+    'Superset API namespaces must not depend on an SPA referrer after menu navigation');
   assert.doesNotMatch(pkg.scripts['infra:up'],/profile\s+superset|compose[.]superset-demo[.]yml/);
   assert.match(pkg.scripts['superset:up'],/compose[.]superset-demo[.]yml/);
   assert.match(pkg.scripts['superset:down'],/compose[.]superset-demo[.]yml/);

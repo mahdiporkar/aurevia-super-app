@@ -19,6 +19,5 @@ class DashboardRoleTests(unittest.TestCase):
         grant_dashboard_role([dashboard], viewer)
         self.assertEqual(dashboard.roles, [viewer])
 
-
 if __name__ == '__main__':
     unittest.main()
