@@ -24,7 +24,7 @@ class JdbcUiPluginRepository implements UiPluginRepository {
           validation_status as "validationStatus",validation_error as "validationError",
           immutable,created_at as "createdAt",created_by as "createdBy",
           synchronized_at as "synchronizedAt",
-          (id=(select active_artifact_id from panel where id=:panel)) active,
+          coalesce(id=(select active_artifact_id from panel where id=:panel),false) active,
           (select version from panel where id=:panel) as "panelVersion"
         from ui_module_artifact where panel_id=:panel order by created_at desc
         """).param("panel",panelId).query(ArtifactView.class).list();
@@ -77,7 +77,7 @@ class JdbcUiPluginRepository implements UiPluginRepository {
   @Override public Optional<ArtifactRevision> artifactByVersion(UUID panelId,String version) {
     return database.sql("""
         select a.id,a.manifest_checksum as checksum,a.manifest_snapshot::text as manifest,
-          (a.id=p.active_artifact_id) active,a.remote_entry_url as "remoteEntryUrl",
+          coalesce(a.id=p.active_artifact_id,false) active,a.remote_entry_url as "remoteEntryUrl",
           a.remote_name as "remoteName",a.exposed_module as "exposedModule",
           a.contract_version as "contractVersion",a.integrity
         from ui_module_artifact a join panel p on p.id=a.panel_id
