@@ -13,6 +13,8 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 
 ## Documentation
 
+- [تعریف صحیح میکروفرانت از صفر؛ راهنمای فارسی قدم‌به‌قدم با مثال ops-acc](docs/microfrontend-registration-step-by-step-fa.md)
+
 - [Canonical current state: architecture, capabilities, inventories and contracts (فارسی)](docs/current-state-fa.md)
 - [Current architecture and request flows](docs/architecture.md)
 - [English complete guide](docs/README-en.md)
