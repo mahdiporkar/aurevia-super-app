@@ -13,6 +13,8 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 
 ## Documentation
 
+- [ثبت میکرو بدون فایل mf-manifest.json؛ روش دستی و نمایش در context](docs/microfrontend-without-manifest-fa.md)
+
 - [تعریف صحیح میکروفرانت از صفر؛ راهنمای فارسی قدم‌به‌قدم با مثال ops-acc](docs/microfrontend-registration-step-by-step-fa.md)
 
 - [Canonical current state: architecture, capabilities, inventories and contracts (فارسی)](docs/current-state-fa.md)
