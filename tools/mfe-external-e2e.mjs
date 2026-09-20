@@ -141,8 +141,16 @@ try {
       classification: original.classification, mfManifestUrl: original.mf_manifest_url ?? original.mfManifestUrl ?? null,
       resourceManifestUrl: original.resource_manifest_url ?? original.resourceManifestUrl ?? null, active: original.active, sortOrder: original.sort_order ?? original.sortOrder ?? 0,
     });
-    const resync = restore.status === 200 ? await admin(`/internal/v1/registry/panels/${panelId}/frontend-manifests/sync`, 'POST', {}) : { status: 'skipped' };
-    console.log(`restored HR panel: HTTP ${restore.status}, resync ${resync.status}`);
+    // Syncing the old URL can conflict with the immutable version just published
+    // for the temporary origin. Restore the captured artifact, not a new sync.
+    const originalArtifactId = original.active_artifact_id ?? original.activeArtifactId;
+    const activate = restore.status === 200 && originalArtifactId
+      ? await admin(`/internal/v1/registry/panels/${panelId}/artifacts/${originalArtifactId}/activate?version=${restore.body.version}`, 'POST', {})
+      : { status: 409 };
+    const restoredArtifacts = await admin(`/internal/v1/registry/panels/${panelId}/artifacts`);
+    record('RESTORE-ACTIVE-ARTIFACT', 'Original panel and active artifact restored before the temporary server closes',
+      `panel HTTP ${restore.status}, artifact HTTP ${activate.status}`,
+      restore.status === 200 && activate.status === 200 && restoredArtifacts.body.some(a => a.id === originalArtifactId && a.active));
   }
   server.close();
   mkdirSync('target/mfe-external-e2e', { recursive: true });

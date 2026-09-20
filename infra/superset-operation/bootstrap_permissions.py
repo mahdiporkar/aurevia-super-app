@@ -11,27 +11,41 @@ for which dashboard mutation is allowed.
 
 import os
 
-from sqlalchemy import text
+def grant_dashboard_role(dashboards, role):
+    """RBAC and datasource permissions must agree for approved demo dashboards."""
+    for dashboard in dashboards:
+        if role not in dashboard.roles:
+            dashboard.roles.append(role)
 
 
 def main() -> None:
     from superset.app import create_app
+    from sqlalchemy import text
 
     app = create_app()
     from superset import db
 
     with app.app_context():
         from superset.connectors.sqla.models import SqlaTable
+        from superset.models.dashboard import Dashboard
 
         security_manager = app.appbuilder.sm
         role = security_manager.find_role("Gamma")
         if role is None:
             raise RuntimeError("Superset role Gamma is missing")
 
-        raw_ids = os.environ.get("SUPERSET_AUREVIA_DASHBOARD_IDS", "7")
+        raw_ids = os.environ.get("SUPERSET_AUREVIA_DASHBOARD_IDS", "")
         dashboard_ids = [int(value.strip()) for value in raw_ids.split(",") if value.strip()]
         if not dashboard_ids:
-            raise RuntimeError("SUPERSET_AUREVIA_DASHBOARD_IDS must contain at least one id")
+            titles = [value.strip() for value in os.environ.get(
+                "SUPERSET_AUREVIA_DASHBOARD_TITLES", "Sales Dashboard").split(",") if value.strip()]
+            dashboard_ids = [dashboard.id for dashboard in db.session.query(Dashboard)
+                             .filter(Dashboard.dashboard_title.in_(titles), Dashboard.published.is_(True)).all()]
+        dashboards = db.session.query(Dashboard).filter(
+            Dashboard.id.in_(dashboard_ids), Dashboard.published.is_(True)).all()
+        if not dashboards or len(dashboards) != len(set(dashboard_ids)):
+            raise RuntimeError("Approved published demo dashboards are missing")
+        grant_dashboard_role(dashboards, role)
 
         rows = db.session.execute(
             text("""

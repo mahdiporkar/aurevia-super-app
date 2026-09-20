@@ -6,6 +6,9 @@
 
 ## مسیر پیشنهادی مطالعه
 
+- [راهنمای عملی مدیریت میکرو، درخت دسترسی، گزارش و Routeهای Legacy/Forward](project-management-and-e2e-fa.md)
+- [گزارش اجرای سراسری تست‌ها در ۲۰ سپتامبر ۲۰۲۶](project-e2e-results-2026-09-20-fa.md)
+
 1. [شروع، معماری و اجرای پروژه](guide-fa.md)
 2. [راهنمای آموزشی صفر تا تسلط تیم فنی](technical-team-zero-to-production-fa.md)
 3. [سطوح دسترسی و مدل مجوزدهی](access-control-fa.md)

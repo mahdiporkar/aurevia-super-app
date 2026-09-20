@@ -34,8 +34,8 @@ test('Core uses a policy profile and generic development bridge, not per-MFE lis
   ]);
   const source=[core,auth,bff].join('\n');
   assert.doesNotMatch(source,/UI_ARTIFACT_ALLOWED_ORIGINS|MFE_PROXY_LOOPBACK_TARGETS/);
-  assert.match(core,/UI_ARTIFACT_NETWORK_POLICY: "DEVELOPMENT"/);
-  assert.match(core,/UI_ARTIFACT_DEVELOPMENT_HOST: "host[.]docker[.]internal"/);
+  assert.equal([...core.matchAll(/UI_ARTIFACT_NETWORK_POLICY: "\$\{UI_ARTIFACT_NETWORK_POLICY:-DEVELOPMENT\}"/g)].length,2);
+  assert.equal([...core.matchAll(/UI_ARTIFACT_DEVELOPMENT_HOST: "\$\{UI_ARTIFACT_DEVELOPMENT_HOST:-host[.]docker[.]internal\}"/g)].length,2);
 });
 
 test('Core starts without Superset and the demo has an independent lifecycle',async()=>{

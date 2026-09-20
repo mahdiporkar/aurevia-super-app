@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {pagesBrowser} from './pages-browser-e2e.mjs';
 import {Session,safeResponse} from './e2e-auth/session.mjs';
@@ -13,12 +13,18 @@ const passwords=JSON.parse(readFileSync('.tmp/e2e-auth/users.json','utf8'));
 const adminPassword=process.env.AUREVIA_DEMO_PASSWORD??realm.users.find(u=>u.username==='administrator').credentials[0].value;
 const secrets=[adminPassword,...Object.values(passwords)];
 const results=[],inventory=[],admin=new Session(origin),runId='e2e-'+randomUUID().replaceAll('-','').slice(0,12);
-const nativeRegistration=JSON.parse(readFileSync('.tmp/superset-native/registration.json','utf8'));
+const nativeRegistration=existsSync('.tmp/superset-native/registration.json')
+  ?JSON.parse(readFileSync('.tmp/superset-native/registration.json','utf8')):null;
 function diagnostic(error){let text=String(error.message).slice(0,2200);
   for(const secret of secrets)text=text.replaceAll(secret,'[REDACTED]');
   return text.replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,'[REDACTED]');}
 async function test(id,path,expected,fn){if(selectedCases&&!selectedCases.includes(id))return;
-try{const actual=await fn();safeResponse(actual,secrets);
+try{
+  if(!nativeRegistration&&(id.startsWith('PAGE-SUPERSET-')||id==='WORKFLOW-SUPERSET-HEALTH'||id==='PAGE-ADMIN-superset')){
+    const error=new Error('Native Superset registration is missing; provision the native demo to execute this case');
+    error.code='E2E_DEPENDENCY';throw error;
+  }
+  const actual=await fn();safeResponse(actual,secrets);
   results.push({id,path,expected,actual,status:'PASS'});console.log(id+' PASS');return actual;
 }catch(error){results.push({id,path,expected,actual:diagnostic(error),status:error.code==='E2E_DEPENDENCY'?'BLOCKED':'FAIL'});console.log(id+' '+results.at(-1).status);}
 finally{flush(false);}}
@@ -232,6 +238,7 @@ try{
       await b.navigate('/admin/operator-guide');const start=b.mark(),visited=[];
       for(const route of adminModule.routes){const path='/admin/'+route.path;
         await b.click('.ant-menu-item[data-menu-id$="'+path+'"]');await b.until('location.pathname==='+JSON.stringify(path)+'&&!document.querySelector(".remote-surface .ant-spin-spinning")','Menu route did not settle');
+        await b.until('(document.querySelector(".ant-menu-item-selected .nav-menu-label")?.textContent.trim()??document.querySelector(".ant-menu-item-selected")?.textContent.trim())==='+JSON.stringify(route.title),'Selected menu did not settle');
         assert.equal(await b.read('document.querySelector(".ant-menu-item-selected .nav-menu-label")?.textContent.trim()??document.querySelector(".ant-menu-item-selected")?.textContent.trim()'),route.title);
         visited.push(path);
       }
@@ -258,10 +265,10 @@ try{
   for(const [suffix,allowedModes] of [['dual-access',['sso','legacy']],['sso-only',['sso']],['legacy-only',['legacy']],['none',[]]])
     await test('AUTH-BROWSER-'+suffix,'/test-sso/home,/test-legacy/home','Login, menu, downstream call and denied mode for the selected persona',()=>
       verifyAuthMicrofrontendsInChrome({origin,username:'e2e.'+suffix,password:passwords['e2e.'+suffix],allowedModes}));
-  await test('PAGE-SUPERSET-DASHBOARD',nativeRegistration.assets.find(a=>a.type==='DASHBOARD').path,'Real report table and total use BFF-only chart data',()=>
+  await test('PAGE-SUPERSET-DASHBOARD',nativeRegistration?.assets.find(a=>a.type==='DASHBOARD')?.path??'/reports','Real report table and total use BFF-only chart data',()=>
     verifyNativeSupersetInChrome({origin,username:'e2e.dual-access',password:passwords['e2e.dual-access'],path:nativeRegistration.assets.find(a=>a.type==='DASHBOARD').path}));
   await pagesBrowser({origin,username:'e2e.dual-access',password:passwords['e2e.dual-access']},async b=>{
-    for(const chart of nativeRegistration.assets.filter(a=>a.type==='CHART'))await test('PAGE-SUPERSET-CHART-'+chart.externalId,chart.path,'Open individual chart from the reports catalog and fetch real data',async()=>{
+    for(const chart of (nativeRegistration?.assets??[]).filter(a=>a.type==='CHART'))await test('PAGE-SUPERSET-CHART-'+chart.externalId,chart.path,'Open individual chart from the reports catalog and fetch real data',async()=>{
       await b.navigate('/reports',['/api/v1/reports']);const href=await b.read('[...document.querySelectorAll(".remote-surface a")].find(a=>new URL(a.href).searchParams.get("slice_id")==='+JSON.stringify(chart.externalId)+')?.href');
       assert(href,'Chart catalog link missing');assert.equal(new URL(href).origin,origin);
       const start=b.mark();await b.cdp.call('Page.navigate',{url:href},b.sessionId);await b.response(start,'/api/v1/chart/data');
@@ -278,16 +285,20 @@ try{
     const r=await fetch(origin+path,{redirect:'manual',signal:AbortSignal.timeout(15000)});await r.arrayBuffer();assert.equal(r.status,401);return {status:401};
   });
 }catch(error){results.push({id:'RUNTIME-PREREQUISITE',path:'/',expected:'Complete browser sweep prerequisites',actual:diagnostic(error),status:'BLOCKED'});}
+await test('CATALOG-COVERAGE','','Every catalog module has defined browser coverage',async()=>{
+  assert(inventory.length>0,'Runtime catalog was not loaded');
+  const unknownModules=inventory.filter(i=>!['admin','hr','human-resources','finance','reports'].includes(i.module));
+  assert.deepEqual(unknownModules,[],'Catalog modules without browser coverage');
+  return {modules:[...new Set(inventory.map(i=>i.module))]};
+});
 if(selectedCases){for(const id of selectedCases)if(!results.some(r=>r.id===id))results.push({id,path:'',expected:'Execute selected case',actual:'Selected case was not executed',status:'BLOCKED'});}
 else{
   const required=['PAGE-HR-employees','PAGE-HR-departments','PAGE-HR-positions','PAGE-HR-details',
     'PAGE-FINANCE-payments','PAGE-FINANCE-invoices','PAGE-FINANCE-budgets','PAGE-REPORTS',
-    'PAGE-SUPERSET-DASHBOARD',...nativeRegistration.assets.filter(a=>a.type==='CHART').map(a=>'PAGE-SUPERSET-CHART-'+a.externalId),
+    'PAGE-SUPERSET-DASHBOARD',...(nativeRegistration?.assets??[]).filter(a=>a.type==='CHART').map(a=>'PAGE-SUPERSET-CHART-'+a.externalId),
     ...['dual-access','sso-only','legacy-only','none'].map(s=>'AUTH-BROWSER-'+s),
     ...inventory.filter(i=>i.module==='admin').map(i=>'PAGE-ADMIN-'+i.routeId)];
   for(const id of required)if(!results.some(r=>r.id===id))results.push({id,path:'',expected:'Execute full page coverage',actual:'Runtime prerequisite prevented this case',status:'BLOCKED'});
-  const unknownModules=inventory.filter(i=>!['admin','human-resources','finance','reports'].includes(i.module));
-  if(unknownModules.length)results.push({id:'CATALOG-COVERAGE',path:'',expected:'Every catalog module has defined browser coverage',actual:unknownModules,status:'FAIL'});
 }
 mkdirSync('target/pages-e2e',{recursive:true});
 const counts=Object.fromEntries(['PASS','FAIL','BLOCKED'].map(status=>[status,results.filter(r=>r.status===status).length]));
