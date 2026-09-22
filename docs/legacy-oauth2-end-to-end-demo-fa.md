@@ -17,9 +17,9 @@
 | `aurevia-bff` | بازیابی token، authorization و proxy | تنها backend قابل فراخوانی از nginx عمومی |
 | `authorization-service` | resolve کردن route/operation و کنترل resource/action | شبکه داخلی |
 | `redis` | Session بدون token و vault رمز‌شده | شبکه داده‌ی داخلی |
-| `demo-catalog-init` | ثبت idempotent داده‌ی نمونه پس از Flyway | one-shot و فقط Compose توسعه |
+| `demo-fixture-init` | ثبت idempotent داده‌ی نمونه پس از Flyway | one-shot و فقط Compose توسعه |
 
-داده‌های نمونه در [integration-catalog.sql](../infra/demo/integration-catalog.sql) تعریف شده‌اند و در Production migration وارد نمی‌شوند.
+داده‌های نمونه در [integration-catalog.sql](../services/authorization-service/src/main/resources/db/fixtures/development/020-development-integration-catalog.sql) تعریف شده‌اند و در Production migration وارد نمی‌شوند.
 
 ## داده‌ی ثبت‌شده در میکرو راهبری
 

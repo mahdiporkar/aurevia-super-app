@@ -76,6 +76,9 @@ class PermissionLifecycleIntegrationTest {
     registry.add("spring.datasource.url", () -> STACK.jdbcUrl);
     registry.add("spring.datasource.username", () -> STACK.jdbcUser);
     registry.add("spring.datasource.password", () -> STACK.jdbcPassword);
+    // This suite exercises the permission engine over the demo catalog (HR pages, demo roles), which
+    // only the historical chain seeds; fresh installations use the Core baseline instead.
+    registry.add("spring.flyway.locations", () -> "classpath:db/migration");
     registry.add("spring.data.redis.host", () -> STACK.redisHost);
     registry.add("spring.data.redis.port", () -> STACK.redisPort);
     registry.add("spring.data.redis.password", () -> STACK.redisPassword);

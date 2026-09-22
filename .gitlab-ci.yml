@@ -29,7 +29,9 @@ backend:
 compose:
   image: docker:29.1.2-cli
   stage: validate
-  script: [docker compose -f infra/docker-compose/compose.yml config --quiet]
+  script:
+    - docker compose -f infra/docker-compose/compose.yml config --quiet
+    - docker compose -f infra/docker-compose/compose.yml -f infra/docker-compose/compose.development.yml config --quiet
 sbom:
   image: anchore/syft:v1.31.0
   stage: security

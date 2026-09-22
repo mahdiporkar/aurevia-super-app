@@ -10,7 +10,7 @@ const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
 let password = process.env.AUREVIA_DEMO_PASSWORD;
 const { values: localEnvironment } = readEnv('.env');
 const redisPassword = process.env.REDIS_PASSWORD ?? localEnvironment.get('REDIS_PASSWORD') ?? 'change-me';
-const composePrefix = ['compose', '--env-file', '.env', '-f', 'infra/docker-compose/compose.yml'];
+const composePrefix = ['compose', '--env-file', '.env', '-f', 'infra/docker-compose/compose.yml', '-f', 'infra/docker-compose/compose.development.yml'];
 const supersetComposePrefix = ['compose', '--env-file', '.env', '-f',
   'infra/docker-compose/compose.superset-demo.yml'];
 

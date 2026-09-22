@@ -9,7 +9,11 @@ spring:
   jpa:
     open-in-view: false
     hibernate.ddl-auto: validate
-  flyway.enabled: true
+  flyway:
+    enabled: true
+    # Fresh databases receive the Core-only baseline (db/baseline/B<n>__) instead of the historical
+    # chain V1..V<n>; databases that already carry the chain continue with V<n+1>+ as before.
+    locations: classpath:db/migration,classpath:db/baseline
   data.redis:
     host: ${REDIS_HOST:localhost}
     port: ${REDIS_PORT:6379}

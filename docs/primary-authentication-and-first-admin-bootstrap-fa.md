@@ -75,7 +75,7 @@ Grant را از استودیوی مجوزها حذف کند، حتی با وجو
 ## دمو محلی در برابر Production
 
 - دمو محلی: کاربران fixture با رمز `local-change-me`، شناسهٔ ثابت `administrator`، secretهای fixture، و
-  `OIDC_ENDPOINT_OVERRIDES_ENABLED=true`؛ `demo-catalog-init` هیچ IdP و هیچ Grant مدیر را seed نمی‌کند.
+  `OIDC_ENDPOINT_OVERRIDES_ENABLED=true`؛ `demo-fixture-init` هیچ IdP و هیچ Grant مدیر را seed نمی‌کند.
 - Production: کاربر مدیر و رمز فقط در Keycloak، secretها تزریق‌شده، issuer واحد HTTPS، override خاموش.
 - Migration `V78` امتیازهای ضمنی هویت دموی `administrator` را بازنشسته می‌کند؛ `V79` مانیفست 0.6.0 پنل مدیریت را با صفحهٔ کاربران فعال می‌کند.
 

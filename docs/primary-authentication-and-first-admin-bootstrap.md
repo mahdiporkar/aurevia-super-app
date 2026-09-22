@@ -184,7 +184,7 @@ returns the primary provider from runtime configuration.
 | `AUREVIA_BOOTSTRAP_ADMIN_SUB` | the fixture id above | the real administrator's id |
 | Client secrets | fixture values (`local-change-me`, `local-identity-admin-only`) | injected secrets |
 | Endpoint overrides | `OIDC_ENDPOINT_OVERRIDES_ENABLED=true` (localhost vs host.docker.internal) | `false`, single HTTPS issuer |
-| `demo-catalog-init` | development catalog only; it seeds **no** identity provider and **no** administrator grant | not deployed |
+| `demo-fixture-init` | development catalog only; it seeds **no** identity provider and **no** administrator grant | not deployed |
 
 Migration `V78` retires the historical implicit privileges of the demo identity whose subject was
 literally `administrator`; `V79` publishes Admin MF manifest 0.6.0 with the Users page.

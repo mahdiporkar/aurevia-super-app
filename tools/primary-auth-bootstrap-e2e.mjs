@@ -10,6 +10,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { Session, safeResponse } from './e2e-auth/session.mjs';
 import { readEnv } from './env-file.mjs';
 
+// --core-only: verify a Core-only stack started from compose.yml alone (no development overlay).
+const coreOnly = process.argv.includes('--core-only') || process.env.AUREVIA_CORE_ONLY === 'true';
 const origin = process.env.AUREVIA_BASE_URL ?? 'http://localhost:8443';
 const keycloak = process.env.AUREVIA_KEYCLOAK_URL ?? 'http://localhost:8180';
 const { values: env } = readEnv('.env');
@@ -19,7 +21,7 @@ const issuer = env.get('OIDC_ISSUER_URI');
 const adminUser = realm.users.find(user => user.id === bootstrapSub);
 const viewerUser = realm.users.find(user => user.username === 'viewer');
 const password = user => user.credentials.find(c => c.type === 'password').value;
-const compose = ['compose', '--env-file', '.env', '-f', 'infra/docker-compose/compose.yml'];
+const compose = ['compose', '--env-file', '.env', '-f', 'infra/docker-compose/compose.yml', ...(coreOnly?[]:['-f', 'infra/docker-compose/compose.development.yml'])];
 const runId = Date.now().toString(36);
 const results = [];
 const secrets = [env.get('OIDC_CLIENT_SECRET'), env.get('KEYCLOAK_ADMIN_CLIENT_SECRET'), password(adminUser)];
@@ -180,17 +182,22 @@ await step('B6', 'Administrator grants the new user a permission through Authori
   assert(target, 'created user not listed in the Authorization Service');
   const resources = await admin.json('/api/v1/admin/resources');
   const actions = await admin.json('/api/v1/admin/actions');
-  const hr = resources.body.find(resource => resource.resource_key === 'application:aurevia/hr');
+  // Core-only stacks have no demo HR application; grant the Core Reports application instead.
+  const targetKey = coreOnly ? 'application:aurevia/reports' : 'application:aurevia/hr';
+  const resource = resources.body.find(item => item.resource_key === targetKey);
   const view = actions.body.find(action => action.action_key === 'view');
-  const grant = await admin.json('/api/v1/admin/grants', 'POST', { subjectType: 'USER', subjectId: target.id, resourceId: hr.id, actionId: view.id });
+  const grant = await admin.json('/api/v1/admin/grants', 'POST', { subjectType: 'USER', subjectId: target.id, resourceId: resource.id, actionId: view.id });
   assert.equal(grant.status, 201, JSON.stringify(grant.body));
   const context = await until(async () => {
     const value = await createdSession.json('/api/me/context');
-    return value.body?.allowedApplications?.includes('hr') ? value : null;
-  }, 'granted hr application did not appear in /api/me/context');
-  assert(context.body.uiCatalog.modules.some(module => module.moduleKey === 'hr'), 'hr module missing after grant');
+    return value.body?.permissions?.[targetKey]?.includes('view') ? value : null;
+  }, 'granted application did not appear in /api/me/context permissions');
+  if (!coreOnly) {
+    assert(context.body.allowedApplications.includes('hr'), 'hr application not allowed after grant');
+    assert(context.body.uiCatalog.modules.some(module => module.moduleKey === 'hr'), 'hr module missing after grant');
+  }
   assert(!context.body.allowedApplications.includes('admin'));
-  return { grantId: grant.body.id, allowedApplications: context.body.allowedApplications };
+  return { grantId: grant.body.id, target: targetKey, permissions: context.body.permissions[targetKey], allowedApplications: context.body.allowedApplications };
 });
 await step('B7', 'No initial password or administrative secret is persisted or logged by Aurevia', async () => {
   const persisted = sql(`select count(*) from (select row_to_json(t)::text v from app_user t union all select row_to_json(t)::text from external_identity t union all select row_to_json(t)::text from audit_event t union all select row_to_json(t)::text from audit_log t union all select row_to_json(t)::text from api_log t) x where v like '%${newUser.initialPassword}%' or v like '%${env.get('KEYCLOAK_ADMIN_CLIENT_SECRET')}%'`);

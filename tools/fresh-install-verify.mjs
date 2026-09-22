@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { readEnv } from './env-file.mjs';
 
+// --core-only: verify a Core-only stack started from compose.yml alone (no development overlay).
+const coreOnly = process.argv.includes('--core-only') || process.env.AUREVIA_CORE_ONLY === 'true';
 const { values } = readEnv('.env');
 const storeId = values.get('OPENFGA_STORE_ID');
 const modelId = values.get('OPENFGA_MODEL_ID');
@@ -11,7 +13,7 @@ const issuer = values.get('OIDC_ISSUER_URI') ?? '';
 const failures = [];
 
 function command(args) {
-  const result = spawnSync('docker', ['compose', '--env-file', '.env', '-f', 'infra/docker-compose/compose.yml', ...args], {
+  const result = spawnSync('docker', ['compose', '--env-file', '.env', '-f', 'infra/docker-compose/compose.yml', ...(coreOnly?[]:['-f', 'infra/docker-compose/compose.development.yml']), ...args], {
     encoding: 'utf8', shell: false,
   });
   if (result.error) throw result.error;

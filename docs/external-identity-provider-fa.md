@@ -70,7 +70,7 @@ npm run identity:up
 npm run infra:up
 ```
 
-ترتیب این دو فرمان الزامی نیست؛ Core بدون Demo بالا می‌آید. fixture توسعه در `infra/demo/integration-catalog.sql` provider با کد `public-iam` را ثبت می‌کند و فقط هنگام Login به Keycloak نیاز است.
+ترتیب این دو فرمان الزامی نیست؛ Core بدون Demo بالا می‌آید. fixture توسعه در `services/authorization-service/src/main/resources/db/fixtures/development/020-development-integration-catalog.sql` provider با کد `public-iam` را ثبت می‌کند و فقط هنگام Login به Keycloak نیاز است.
 
 خاموش‌کردن Demo:
 

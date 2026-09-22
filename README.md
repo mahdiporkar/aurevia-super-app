@@ -27,6 +27,7 @@ Production-shaped, Persian-first enterprise super-app monorepo. The browser talk
 - [راهنمای آموزشی صفر تا تسلط تیم فنی](docs/technical-team-zero-to-production-fa.md)
 - [Access-control model (فارسی)](docs/access-control-fa.md)
 - [Primary authentication (env-based Keycloak), First Administrator Bootstrap and User Management](docs/primary-authentication-and-first-admin-bootstrap.md) — [فارسی](docs/primary-authentication-and-first-admin-bootstrap-fa.md)
+- [Environments: Production Core vs Development demo vs E2E fixtures (baseline, Compose, build)](docs/environments-core-development-e2e.md)
 - [راهنمای کامل تمام فرم‌ها و فیلدهای میکرو راهبری (فارسی)](docs/operator-admin-form-field-guide-fa.md)
 - [Micro Frontend access for users, roles and groups (فارسی)](docs/access-control-fa.md#دسترسی-micro-frontend-به-کاربر-گروه-و-نقش)
 - [Code reference (فارسی)](docs/code-reference-fa.md)

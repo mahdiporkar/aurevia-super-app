@@ -23,7 +23,7 @@
 <!-- sync:apps=mf-test-legacy,mf-test-sso,mfe-admin,mfe-finance,mfe-hr,mfe-reports,shell -->
 <!-- sync:packages=authorization-sdk,contracts,http-client,i18n,sh-core-ui -->
 <!-- sync:java-services=authorization-service,superapp-bff,test-legacy-service,test-sso-service,ui-artifact-security -->
-<!-- sync:core-services=aurevia-bff,auth-db,authorization-service,demo-catalog-init,mock-finance,mock-hr,mock-legacy,mock-oauth,nginx,openfga,openfga-db,openfga-migrate,operation-gateway,redis -->
+<!-- sync:core-services=aurevia-bff,auth-db,authorization-service,nginx,openfga,openfga-db,openfga-migrate,redis -->
 <!-- sync:latest-migration=V79 -->
 <!-- sync:admin-version=0.6.0;admin-routes=19 -->
 <!-- sync:swagger-specs=/api/v1/docs/admin/openapi,/api/v1/docs/authorization/openapi,/v3/api-docs -->

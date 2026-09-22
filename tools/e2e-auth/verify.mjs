@@ -13,7 +13,7 @@ const userPasswords=JSON.parse(readFileSync('.tmp/e2e-auth/users.json','utf8'));
 const legacySecret=JSON.parse(readFileSync('.tmp/e2e-auth/secrets/e2e/legacy.json','utf8'));
 const realm=JSON.parse(readFileSync('infra/keycloak/realm-aurevia.json','utf8'));
 const adminPassword=process.env.AUREVIA_DEMO_PASSWORD??realm.users.find(user=>user.username==='administrator').credentials[0].value;
-const core=['compose','--env-file','.env','-f','infra/docker-compose/compose.yml','-f','infra/docker-compose/compose.e2e-auth-core.yml'];
+const core=['compose','--env-file','.env','-f','infra/docker-compose/compose.yml','-f','infra/docker-compose/compose.development.yml','-f','infra/docker-compose/compose.e2e-auth-core.yml'];
 const demo=['compose','--env-file','.tmp/e2e-auth/demo.env','-f','infra/docker-compose/compose.e2e-auth.yml'];
 const results=[];
 const secrets=[legacySecret.password,adminPassword,...Object.values(userPasswords),
@@ -71,7 +71,7 @@ function internal(url,{method='GET',bearer,form}={}) {
   // The SSO API remains isolated from the BFF's token-endpoint network.
   // A one-shot trusted-network probe tests the resource server directly.
   const args=url.startsWith('http://test-sso-service:')
-    ? ['run','--rm','-i','--network','aurevia_operation-services','--entrypoint','curl','aurevia/superapp-bff:local','--config','-']
+    ? ['run','--rm','-i','--network',(process.env.AUREVIA_CORE_PROJECT??'aurevia')+'_operation-services','--entrypoint','curl','aurevia/superapp-bff:local','--config','-']
     : [...core,'exec','-T','aurevia-bff','curl','--config','-'];
   const output=command(args,{input:config.join('\n')+'\n'});
   const i=output.lastIndexOf('\n');

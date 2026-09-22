@@ -1,0 +1,77 @@
+# DEVELOPMENT overlay for compose.yml: demo fixtures, mock operational services and relaxed
+# network/secret policies. Never use this file for a production deployment.
+#   npm run infra:up  ==  docker compose --env-file .env -f compose.yml -f compose.development.yml up -d --build
+services:
+  authorization-service:
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      RESOURCE_TREE_DEVELOPMENT_MUTATIONS_ENABLED: "${RESOURCE_TREE_DEVELOPMENT_MUTATIONS_ENABLED:-false}"
+      IDENTITY_PROVIDER_ALLOW_HTTP: "true"
+      IDENTITY_PROVIDER_ALLOW_PRIVATE_HOSTS: "true"
+      SUPERSET_NETWORK_POLICY: "DEVELOPMENT"
+      SUPERSET_DEVELOPMENT_HOST: "host.docker.internal"
+      SUPERSET_ALLOW_HTTP: "true"
+  # Loads the opt-in development fixtures (HR/Finance/Reports demo micro frontends, demo users,
+  # roles, grants, routes, Superset demo assets and the integration demo catalog) AFTER Flyway
+  # installed the Core baseline. Every file is idempotent; the demo fixture only applies to
+  # baseline-created databases (a database carrying the historical chain already has the data).
+  demo-fixture-init:
+    image: postgres:17.6-alpine
+    entrypoint: [/bin/sh, -ec]
+    command:
+      - |
+        for file in /fixtures/*.sql; do
+          echo "applying development fixture $$file"
+          psql -v ON_ERROR_STOP=1 -h auth-db -U aurevia -d aurevia_auth -f "$$file"
+        done
+    environment:
+      PGPASSWORD: "${POSTGRES_AUTH_PASSWORD:-change-me}"
+    volumes: [../../services/authorization-service/src/main/resources/db/fixtures/development:/fixtures:ro]
+    depends_on:
+      authorization-service: {condition: service_healthy}
+    networks: [public-data]
+  aurevia-bff:
+    environment:
+      SUPERSET_NETWORK_POLICY: "DEVELOPMENT"
+      SUPERSET_DEVELOPMENT_HOST: "host.docker.internal"
+      SUPERSET_ALLOW_HTTP: "true"
+      LEGACY_ALLOWED_HOSTS: "mock-legacy"
+      LEGACY_ALLOWED_PORTS: "8080"
+      LEGACY_ALLOW_INSECURE_LOCAL: "true"
+      LEGACY_LOCAL_SECRETS_ENABLED: "true"
+      LEGACY_LOCAL_SECRETS_JSON: '{"secret://demo/legacy":{"username":"legacy-demo","password":"local-demo-only","version":"fixture-v1"}}'
+      TOKEN_EVIDENCE_LOGGING_ENABLED: "true"
+    depends_on:
+      demo-fixture-init: {condition: service_completed_successfully}
+      operation-gateway: {condition: service_started}
+  mock-hr:
+    image: wiremock/wiremock:3.13.1
+    volumes: [../mock-operation:/home/wiremock:ro]
+    networks: [operation-services]
+  mock-finance:
+    image: wiremock/wiremock:3.13.1
+    volumes: [../mock-operation:/home/wiremock:ro]
+    networks: [operation-services]
+  mock-legacy:
+    image: wiremock/wiremock:3.13.1
+    volumes: [../mock-legacy:/home/wiremock:ro]
+    # The gateway reaches the protected API on operation-services while the
+    # Java BFF reaches only this approved token endpoint on bff-egress.
+    networks: [operation-services, bff-egress]
+  mock-oauth:
+    image: wiremock/wiremock:3.13.1
+    volumes: [../mock-oauth:/home/wiremock:ro]
+    networks: [operation-services]
+  operation-gateway:
+    image: nginx:1.29.1-alpine
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes: [../mock-operation/gateway.conf:/etc/nginx/conf.d/default.conf:ro]
+    depends_on:
+      mock-hr: {condition: service_started}
+      mock-finance: {condition: service_started}
+      mock-legacy: {condition: service_started}
+      mock-oauth: {condition: service_started}
+    networks: [operation-services, bff-egress]
+    # Deliberately no host port: only the BFF network can reach this gateway.
+networks:
+  operation-services: {internal: true}

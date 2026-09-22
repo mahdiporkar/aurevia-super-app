@@ -208,7 +208,7 @@ services/authorization-service/src/test/java/**
 services/authorization-service/src/main/resources/db/migration/**
 services/superapp-bff/src/main/java/**
 services/superapp-bff/src/test/java/**
-infra/demo/integration-catalog.sql
+services/authorization-service/src/main/resources/db/fixtures/development/020-development-integration-catalog.sql
 infra/openfga/model-tests.yaml
 tools/fresh-install-verify.mjs
 tools/verify-token-proxy.mjs
@@ -236,7 +236,7 @@ tests/e2e/**
 | `infra/docker-compose/compose.yml` | mount فایل realm و تمام URIهای OIDC/issuer/client |
 | `services/superapp-bff/src/main/resources/application.yml` | client id و authorization/token/JWK/user-info URIها |
 | `services/authorization-service/src/main/resources/application.yml` | `DIRECTORY_ISSUER` پیش‌فرض |
-| `infra/demo/integration-catalog.sql` | issuer کاربران demo |
+| `services/authorization-service/src/main/resources/db/fixtures/development/020-development-integration-catalog.sql` | issuer کاربران demo |
 | `tools/fresh-install-verify.mjs` و `tools/verify-token-proxy.mjs` | issuer، realm file و login verification |
 | `infra/mock-operation/gateway.conf` | user-info endpoint |
 

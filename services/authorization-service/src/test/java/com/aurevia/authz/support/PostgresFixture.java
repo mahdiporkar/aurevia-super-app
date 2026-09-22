@@ -22,7 +22,8 @@ public final class PostgresFixture implements AutoCloseable {
         env("AUREVIA_TEST_JDBC_PASSWORD","postgres"));
     migrateTo(target);
     connection=source.getConnection();
-    connection.setSchema(schema);
+    // pgcrypto may live in public (shared) or in the first fixture schema; keep both visible.
+    try(var statement=connection.createStatement()) { statement.execute("set search_path to "+schema+", public"); }
     database=JdbcClient.create(new SingleConnectionDataSource(connection,true));
   }
 
@@ -32,7 +33,9 @@ public final class PostgresFixture implements AutoCloseable {
   public void migrate() { migrateTo("latest"); }
 
   private void migrateTo(String target) {
+    // The historical chain is the reference for these repository tests; fresh installs use the baseline.
     Flyway.configure().dataSource(source).schemas(schema).defaultSchema(schema)
+        .initSql("set search_path to "+schema+", public")
         .locations("classpath:db/migration").target(target).load().migrate();
   }
 
