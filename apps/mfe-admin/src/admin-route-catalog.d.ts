@@ -1,5 +1,5 @@
 import type { MicroFrontendManifest, PluginMenu, PluginRoute } from '@aurevia/contracts';
-export type AdminSectionKey = 'operator-guide' | 'ou-access' | 'access-studio' | 'panels' | 'proxy-routes' | 'outbound-connections' | 'outbound-auth' | 'integration-test' | 'superset-instances' | 'identity' | 'logs' | 'superset';
+export type AdminSectionKey = 'operator-guide' | 'ou-access' | 'access-studio' | 'panels' | 'proxy-routes' | 'outbound-connections' | 'outbound-auth' | 'integration-test' | 'superset-instances' | 'users' | 'identity' | 'logs' | 'superset';
 export interface AdminPageDefinition extends PluginRoute {
     section: AdminSectionKey;
     sectionTitle: string;

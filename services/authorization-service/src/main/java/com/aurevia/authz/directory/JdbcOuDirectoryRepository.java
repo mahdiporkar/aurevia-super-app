@@ -1,5 +1,6 @@
 package com.aurevia.authz.directory;
 
+import com.aurevia.authz.identity.PrimaryIdentityProvider;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -11,15 +12,23 @@ import org.springframework.stereotype.Repository;
 @Repository
 class JdbcOuDirectoryRepository implements OuDirectoryRepository {
   private final JdbcClient database;
-  JdbcOuDirectoryRepository(JdbcClient database) { this.database=database; }
+  private final PrimaryIdentityProvider primary;
+  JdbcOuDirectoryRepository(JdbcClient database,PrimaryIdentityProvider primary) {
+    this.database=database;this.primary=primary;
+  }
 
   @Override public UUID upsertUser(OuAccessService.LoginDirectoryIdentity value,String attrs) {
-    UUID provider=database.sql("""
+    UUID provider=null;
+    if(PrimaryIdentityProvider.CODE.equals(value.providerCode())) {
+      primary.verifyIssuer(value.issuer());
+    } else {
+      provider=database.sql("""
       select id from identity_provider where code=:code and issuer_url=:issuer and enabled
         and connection_status<>'INVALID'
       """).param("code",value.providerCode()).param("issuer",value.issuer()).query(UUID.class)
       .optional().orElseThrow(()->new IllegalArgumentException(
           "Login issuer is not registered for this identity provider"));
+    }
     Optional<UUID> linked=database.sql("""
       select user_id from external_identity where issuer=:issuer and subject=:subject
       """).param("issuer",value.issuer()).param("subject",value.subject()).query(UUID.class).optional();

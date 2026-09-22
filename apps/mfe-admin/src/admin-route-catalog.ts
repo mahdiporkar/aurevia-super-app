@@ -3,7 +3,7 @@ import type {MicroFrontendManifest,PluginMenu,PluginRoute} from '@aurevia/contra
 export type AdminSectionKey=
   'operator-guide'|'ou-access'|'access-studio'|'panels'|'proxy-routes'|
   'outbound-connections'|'outbound-auth'|'integration-test'|'superset-instances'|
-  'identity'|'logs'|'superset';
+  'users'|'identity'|'logs'|'superset';
 
 export interface AdminPageDefinition extends PluginRoute {
   section:AdminSectionKey;
@@ -28,6 +28,7 @@ export const ADMIN_PAGE_ROUTES:readonly AdminPageDefinition[]=[
   {id:'outbound-auth',path:'outbound-auth',title:'احراز هویت',description:'تعریف روش ارسال یا دریافت توکن بدون ذخیره مقدار Secret',section:'outbound-auth',sectionTitle:'احراز هویت سرویس‌ها',icon:'key',order:70,resource:'integration.auth-profile',action:'admin'},
   {id:'integration-test',path:'integration-test',title:'تست اتصال',description:'اجرای تست امن End-to-End اتصال، توکن و پاسخ سرویس مقصد',section:'integration-test',sectionTitle:'آزمایش اتصال',icon:'experiment',order:80,resource:'integration.auth-profile',action:'test'},
   {id:'superset-instances',path:'superset-instances',title:'محیط‌های گزارش',description:'مدیریت Instanceهای Public و Operation در Apache Superset',section:'superset-instances',sectionTitle:'محیط‌های گزارش‌گیری',icon:'cloud-server',order:90,resource:'application:aurevia',action:'admin'},
+  {id:'users',path:'users',title:'مدیریت کاربران',description:'ایجاد کاربر جدید در Keycloak از پنل مدیریت بدون دسترسی مستقیم مرورگر به Keycloak',section:'users',sectionTitle:'مدیریت کاربران',icon:'user-add',order:95,resource:'application:aurevia',action:'admin'},
   {id:'identity',path:'identity',title:'هویت و نقش',description:'مشاهده گروه‌های همگام، ساخت نقش و تخصیص آن به کاربران',section:'identity',sectionTitle:'هویت‌ها و نقش‌ها',icon:'idcard',order:100,resource:'application:aurevia',action:'admin'},
   {id:'logs-api',path:'logs/api',title:'لاگ API',description:'جست‌وجوی درخواست‌ها، خطاها، زمان پاسخ و Correlation ID',section:'logs',sectionTitle:'پایش و حسابرسی',icon:'file-search',order:110,resource:'business_resource:public-zone-logs',action:'view_api'},
   {id:'logs-audit',path:'logs/audit',title:'لاگ راهبری',description:'مشاهده تغییرات مدیریتی، عامل، هدف و نتیجه هر عملیات',section:'logs',sectionTitle:'پایش و حسابرسی',icon:'audit',order:111,resource:'business_resource:public-zone-logs',action:'view_audit'},
@@ -42,7 +43,7 @@ export const ADMIN_MENUS:readonly PluginMenu[]=ADMIN_PAGE_ROUTES.map(route=>({
 /** Authorization references only; resource definitions live in resource-manifest.json. */
 export const ADMIN_PUBLISHED_MANIFEST:MicroFrontendManifest={
   schemaVersion:'1.0',
-  microfrontend:{key:'admin',name:'Administration',version:'0.5.0'},
+  microfrontend:{key:'admin',name:'Administration',version:'0.6.0'},
   runtime:{remoteEntry:'http://localhost:3001/remoteEntry.js',remoteName:'aurevia_admin',
     exposedModule:'./bootstrap',contractVersion:'1.0',apiBasePath:'/api/v1/admin'},
   defaultRouteKey:'operator-guide',

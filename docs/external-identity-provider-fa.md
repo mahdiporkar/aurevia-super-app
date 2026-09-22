@@ -2,6 +2,11 @@
 
 این سند مرز Authentication و Authorization، Registry چند IdP، هویت canonical، اجرای Demo و قیود Production را توضیح می‌دهد.
 
+> **به‌روزرسانی:** ورود اصلی (PRIMARY) دیگر از رجیستری `identity_provider` خوانده نمی‌شود. اتصال اصلی Keycloak
+> فقط از متغیرهای محیطی `OIDC_ISSUER_URI`، `OIDC_CLIENT_ID` و `OIDC_CLIENT_SECRET` می‌آید و در زمان
+> اجرای BFF اعتبارسنجی می‌شود. این سند و رجیستری برای **ارائه‌دهندگان هویت اضافی** معتبر است.
+> جزئیات: [primary-authentication-and-first-admin-bootstrap-fa.md](primary-authentication-and-first-admin-bootstrap-fa.md).
+
 ## وضعیت قبل از این تغییر
 
 - `infra/docker-compose/compose.yml` سرویس‌های `keycloak-db` و `keycloak` را همیشه اجرا می‌کرد و `aurevia-bff.depends_on` مستقیماً به `keycloak` وابسته بود.

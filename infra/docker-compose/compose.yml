@@ -36,6 +36,8 @@ services:
     build: {context: ../.., dockerfile: services/authorization-service/Dockerfile}
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      OIDC_ISSUER_URI: "${OIDC_ISSUER_URI}"
+      AUREVIA_BOOTSTRAP_ADMIN_SUB: "${AUREVIA_BOOTSTRAP_ADMIN_SUB:-}"
       RESOURCE_TREE_DEVELOPMENT_MUTATIONS_ENABLED: "${RESOURCE_TREE_DEVELOPMENT_MUTATIONS_ENABLED:-false}"
       AUTH_DB_URL: "jdbc:postgresql://auth-db:5432/aurevia_auth"
       POSTGRES_AUTH_USER: aurevia
@@ -95,15 +97,22 @@ services:
       AUTH_INTERNAL_USER: "${AUTH_INTERNAL_USER:-bff}"
       AUTH_INTERNAL_PASSWORD: "${AUTH_INTERNAL_PASSWORD:-change-me}"
       # =========================
-      # External Keycloak
+      # Primary authentication is runtime configuration, never registry data.
       # =========================
       OIDC_CLIENT_ID: "${OIDC_CLIENT_ID}"
       OIDC_CLIENT_SECRET: "${OIDC_CLIENT_SECRET}"
       OIDC_ISSUER_URI: "${OIDC_ISSUER_URI}"
-      OIDC_AUTHORIZATION_URI: "${OIDC_AUTHORIZATION_URI}"
-      OIDC_TOKEN_URI: "${OIDC_TOKEN_URI}"
-      OIDC_JWK_SET_URI: "${OIDC_JWK_SET_URI}"
-      OIDC_USER_INFO_URI: "${OIDC_USER_INFO_URI}"
+      OIDC_SCOPES: "${OIDC_SCOPES:-openid,profile,email}"
+      OIDC_ENDPOINT_OVERRIDES_ENABLED: "${OIDC_ENDPOINT_OVERRIDES_ENABLED:-false}"
+      OIDC_AUTHORIZATION_URI: "${OIDC_AUTHORIZATION_URI:-}"
+      OIDC_TOKEN_URI: "${OIDC_TOKEN_URI:-}"
+      OIDC_JWK_SET_URI: "${OIDC_JWK_SET_URI:-}"
+      OIDC_USER_INFO_URI: "${OIDC_USER_INFO_URI:-}"
+      OIDC_END_SESSION_URI: "${OIDC_END_SESSION_URI:-}"
+      KEYCLOAK_ADMIN_CLIENT_ID: "${KEYCLOAK_ADMIN_CLIENT_ID:-}"
+      KEYCLOAK_ADMIN_CLIENT_SECRET: "${KEYCLOAK_ADMIN_CLIENT_SECRET:-}"
+      KEYCLOAK_ADMIN_BASE_URL: "${KEYCLOAK_ADMIN_BASE_URL:-}"
+      AUREVIA_BOOTSTRAP_ADMIN_SUB: "${AUREVIA_BOOTSTRAP_ADMIN_SUB:-}"
       OPERATION_GATEWAY_URL: "http://operation-gateway:80"
       OPERATION_GATEWAY_APPROVED_BASE_URLS: "${OPERATION_GATEWAY_APPROVED_BASE_URLS:-}"
       UI_ARTIFACT_NETWORK_POLICY: "${UI_ARTIFACT_NETWORK_POLICY:-DEVELOPMENT}"
@@ -114,8 +123,8 @@ services:
       SUPERSET_NETWORK_POLICY: "DEVELOPMENT"
       SUPERSET_DEVELOPMENT_HOST: "host.docker.internal"
       SUPERSET_ALLOW_HTTP: "true"
-      IDENTITY_PROVIDER_LOCAL_SECRETS_ENABLED: "true"
-      IDENTITY_PROVIDER_LOCAL_SECRETS_JSON: '{"secret://identity/demo-keycloak":"${OIDC_CLIENT_SECRET:-change-me}"}'
+      # Optional secondary providers only; primary OIDC never reads this resolver.
+      IDENTITY_PROVIDER_SECRET_ROOT: "${IDENTITY_PROVIDER_SECRET_ROOT:-}"
       LEGACY_ALLOWED_HOSTS: "mock-legacy"
       LEGACY_ALLOWED_PORTS: "8080"
       LEGACY_ALLOW_INSECURE_LOCAL: "true"

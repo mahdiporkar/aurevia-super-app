@@ -1,28 +1,8 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
-INSERT INTO identity_provider(id,code,name,provider_type,issuer_url,authorization_endpoint,
-  token_endpoint,jwks_uri,user_info_endpoint,client_id,client_secret_reference,enabled,
-  tenant_id,domains,scopes,audiences,subject_claim,username_claim,groups_claim,created_by,updated_by)
-VALUES('45000000-0000-0000-0000-000000000100','public-iam','Keycloak Demo','KEYCLOAK',
-  'http://localhost:8180/realms/aurevia',
-  'http://localhost:8180/realms/aurevia/protocol/openid-connect/auth',
-  'http://host.docker.internal:8180/realms/aurevia/protocol/openid-connect/token',
-  'http://host.docker.internal:8180/realms/aurevia/protocol/openid-connect/certs',
-  'http://host.docker.internal:8180/realms/aurevia/protocol/openid-connect/userinfo',
-  'aurevia-bff','secret://identity/demo-keycloak',true,'demo',ARRAY['localhost'],
-  ARRAY['openid','profile','email'],ARRAY[]::varchar[],
-  'sub','preferred_username','groups','demo-bootstrap','demo-bootstrap')
-ON CONFLICT(code) DO UPDATE SET name=excluded.name,provider_type=excluded.provider_type,
-  issuer_url=excluded.issuer_url,authorization_endpoint=excluded.authorization_endpoint,
-  token_endpoint=excluded.token_endpoint,jwks_uri=excluded.jwks_uri,
-  user_info_endpoint=excluded.user_info_endpoint,client_id=excluded.client_id,
-  client_secret_reference=excluded.client_secret_reference,enabled=excluded.enabled,
-  tenant_id=excluded.tenant_id,domains=excluded.domains,scopes=excluded.scopes,
-  audiences=excluded.audiences,subject_claim=excluded.subject_claim,
-  username_claim=excluded.username_claim,groups_claim=excluded.groups_claim,
-  connection_status='UNKNOWN',version=identity_provider.version+1,
-  updated_by='demo-bootstrap',updated_at=now();
+-- Primary authentication comes from OIDC runtime configuration.
+-- No identity_provider row is seeded here.
 
 -- Development-only catalog. This file is applied by docker-compose after
 -- Flyway finishes; it is never part of the production migration chain.
@@ -192,20 +172,6 @@ WHERE (route_operation.normalized_path_pattern,route_operation.resource_id,
        excluded.action_id,excluded.action_key,excluded.authorization_required,
        excluded.max_body_bytes,excluded.active);
 
-INSERT INTO authorization_grant(id,subject_type,subject_id,resource_id,action_id,relation)
-SELECT gen_random_uuid(),'USER',app_user.id,resource.id,action.id,'viewer'
-FROM app_user CROSS JOIN resource CROSS JOIN action
-WHERE app_user.id=(
-    SELECT candidate.id FROM app_user candidate
-    WHERE candidate.username='administrator' AND candidate.status='ACTIVE'
-    ORDER BY CASE WHEN candidate.external_id=candidate.username THEN 1 ELSE 0 END,
-      candidate.updated_at DESC
-    LIMIT 1
-  )
-  AND resource.resource_key IN ('api:integration.legacy-demo','api:integration.oauth2-demo')
-  AND action.action_key='view'
-ON CONFLICT(subject_type,subject_id,resource_id,action_id) WHERE status='ACTIVE' DO NOTHING;
-
 INSERT INTO outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
 SELECT 'resource',child.id,'RESOURCE_PARENT_WRITE',jsonb_build_object(
   'user','application:aurevia/admin','relation','parent',
@@ -215,70 +181,8 @@ FROM resource child
 WHERE child.resource_key IN ('api:integration.legacy-demo','api:integration.oauth2-demo')
 ON CONFLICT(idempotency_key) DO NOTHING;
 
-INSERT INTO outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
-SELECT 'grant',g.id,'GRANT_WRITE',jsonb_build_object(
-  'user','user:'||app_user.canonical_user_id,'relation','viewer',
-  'object','resource:'||replace(resource.resource_key,':','/')),
-  'demo:administrator-grant:'||g.id
-FROM authorization_grant g
-JOIN app_user ON g.subject_type='USER' AND app_user.id=g.subject_id
-JOIN resource ON resource.id=g.resource_id
-JOIN action ON action.id=g.action_id
-WHERE app_user.id=(
-    SELECT candidate.id FROM app_user candidate
-    WHERE candidate.username='administrator' AND candidate.status='ACTIVE'
-    ORDER BY CASE WHEN candidate.external_id=candidate.username THEN 1 ELSE 0 END,
-      candidate.updated_at DESC
-    LIMIT 1
-  ) AND action.action_key='view'
-  AND resource.resource_key IN ('api:integration.legacy-demo','api:integration.oauth2-demo')
-  AND g.status='ACTIVE'
-ON CONFLICT(idempotency_key) DO NOTHING;
-
--- A reused Keycloak volume can retain a generated immutable `sub` even when
--- the tracked realm fixture now declares deterministic development ids. Mirror
--- only the local bootstrap administrator's grants to that observed identity so
--- the demo remains representative without trusting username at runtime.
-WITH bootstrap_user AS (
-  SELECT id FROM app_user
-  WHERE issuer='http://localhost:8180/realms/aurevia'
-    AND username='administrator' AND external_id='administrator'
-), runtime_user AS (
-  SELECT id FROM app_user
-  WHERE issuer='http://localhost:8180/realms/aurevia'
-    AND username='administrator' AND external_id<>'administrator' AND status='ACTIVE'
-  ORDER BY updated_at DESC LIMIT 1
-)
-INSERT INTO authorization_grant(subject_type,subject_id,resource_id,action_id,relation,
-  condition_id,expires_at,status)
-SELECT 'USER',runtime_user.id,source.resource_id,source.action_id,source.relation,
-  source.condition_id,source.expires_at,source.status
-FROM authorization_grant source CROSS JOIN bootstrap_user CROSS JOIN runtime_user
-WHERE source.subject_type='USER' AND source.subject_id=bootstrap_user.id
-  AND source.status='ACTIVE'
-  AND NOT EXISTS (
-    SELECT 1 FROM authorization_grant existing
-    WHERE existing.subject_type='USER' AND existing.subject_id=runtime_user.id
-      AND existing.resource_id=source.resource_id AND existing.action_id=source.action_id
-      AND existing.status='ACTIVE'
-  );
-
-INSERT INTO outbox_event(aggregate_type,aggregate_id,event_type,payload,idempotency_key)
-SELECT 'grant',g.id,'GRANT_WRITE',jsonb_build_object(
-  'user','user:'||runtime_user.canonical_user_id,'relation',g.relation,
-  'object',case resource.type
-    when 'APPLICATION' then 'application:'||regexp_replace(resource.resource_key,'^application:','')
-    when 'EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(resource.resource_key,'^external_resource:',''),':','/')
-    else 'resource:'||replace(resource.resource_key,':','/') end),
-  'demo:runtime-administrator-grant:'||g.id
-FROM app_user runtime_user
-JOIN authorization_grant g ON g.subject_type='USER'
-  AND g.subject_id=runtime_user.id AND g.status='ACTIVE'
-JOIN resource ON resource.id=g.resource_id
-WHERE runtime_user.issuer='http://localhost:8180/realms/aurevia'
-  AND runtime_user.username='administrator'
-  AND runtime_user.external_id<>'administrator'
-ON CONFLICT(idempotency_key) DO NOTHING;
+-- First administrator authorization is provisioned once by stable sub.
+-- Never restore grants by mutable username during demo startup.
 
 INSERT INTO schema_version(component,version) VALUES('development-integration-fixture','2')
 ON CONFLICT(component) DO UPDATE SET version=excluded.version,updated_at=now();

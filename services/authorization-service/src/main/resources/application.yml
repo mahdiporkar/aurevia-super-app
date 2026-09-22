@@ -30,6 +30,10 @@ logging:
     audit-days: ${AUDIT_LOG_RETENTION_DAYS:365}
     cron: ${LOG_RETENTION_CRON:0 17 2 * * *}
 aurevia:
+  primary-identity:
+    issuer: ${OIDC_ISSUER_URI:}
+  bootstrap:
+    admin-sub: ${AUREVIA_BOOTSTRAP_ADMIN_SUB:}
   routing:
     approved-gateway-hosts: ${OPERATION_GATEWAY_APPROVED_HOSTS:operation-gateway}
   outbox:

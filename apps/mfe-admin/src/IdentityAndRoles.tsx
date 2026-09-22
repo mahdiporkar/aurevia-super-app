@@ -19,7 +19,7 @@ export function IdentityAndRoles(){
     adminApi<Row[]>('/ou-access/access-groups'),adminApi<Row[]>('/roles'),
     adminApi<Row[]>('/role-assignments'),adminApi<Row[]>('/identity-providers')])
     .then(([u,g,ag,r,a,p])=>{setUsers(u);setGroups(g);setAccessGroups(ag);setRoles(r);
-      setAssignments(a);setProviders(p)}).catch(error=>message.error(error.message));
+      setAssignments(a);setProviders(p.filter(provider=>provider.code!=='public-iam'))}).catch(error=>message.error(error.message));
   useEffect(()=>{void load()},[]);
   const createRole=async(values:Row)=>{try{await adminApi('/roles',{method:'POST',body:JSON.stringify(values)});
     setRoleOpen(false);roleForm.resetFields();await load();message.success('نقش کاربردی ایجاد شد')}
@@ -59,9 +59,11 @@ export function IdentityAndRoles(){
     catch(error){message.error((error as Error).message)}};
 
   return <Space direction="vertical" size={16} style={{width:'100%'}}>
+    <Alert showIcon type="info" message="ورود اصلی Aurevia از تنظیمات محیط اجرا مدیریت می‌شود"
+      description="اتصال اصلی Keycloak توسط تیم زیرساخت تنظیم می‌شود. ارائه‌دهندگان هویت اضافی در این بخش، تنظیمات ورود اصلی را تغییر نمی‌دهند."/>
     <Alert showIcon type="info" message="Authentication از Authorization جدا است"
       description="Identity Provider فقط هویت را اثبات می‌کند. هر issuer/sub به کاربر canonical متصل می‌شود و OpenFGA فقط شناسه canonical را دریافت می‌کند."/>
-    <Card title="Identity Provider Registry" extra={<Button type="primary" onClick={()=>openProvider()}>Provider جدید</Button>}>
+    <Card title="ارائه‌دهندگان هویت اضافی" extra={<Button type="primary" onClick={()=>openProvider()}>Provider جدید</Button>}>
       <Table rowKey="id" dataSource={providers} pagination={{pageSize:8}} columns={[
         {title:'نام',render:(_,row)=><><b>{row.name}</b><br/><code>{row.code}</code></>},
         {title:'نوع / Tenant',render:(_,row)=><>{row.type}<br/>{row.tenant_id??'عمومی'}</>},

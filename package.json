@@ -51,7 +51,8 @@
     "mfe:preflight": "node tools/mfe-demo-preflight.mjs",
     "mfe:build": "npm run build --workspace=@aurevia/mfe-admin && npm run build --workspace=@aurevia/mfe-hr && npm run build --workspace=@aurevia/mfe-finance && npm run build --workspace=@aurevia/mfe-reports",
     "mfe:up": "npm run mfe:preflight && docker compose -f infra/docker-compose/compose.mfe-demo.yml up -d",
-    "mfe:down": "docker compose -f infra/docker-compose/compose.mfe-demo.yml down"
+    "mfe:down": "docker compose -f infra/docker-compose/compose.mfe-demo.yml down",
+    "e2e:primary-auth": "node tools/primary-auth-bootstrap-e2e.mjs"
   },
   "devDependencies": {
     "@types/react": "19.1.11",

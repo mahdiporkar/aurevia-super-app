@@ -28,6 +28,7 @@ public class BffOpenApiConfiguration {
       "MeController", "02 - کاربر جاری و Manifest",
       "ReportsController", "03 - گزارش‌های قابل مشاهده",
       "AdminProxyController", "04 - راهبری و آزمون اتصال",
+      "KeycloakUserController", "04 - راهبری و آزمون اتصال",
       "OperationalProxyController", "05 - پراکسی سرویس‌های عملیاتی",
       "OperationSupersetProxyController", "06 - پراکسی امن Superset",
       "MicroFrontendArtifactController", "07 - پراکسی امن Micro Frontend",
@@ -218,6 +219,9 @@ public class BffOpenApiConfiguration {
           "gatewayBaseUrl","http://operation-gateway",
           "upstreamBasePath","/hr-service",
           "active",true);
+      case "KeycloakUserController#create" -> map("username","ali.rezaei","firstName","علی",
+          "lastName","رضایی","email","ali.rezaei@example.com","enabled",true,
+          "initialPassword","<initial-password>");
       case "PolicyEvaluationController#evaluate" -> map("resource","finance.invoice",
           "action","approve","context",map("branch","tehran","amount",250000));
       default -> null;
@@ -233,6 +237,9 @@ public class BffOpenApiConfiguration {
     }
     if (key.startsWith("OperationSupersetProxyController#")) {
       return summary + ". نگاشت publicInstance به operationInstance و سطح دسترسی گزارش/داشبورد پیش از forward بررسی می‌شود. مرورگر هیچ credential عملیاتی دریافت نمی‌کند.";
+    }
+    if (key.startsWith("KeycloakUserController#")) {
+      return summary + ". فقط دارندگان مجوز admin روی application:aurevia در OpenFGA مجازند. رمز اولیه تنها به Keycloak ارسال می‌شود و هرگز ذخیره، لاگ یا بازگردانده نمی‌شود؛ پاسخ شامل شناسه پایدار (sub) کاربر است.";
     }
     if (key.startsWith("AdminProxyController#proxy")) {
       return summary + ". path ادامه مسیر /internal/v1/registry است. DTO، validation و پاسخ اصلی authorization-service بدون تغییر معنایی عبور می‌کند؛ برای mutation مقدار CSRF لازم است.";
@@ -255,6 +262,7 @@ public class BffOpenApiConfiguration {
   private static Map<String, String> summaries() {
     Map<String, String> m = new LinkedHashMap<>();
     m.put("CsrfController#csrf", "دریافت CSRF token نشست جاری");
+    m.put("IdentityProviderLoginController#loginLanding", "هدایت مسیر /login به صفحه اصلی Shell");
     m.put("IdentityProviderLoginController#providers", "فهرست سرویس‌های هویت فعال برای ورود");
     m.put("IdentityProviderLoginController#login", "آغاز ورود با سرویس هویت انتخاب‌شده");
     m.put("MeController#me", "دریافت هویت کاربر جاری");
@@ -271,6 +279,7 @@ public class BffOpenApiConfiguration {
     m.put("AdminProxyController#cacheStatus", "بررسی وجود token معتبر در cache بدون نمایش مقدار");
     m.put("AdminProxyController#health", "Health check مقصد سرویس از شبکه سرور");
     m.put("AdminProxyController#proxy", "پراکسی APIهای پنل راهبری به authorization-service");
+    m.put("KeycloakUserController#create", "ایجاد کاربر جدید در Keycloak از طریق Admin REST API سمت سرور");
     m.put("OperationalProxyController#proxy", "هدایت مجاز درخواست میکروفرانت به سرویس عملیاتی");
     m.put("OperationSupersetProxyController#proxy", "هدایت درخواست به Superset پیش‌فرض");
     m.put("OperationSupersetProxyController#proxyInstance", "هدایت درخواست به Superset عمومی نام‌گذاری‌شده");

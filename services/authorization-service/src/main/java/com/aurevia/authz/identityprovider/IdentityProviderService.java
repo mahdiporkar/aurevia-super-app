@@ -2,6 +2,7 @@ package com.aurevia.authz.identityprovider;
 
 import static com.aurevia.authz.identityprovider.IdentityProviderModels.*;
 import com.aurevia.authz.observability.AuditTrail;
+import com.aurevia.authz.identity.PrimaryIdentityProvider;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -30,17 +31,21 @@ public class IdentityProviderService {
       IdentityProviderHealthProbe health,AuditTrail audit){
     this.providers=providers;this.uris=uris;this.health=health;this.audit=audit;}
 
-  public List<ProviderView> list(){return providers.findAll();}
+  public List<ProviderView> list(){return providers.findAll().stream()
+      .filter(value->additional(value.code())).toList();}
   public List<ProviderSummary> available(String tenant,String domain){return providers.findEnabled()
-      .stream().filter(value->matches(value,tenant,domain)).map(IdentityProviderService::summary).toList();}
+      .stream().filter(value->additional(value.code())&&matches(value,tenant,domain))
+      .map(IdentityProviderService::summary).toList();}
   public ProviderSummary route(String code,String tenant,String domain){
     List<ProviderView> matches=providers.findEnabled().stream().filter(value->
-        (blank(code)||value.code().equals(normalizeCode(code)))&&matches(value,tenant,domain)).toList();
+        additional(value.code())&&(blank(code)||value.code().equals(normalizeCode(code)))
+        &&matches(value,tenant,domain)).toList();
     if(matches.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"No matching identity provider");
     if(matches.size()>1)throw new ResponseStatusException(HttpStatus.CONFLICT,"Identity provider selection required");
     return summary(matches.getFirst());
   }
-  public RuntimeProvider runtime(String code){ProviderView value=providers.findEnabledByCode(normalizeCode(code))
+  public RuntimeProvider runtime(String code){requireAdditional(normalizeCode(code));
+    ProviderView value=providers.findEnabledByCode(normalizeCode(code))
       .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"Identity provider unavailable"));
     return new RuntimeProvider(value.code(),value.name(),value.issuerUrl(),value.authorizationEndpoint(),
         value.tokenEndpoint(),value.jwksUri(),value.userInfoEndpoint(),value.clientId(),
@@ -55,6 +60,7 @@ public class IdentityProviderService {
   }
   @Transactional public MutationResult update(UUID id,long version,ProviderCommand raw,String actor){
     ProviderSnapshot before=providers.snapshot(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+    requireAdditional(before.code());
     ProviderCommand command=validate(raw);
     if(!before.code().equals(command.code()))throw new IllegalArgumentException("Identity provider code is immutable");
     if(providers.update(id,version,command,actor(actor))!=1)throw new OptimisticLockingFailureException("VERSION_CONFLICT");
@@ -70,6 +76,7 @@ public class IdentityProviderService {
   }
   @Transactional public MutationResult enabled(UUID id,long version,boolean enabled,String actor){
     ProviderSnapshot value=providers.snapshot(id).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+    requireAdditional(value.code());
     if(providers.updateEnabled(id,version,enabled,actor(actor))!=1)throw new OptimisticLockingFailureException("VERSION_CONFLICT");
     event(actor,enabled?"identity_provider.enabled":"identity_provider.disabled",id,value.code(),
         enabled?"ENABLE":"DISABLE",Map.of("enabled",value.enabled()),Map.of("enabled",enabled));
@@ -78,6 +85,7 @@ public class IdentityProviderService {
   @Transactional public HealthResult health(UUID id,String actor){
     ProviderView value=providers.findAll().stream().filter(item->item.id().equals(id)).findFirst()
         .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+    requireAdditional(value.code());
     Instant checked=Instant.now();String status="ACTIVE";String error=null;
     try{health.verify(value.jwksUri());}catch(RuntimeException failure){status="UNREACHABLE";error="JWKS health check failed";}
     providers.updateHealth(id,status,checked,error);
@@ -87,6 +95,7 @@ public class IdentityProviderService {
 
   private ProviderCommand validate(ProviderCommand raw){
     String code=normalizeCode(raw.code());String type=upper(raw.type());
+    requireAdditional(code);
     if(!CODE.matcher(code).matches())throw new IllegalArgumentException("Invalid identity provider code");
     if(!TYPES.contains(type))throw new IllegalArgumentException("Unsupported identity provider type");
     if(blank(raw.name())||blank(raw.clientId())||!SECRET.matcher(text(raw.clientSecretReference())).matches())
@@ -110,6 +119,11 @@ public class IdentityProviderService {
     if(blank(domain))return true;String normalized=domain.trim().toLowerCase(Locale.ROOT);
     int at=normalized.lastIndexOf('@');String domainValue=at>=0?normalized.substring(at+1):normalized;
     return value.domains().stream().anyMatch(item->item.equalsIgnoreCase(domainValue));
+  }
+  private static boolean additional(String code){return !PrimaryIdentityProvider.CODE.equals(code);}
+  private static void requireAdditional(String code){
+    if(!additional(code))throw new ResponseStatusException(HttpStatus.CONFLICT,
+        "Primary authentication is managed by runtime environment configuration");
   }
   private void event(String actor,String event,UUID id,String name,String action,Map<String,Object> before,Map<String,Object> after){
     audit.success("IDENTITY_PROVIDER",event,null,null,"IDENTITY_PROVIDER",id.toString(),name,action,before,after);}

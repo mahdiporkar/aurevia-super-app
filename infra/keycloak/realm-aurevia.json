@@ -36,11 +36,27 @@
         "http://localhost:8081",
         "http://localhost:8443"
       ]
+    },
+    {
+      "clientId": "aurevia-identity-admin",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "local-identity-admin-only",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true
     }
   ],
   "users": [
     {
-      "id": "administrator",
+      "username": "service-account-aurevia-identity-admin",
+      "enabled": true,
+      "serviceAccountClientId": "aurevia-identity-admin",
+      "clientRoles": { "realm-management": ["manage-users"] }
+    },
+    {
+      "id": "8c604f37-33d2-42e4-a982-35bd5613e974",
       "username": "administrator",
       "enabled": true,
       "firstName": "Aurevia",

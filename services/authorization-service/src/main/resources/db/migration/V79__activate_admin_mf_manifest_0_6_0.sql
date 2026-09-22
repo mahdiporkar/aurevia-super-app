@@ -1,3 +1,18 @@
+-- Publish the repository's canonical 0.6.0 ADMIN MF manifest so the dedicated
+-- "User Management" page (users) is part of the effective catalog on every
+-- installation without an operator pressing Sync. Its route requires the existing
+-- admin action on application:aurevia; authorization stays in OpenFGA.
+--
+-- manifest_checksum is SHA-256(JSON.stringify(mf-manifest.json)), exactly as the
+-- server-side sync computes it, so a later sync converges idempotently.
+WITH admin_panel AS (
+  SELECT p.id AS panel_id,p.active_artifact_id,p.mf_manifest_url
+  FROM panel p WHERE p.code='ADMIN'
+), source AS (
+  SELECT a.*,p.mf_manifest_url
+  FROM ui_module_artifact a JOIN admin_panel p ON p.active_artifact_id=a.id
+), contract AS (
+  SELECT $manifest$
 {
   "schemaVersion": "1.0",
   "microfrontend": { "key": "admin", "name": "Administration", "version": "0.6.0" },
@@ -46,3 +61,35 @@
     { "key": "superset-menu", "type": "PAGE", "routeKey": "superset", "title": "گزارش‌ها", "description": "تخصیص سطح دسترسی داشبوردها و گزارش‌های Superset", "icon": "dashboard", "order": 120 }
   ]
 }
+$manifest$::jsonb AS snapshot
+)
+INSERT INTO ui_module_artifact(id,panel_id,artifact_version,remote_entry_url,remote_name,
+  exposed_module,contract_version,schema_version,integrity,manifest_snapshot,
+  validation_status,manifest_checksum,source_url,synchronized_at,created_by)
+SELECT gen_random_uuid(),s.panel_id,'0.6.0',s.remote_entry_url,s.remote_name,s.exposed_module,
+  s.contract_version,'1.0',s.integrity,c.snapshot,'VALID',
+  'ecc540a2066671bea310d6a6d999cc8947089c3b6289a6c2330fdadb0049d1f9',
+  s.mf_manifest_url,now(),'migration-v79'
+FROM source s CROSS JOIN contract c
+ON CONFLICT(panel_id,artifact_version) DO NOTHING;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM panel p JOIN ui_module_artifact a ON a.panel_id=p.id
+    WHERE p.code='ADMIN' AND a.artifact_version='0.6.0'
+      AND a.manifest_checksum<>'ecc540a2066671bea310d6a6d999cc8947089c3b6289a6c2330fdadb0049d1f9'
+  ) THEN
+    RAISE EXCEPTION 'ADMIN artifact 0.6.0 already exists with a different immutable manifest';
+  END IF;
+END $$;
+
+UPDATE panel p SET active_artifact_id=a.id,semantic_version=a.artifact_version,
+  version=p.version+1,updated_at=now()
+FROM ui_module_artifact a
+WHERE p.code='ADMIN' AND a.panel_id=p.id AND a.artifact_version='0.6.0'
+  AND a.manifest_checksum='ecc540a2066671bea310d6a6d999cc8947089c3b6289a6c2330fdadb0049d1f9';
+
+INSERT INTO schema_version(component,version) VALUES
+  ('control-plane','79'),('admin-navigation-contract','2')
+ON CONFLICT(component) DO UPDATE SET version=excluded.version,updated_at=now();

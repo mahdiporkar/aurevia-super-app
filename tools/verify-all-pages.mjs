@@ -45,6 +45,7 @@ const deps={
   'outbound-auth':['/outbound-auth-profiles','/outbound-connections'],
   'integration-test':['/service-targets','/proxy-routes','/outbound-auth-profiles'],
   'superset-instances':['/superset-instances','/superset-instances/mappings'],
+  'users':[],
   'identity':['/users','/directory-groups','/roles','/role-assignments','/identity-providers','/ou-access/access-groups'],
   'logs-api':['/logs/api','/logs/api/summary'],
   'logs-audit':['/logs/audit'],
@@ -112,14 +113,33 @@ async function actionForAdmin(b,route){
       await b.click('.ant-modal-close');await b.delay(350);grantTargets.push({type:asset.type,externalId:asset.externalId,assetId:asset.id});
     }
     return {liveAssets:rows.length,dashboardListed:true,grantTargets};}
+  if(route.id==='users'){
+    const before=b.mark();await b.text('ایجاد کاربر');
+    await b.until('Boolean(document.querySelector(".remote-surface .ant-form-item-explain-error"))','Create User required fields were not validated');
+    assert(!b.responses(before).some(r=>r.path==='/api/v1/admin/keycloak-users'),'Invalid Create User form reached the backend');
+    const validationCount=await b.read('document.querySelectorAll(".remote-surface .ant-form-item-explain-error").length');
+    return {requiredValidation:validationCount,invalidMutation:false};}
   throw new Error('No page interaction defined: '+path);
 }
 try{
   await admin.login('administrator',adminPassword);
-  const context=await admin.json('/api/me/context');assert.equal(context.status,200);
+  // The bootstrapped administrator holds only admin on application:aurevia. Public-zone log pages
+  // are deliberately not inherited (V20), so grant them the way an operator would: via the Admin API.
+  const me=await admin.json('/api/v1/me');
+  const self=(await adminApi('/users')).find(u=>u.external_id===me.body.subject&&u.issuer===me.body.issuer);
+  assert(self,'Logged-in administrator is not a registered subject');
+  const logsResource=(await adminApi('/resources')).find(r=>r.resource_key==='business_resource:public-zone-logs');
+  for(const action of (await adminApi('/actions')).filter(a=>['view_api','view_audit'].includes(a.action_key)))
+    await adminApi('/grants','POST',{subjectType:'USER',subjectId:self.id,resourceId:logsResource.id,actionId:action.id});
+  let context;
+  for(let attempt=0;attempt<40;attempt++){
+    context=await admin.json('/api/me/context');assert.equal(context.status,200);
+    if(context.body.uiCatalog.modules.find(m=>m.moduleKey==='admin')?.routes.length===19)break;
+    await new Promise(r=>setTimeout(r,500));
+  }
   for(const module of context.body.uiCatalog.modules)for(const route of module.routes)
     inventory.push({module:module.moduleKey,path:('/'+module.routePrefix+'/'+route.path).replace(/\/$/,''),routeId:route.id});
-  const adminModule=context.body.uiCatalog.modules.find(m=>m.moduleKey==='admin');assert.equal(adminModule.routes.length,18);
+  const adminModule=context.body.uiCatalog.modules.find(m=>m.moduleKey==='admin');assert.equal(adminModule.routes.length,19);
   await pagesBrowser({origin,username:'administrator',password:adminPassword},async b=>{
     for(const route of adminModule.routes)await test('PAGE-ADMIN-'+route.id,'/admin/'+route.path,'Real page, API data and user interaction',async()=>{
       const start=await b.navigate('/admin/'+route.path,(deps[route.id]??[]).map(p=>'/api/v1/admin'+p));

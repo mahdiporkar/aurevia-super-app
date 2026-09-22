@@ -39,6 +39,28 @@ springdoc:
       - name: 3 - سرویس مجوزدهی داخلی
         url: /api/v1/docs/authorization/openapi
 aurevia:
+  oidc:
+    issuer-uri: ${OIDC_ISSUER_URI:}
+    client-id: ${OIDC_CLIENT_ID:}
+    client-secret: ${OIDC_CLIENT_SECRET:}
+    scopes: ${OIDC_SCOPES:openid,profile,email}
+    # Opt in only when browser and container endpoint addresses must differ.
+    endpoint-overrides-enabled: ${OIDC_ENDPOINT_OVERRIDES_ENABLED:false}
+    authorization-uri: ${OIDC_AUTHORIZATION_URI:}
+    token-uri: ${OIDC_TOKEN_URI:}
+    jwk-set-uri: ${OIDC_JWK_SET_URI:}
+    user-info-uri: ${OIDC_USER_INFO_URI:}
+    end-session-uri: ${OIDC_END_SESSION_URI:}
+  # Keycloak Admin REST API service account (server-side only, never exposed to browsers).
+  keycloak-admin:
+    client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:}
+    client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:}
+    # Optional: container-reachable Keycloak base URL when it differs from the issuer host.
+    base-url: ${KEYCLOAK_ADMIN_BASE_URL:}
+  # Same value the Authorization Service uses for the one-time grant; the BFF only verifies it in Keycloak.
+  bootstrap:
+    admin-sub: ${AUREVIA_BOOTSTRAP_ADMIN_SUB:}
+  # Additional (secondary) identity providers only; the primary login never reads this registry.
   identity-providers:
     cache-ttl: ${IDENTITY_PROVIDER_CACHE_TTL:30s}
     request-timeout: ${IDENTITY_PROVIDER_REQUEST_TIMEOUT:10s}

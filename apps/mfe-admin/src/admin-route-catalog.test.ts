@@ -6,7 +6,7 @@ import{
 }from'./admin-route-catalog';
 
 const formerTopTabs=['operator-guide','ou-access','access-studio','panels','proxy-routes',
-  'outbound-connections','outbound-auth','integration-test','superset-instances','identity',
+  'outbound-connections','outbound-auth','integration-test','superset-instances','users','identity',
   'logs','superset'];
 const formerNestedTabs=['ou-access-ous','ou-access-groups','ou-access-applications',
   'ou-access-explain','proxy-targets','proxy-routes','proxy-operations','logs-api','logs-audit'];
@@ -16,7 +16,7 @@ describe('Admin route catalog',()=>{
     const sections=new Set(ADMIN_PAGE_ROUTES.map(route=>route.section));
     expect([...sections]).toEqual(formerTopTabs);
     expect(ADMIN_PAGE_ROUTES.map(route=>route.id)).toEqual(expect.arrayContaining(formerNestedTabs));
-    expect(ADMIN_PAGE_ROUTES).toHaveLength(18);
+    expect(ADMIN_PAGE_ROUTES).toHaveLength(19);
   });
 
   it('publishes one right-side menu link for every standalone page',()=>{
@@ -54,7 +54,7 @@ describe('Admin route catalog',()=>{
   });
 
   it('shares relative definitions in standalone and under any Shell prefix',()=>{
-    expect(authorizedAdminPages(undefined)).toHaveLength(18);
+    expect(authorizedAdminPages(undefined)).toHaveLength(19);
     expect(internalPathname('/management/proxy-routes/routes','/management'))
       .toBe('proxy-routes/routes');
     expect(internalPathname('/governance/proxy-routes/routes','/governance'))

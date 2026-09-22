@@ -203,17 +203,8 @@ assert(serializedSession.includes('SessionIdentity'),
 assert(!/(?:OidcIdToken|DefaultOidcUser|OidcUserAuthority|OAuth2AuthorizedClient|BearerToken|RefreshToken|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/.test(serializedSession),
   'Redis session contains OIDC credential-bearing state');
 
-// A reused development Keycloak volume may predate the deterministic IDs in
-// realm-aurevia.json. Refresh the development-only catalog after login so its
-// direct grant follows the current validated OIDC subject. Production has no
-// demo-catalog-init service and never performs username-based bootstrapping.
-if (process.env.AUREVIA_SKIP_DEMO_CATALOG_REFRESH !== 'true') {
-  const bootstrap = compose(['up', '--force-recreate', 'demo-catalog-init']);
-  if (bootstrap.status !== 0) {
-    throw new Error(`Development catalog refresh failed: ${bootstrap.stderr || bootstrap.stdout}`);
-  }
-  await new Promise(resolve => setTimeout(resolve, 7000));
-}
+// The administrator must already have been provisioned once by stable sub.
+// Verification never grants privileges or refreshes authorization fixtures.
 
 const manifest=await json('/api/v1/me/manifest',`e2e-manifest-${Date.now()}`);
 assert.equal(manifest.status,200,

@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistration.ClientSettings;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
@@ -16,7 +17,7 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-/** Lazy registry adapter: Aurevia can start when no IdP is configured or reachable. */
+/** Runtime primary registration plus a lazy registry for explicitly selected additional providers. */
 @Component
 public class DynamicClientRegistrationRepository implements ReactiveClientRegistrationRepository {
   static final String SUBJECT_CLAIM="aurevia_subject_claim";
@@ -24,23 +25,30 @@ public class DynamicClientRegistrationRepository implements ReactiveClientRegist
   static final String GROUPS_CLAIM="aurevia_groups_claim";
   static final String AUDIENCES="aurevia_audiences";
   private final AuthorizationServiceClient authorization;
+  private final ClientRegistration primary;
   private final IdentityProviderSecretResolver secrets;
   private final Duration ttl;
   private final Duration timeout;
   private final Map<String,CachedRegistration> cache=new ConcurrentHashMap<>();
   public DynamicClientRegistrationRepository(AuthorizationServiceClient authorization,
       IdentityProviderSecretResolver secrets,
+      @Qualifier("primaryClientRegistration") ClientRegistration primary,
       @Value("${aurevia.identity-providers.cache-ttl:30s}") Duration ttl,
       @Value("${aurevia.identity-providers.request-timeout:10s}") Duration timeout){
-    this.authorization=authorization;this.secrets=secrets;this.ttl=ttl;this.timeout=timeout;}
+    this.authorization=authorization;this.secrets=secrets;this.primary=primary;this.ttl=ttl;this.timeout=timeout;}
 
   @Override public Mono<ClientRegistration> findByRegistrationId(String registrationId){
+    if(PrimaryOidcConfiguration.REGISTRATION_ID.equals(registrationId))return Mono.just(primary);
     if(registrationId==null||!registrationId.matches("[a-z][a-z0-9-]{2,79}"))return Mono.empty();
     CachedRegistration cached=cache.get(registrationId);
     if(cached!=null&&cached.expiresAt().isAfter(Instant.now()))return Mono.just(cached.registration());
     return authorization.identityProvider(registrationId).timeout(timeout)
-        .flatMap(provider->secrets.resolve(provider.clientSecretReference()).timeout(timeout)
-            .map(secret->registration(provider,secret)))
+        .flatMap(provider->{
+          if(primary.getProviderDetails().getIssuerUri().equals(provider.issuerUrl()))
+            return Mono.error(new IllegalStateException("Primary OIDC issuer is controlled by runtime configuration"));
+          return secrets.resolve(provider.clientSecretReference()).timeout(timeout)
+              .map(secret->registration(provider,secret));
+        })
         .doOnNext(value->cache.put(registrationId,new CachedRegistration(value,Instant.now().plus(ttl))));
   }
   public void invalidateAll(){cache.clear();}
