@@ -45,7 +45,17 @@ function validateContract(doc) {
     for(const child of Object.values(value))walk(child);
   }
   walk(doc);
-  return {operations:inventory.length,uniqueOperationIds:ids.size,brokenReferences:0};
+  const error=doc.components.schemas.ApiError;
+  assert.deepEqual([...(error?.required??[])].sort(),['code','correlationId','message'],'ApiError schema must require code, message and correlationId');
+  for(const [name,schema] of Object.entries(doc.components.schemas))
+    for(const [property,field] of Object.entries(schema.properties??{}))
+      assert.match(field.description??'',/[؀-ۿ]/,'Schema field without Persian description: '+name+'.'+property);
+  const serialized=JSON.stringify(doc);
+  for(const forbidden of ['local-change-me','local-identity-admin-only','eyJhbGci','"password":"'])
+    assert(!serialized.includes(forbidden),'Secret-looking value in contract: '+forbidden);
+  for(const demo of ['finance.payments','hr.employee','payroll','hr-viewer','finance-maker'])
+    assert(!/example/.test('')&&!serialized.toLowerCase().includes(demo),'Demo business identifier in contract: '+demo);
+  return {operations:inventory.length,uniqueOperationIds:ids.size,brokenReferences:0,schemas:Object.keys(doc.components.schemas).length};
 }
 function validateExamples(doc) {
   let count=0;

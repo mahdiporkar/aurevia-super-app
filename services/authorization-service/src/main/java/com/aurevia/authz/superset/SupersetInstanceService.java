@@ -26,7 +26,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class SupersetInstanceService {
   private static final Pattern CODE=Pattern.compile("^[a-z][a-z0-9-]{2,79}$");
   private static final Pattern CONNECTION=Pattern.compile("^connection://[a-zA-Z0-9._/-]+$");
-  private static final Set<String> AUTH_MODES=Set.of("REMOTE_USER","OIDC","GUEST_TOKEN");
+  public static final Set<String> ZONES=Set.of("PUBLIC","OPERATION");
+  public static final Set<String> AUTH_MODES=Set.of("REMOTE_USER","OIDC","GUEST_TOKEN");
   private final SupersetInstanceRepository instances;
   private final SupersetAssetRepository assets;
   private final RelationshipAuthorizationPort relationships;
@@ -131,7 +132,7 @@ public class SupersetInstanceService {
     String zone=request.zone().trim().toUpperCase(Locale.ROOT);
     String auth=request.authMode().trim().toUpperCase(Locale.ROOT);
     if(!CODE.matcher(code).matches()) throw new IllegalArgumentException("Invalid Superset instance code");
-    if(!Set.of("PUBLIC","OPERATION").contains(zone)) throw new IllegalArgumentException("Invalid Superset zone");
+    if(!ZONES.contains(zone)) throw new IllegalArgumentException("Invalid Superset zone");
     if(!AUTH_MODES.contains(auth)) throw new IllegalArgumentException("Invalid Superset auth mode");
     String connection=request.connectionRef()==null||request.connectionRef().isBlank()
         ?"connection://superset/"+code:request.connectionRef().trim();

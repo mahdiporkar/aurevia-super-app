@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PanelAdministrationService {
   private static final Set<String> RESERVED=Set.of("login","admin","settings","api","assets","error");
   private static final Set<String> RESOURCE_MODES=Set.of("MANIFEST","MANUAL","HYBRID");
-  private static final Set<String> CLASSIFICATIONS=Set.of("DEMO","REAL");
+  public static final Set<String> CLASSIFICATIONS=Set.of("DEMO","REAL");
   private final PanelRepository repository;
   private final UiArtifactPolicy artifactPolicy;
   private final AuditTrail auditTrail;

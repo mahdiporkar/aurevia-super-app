@@ -22,7 +22,7 @@ public class AccessAdministrationService {
   public static final Set<String> RESOURCE_TYPES = Set.of(
       "APPLICATION", "MODULE", "PAGE", "UI_COMPONENT", "FIELD", "BUSINESS_RESOURCE",
       "EXTERNAL_RESOURCE", "API_RESOURCE", "DATA_RESOURCE", "DATA_GOVERNANCE_RESOURCE");
-  private static final Set<String> SOURCES = Set.of("MANIFEST", "ADMIN");
+  public static final Set<String> SOURCES = Set.of("MANIFEST", "ADMIN");
   private static final Map<String,Set<String>> ALLOWED_PARENT_TYPES=Map.ofEntries(
       Map.entry("MODULE",Set.of("APPLICATION")),
       Map.entry("PAGE",Set.of("MODULE")),
@@ -33,7 +33,7 @@ public class AccessAdministrationService {
       Map.entry("API_RESOURCE",Set.of("APPLICATION","MODULE","BUSINESS_RESOURCE")),
       Map.entry("DATA_RESOURCE",Set.of("APPLICATION","MODULE","BUSINESS_RESOURCE","DATA_RESOURCE")),
       Map.entry("DATA_GOVERNANCE_RESOURCE",Set.of("APPLICATION","MODULE","DATA_RESOURCE")));
-  private static final Set<String> SUBJECT_TYPES = Set.of("USER", "GROUP", "ACCESS_GROUP", "ROLE");
+  public static final Set<String> SUBJECT_TYPES = Set.of("USER", "GROUP", "ACCESS_GROUP", "ROLE");
   private static final Map<String, String> PREFIXES = Map.ofEntries(
       Map.entry("APPLICATION", "application:"), Map.entry("MODULE", "module:"),
       Map.entry("PAGE", "page:"), Map.entry("UI_COMPONENT", "component:"),

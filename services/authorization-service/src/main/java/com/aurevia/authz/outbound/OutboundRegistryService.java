@@ -7,9 +7,9 @@ import org.springframework.stereotype.Service;import org.springframework.transac
 import org.springframework.web.server.ResponseStatusException;
 @Service public class OutboundRegistryService {
  private static final Pattern CONNECTION_REF=Pattern.compile("^connection://[a-zA-Z0-9._/-]+$");
- private static final Set<String> MODES=Set.of("FORWARD_USER_TOKEN","LEGACY_SERVICE_TOKEN");
- private static final Set<String> FORMATS=Set.of("FORM_URLENCODED","JSON","HTTP_BASIC","OAUTH_CLIENT_CREDENTIALS");
- private static final Set<String> TRANSPORTS=Set.of("USER_AUTHORIZATION_HEADER","INTERNAL_LEGACY_HEADER");
+ public static final Set<String> MODES=Set.of("FORWARD_USER_TOKEN","LEGACY_SERVICE_TOKEN");
+ public static final Set<String> FORMATS=Set.of("FORM_URLENCODED","JSON","HTTP_BASIC","OAUTH_CLIENT_CREDENTIALS");
+ public static final Set<String> TRANSPORTS=Set.of("USER_AUTHORIZATION_HEADER","INTERNAL_LEGACY_HEADER");
  private final OutboundRegistryRepository repository;private final AuditTrail audit;
  public OutboundRegistryService(OutboundRegistryRepository repository,AuditTrail audit){this.repository=repository;this.audit=audit;}
  public List<ConnectionView> connections(){return repository.connections();}

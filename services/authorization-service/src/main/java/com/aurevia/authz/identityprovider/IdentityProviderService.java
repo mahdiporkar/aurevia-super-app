@@ -22,7 +22,7 @@ public class IdentityProviderService {
   private static final Pattern CODE=Pattern.compile("^[a-z][a-z0-9-]{2,79}$");
   private static final Pattern CLAIM=Pattern.compile("^[A-Za-z][A-Za-z0-9_.:-]{0,159}$");
   private static final Pattern SECRET=Pattern.compile("^secret://[A-Za-z0-9._/-]+$");
-  private static final Set<String> TYPES=Set.of("OIDC","KEYCLOAK","AZURE_AD","OKTA","AUTH0","GOOGLE_WORKSPACE");
+  public static final Set<String> TYPES=Set.of("OIDC","KEYCLOAK","AZURE_AD","OKTA","AUTH0","GOOGLE_WORKSPACE");
   private final IdentityProviderRepository providers;
   private final IdentityProviderUriPolicy uris;
   private final IdentityProviderHealthProbe health;

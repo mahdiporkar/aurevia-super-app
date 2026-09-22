@@ -18,7 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class IdentityAdministrationService {
   private static final Pattern ROLE_KEY = Pattern.compile("^[a-z][a-z0-9-]{2,159}$");
-  private static final Set<String> SUBJECT_TYPES = Set.of("USER", "DIRECTORY_GROUP", "ACCESS_GROUP");
+  public static final Set<String> SUBJECT_TYPES = Set.of("USER", "DIRECTORY_GROUP", "ACCESS_GROUP");
   private final IdentityRepository repository;
   private final AuditTrail auditTrail;
 

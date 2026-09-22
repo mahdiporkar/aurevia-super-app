@@ -33,8 +33,9 @@ class AdminAuthorizationInterceptor implements HandlerInterceptor {
       allowed=false;
     }
     if (!allowed) {
-      response.sendError(HttpStatus.FORBIDDEN.value(),
-          "Administrative permission required: " + permission);
+      com.aurevia.authz.api.ApiError.of("ACCESS_DENIED",
+          "Administrative permission required: " + permission, request)
+          .write(response, HttpStatus.FORBIDDEN.value());
     }
     return allowed;
   }

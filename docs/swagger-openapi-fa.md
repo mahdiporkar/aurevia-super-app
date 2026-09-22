@@ -329,3 +329,63 @@ Execute در Chrome/Edge را بررسی می‌کند. نتیجهٔ امن در
 
 [گزارش فارسی بازبینی، علت خطاها و نتایج واقعی](swagger-openapi-review-2026-09-12-fa.md)
 شامل فهرست فایل‌های تغییرکرده و محدودیت‌های قرارداد است.
+
+## وضعیت فعلی همگام‌سازی قرارداد (۲۰۲۶-۰۹-۲۲)
+
+سند OpenAPI همچنان **code-first** است: کنترلرها، DTOها، Bean Validation و Exception Handlerها منبع
+حقیقت‌اند و Springdoc سند را در زمان اجرا می‌سازد. متادیتای دستی فقط معنای فارسی و نمونه‌ها را نگه می‌دارد.
+
+### قرارداد خطای واحد (`ApiError`)
+
+هر پاسخ ناموفقِ سرویس مجوزدهی و BFF دقیقاً همین بدنه را دارد و schema سند با آن یکی است:
+
+```json
+{ "code": "INVALID_REQUEST", "message": "…", "correlationId": "5e4ddf32-…" }
+```
+
+- سرویس مجوزدهی: `ApiExceptionHandler` (400/404/409/500 و `ResponseStatusException`)،
+  interceptor راهبری (403 با کد `ACCESS_DENIED`) و entry point احراز هویت (401 با کد
+  `AUTHENTICATION_REQUIRED`) همگی `com.aurevia.authz.api.ApiError` را می‌نویسند.
+  `correlationId` همان هدر `X-Correlation-ID` پاسخ است. تست `ApiErrorContractTest` این برابری را
+  برای همهٔ مسیرهای خطا اثبات می‌کند.
+- BFF: `BffExceptionHandler` برای خطاهای کنترلر (از جمله خطاهای Keycloak با کدهای اختصاصی). پاسخ 401
+  لایهٔ نشست **بدنه ندارد** و در سند نیز بدون schema مستند شده است. تست `BffErrorContractTest`.
+
+### کدهای وضعیت مستندشده به ازای هر عملیات
+
+دیگر هیچ کد خطای عمومی به همهٔ عملیات افزوده نمی‌شود:
+
+| کد | سرویس مجوزدهی | BFF |
+|---|---|---|
+| 400 | فقط عملیات دارای body یا پارامتر | فقط عملیات دارای body یا پارامتر |
+| 401 | همهٔ عملیات (Basic/mTLS داخلی) | همهٔ عملیات به‌جز ورود و کشف provider (بدون بدنه) |
+| 403 | فقط مسیرهای `/internal/v1/registry/**` که interceptor راهبری دارد | کنترلرهایی که تصمیم OpenFGA یا CSRF دارند |
+| 404 | عملیات با path variable یا lookupهای کلیدی | Route/artifact resolverها |
+| 409 | POST/PUT/PATCH (نسخهٔ خوش‌بینانه/دادهٔ تکراری) و `route` سرویس هویت | ایجاد کاربر Keycloak |
+| 502/504 | ندارد (سرویس مجوزدهی به upstream وابسته نیست) | فقط کنترلرهای forward‌کننده (proxy، admin، Superset، MFE، Keycloak) |
+| 2xx | از `@ResponseStatus` واقعی (200/201/204) با توضیح فارسی | همان؛ ورود 302 |
+
+### enumها از کد
+
+مقادیر enum در سند از ثابت‌های اعتبارسنجی همان سرویس‌ها گرفته می‌شوند
+(`AccessAdministrationService.RESOURCE_TYPES/SOURCES/SUBJECT_TYPES`،
+`IdentityProviderService.TYPES`، `OuAccessAdministrationService.MODES/COMBINERS`،
+`OutboundRegistryService.MODES/FORMATS/TRANSPORTS`، `SupersetInstanceService.ZONES/AUTH_MODES`،
+`SupersetAssetService.ASSET_TYPES/LEVEL_ACTIONS`، `PanelAdministrationService.CLASSIFICATIONS`)؛ فهرست
+دستی دومی وجود ندارد.
+
+### نمونه‌های بی‌طرف
+
+نمونه‌ها به دادهٔ دمو (HR/Finance) وابسته نیستند و با نصب Core-only نیز معتبرند
+(`application:aurevia/sample`، `page:sample.orders`، `sample-micro`، `sample.user`).
+
+### تست‌های ضدرانش (drift)
+
+| تست | چه چیزی را می‌شکند |
+|---|---|
+| `OpenApiDocumentationCoverageTest` (هر دو سرویس) | endpoint بدون مستند، ورودی کاتالوگ بدون endpoint (stale)، tag بی‌صاحب، body بدون نمونه، `@Hidden` بدون دلیل ثبت‌شده، نمونه با راز یا شناسهٔ دمو |
+| `AuthorizationOpenApiContractIntegrationTest` (روی سند واقعی `/v3/api-docs`) | ناهمخوانی دوطرفهٔ method+path با mappingهای زندهٔ Spring، operationId تکراری، متن غیرفارسی، path parameter اعلام‌نشده، `$ref` شکسته، نمونهٔ ناسازگار با schema (فیلد الزامی/ناشناخته/enum)، کد موفقیت ناهمخوان با `@ResponseStatus`، خطای بدون schema `ApiError`، فیلد schema بدون توضیح فارسی، enum ناهمخوان با کد |
+| `ApiErrorContractTest` / `BffErrorContractTest` | بدنهٔ خطای زمان اجرا ≠ schema مستند |
+| `node tools/verify-swagger.mjs` (روی stack اجرا‌شده + Chrome) | همهٔ موارد بالا برای سه سند runtime، همگام‌سازی عمیق پروجکشن Admin، امنیت/CSRF، Execute واقعی |
+
+نتیجهٔ آخرین اجرا: BFF 140 تست، سرویس مجوزدهی 292 تست، `verify-swagger` 21/21.

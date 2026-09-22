@@ -12,13 +12,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Mono;
 import static com.aurevia.bff.identity.KeycloakUserModels.*;
 
@@ -58,18 +56,5 @@ public class KeycloakUserController {
         .map(user -> ResponseEntity.status(HttpStatus.CREATED).body(user));
   }
 
-  @ExceptionHandler(KeycloakAdminException.class)
-  ResponseEntity<Map<String,Object>> failure(KeycloakAdminException error) {
-    return ResponseEntity.status(error.status()).body(Map.of("code",error.code(),"message",error.getMessage()));
-  }
-
-  // Binding/decoding diagnostics can contain rejected password values. Return only field names.
-  @ExceptionHandler(ServerWebInputException.class)
-  ResponseEntity<Map<String,Object>> invalid(ServerWebInputException error) {
-    var fields=error instanceof org.springframework.web.bind.support.WebExchangeBindException binding
-        ? binding.getFieldErrors().stream().map(org.springframework.validation.FieldError::getField)
-            .distinct().sorted().toList() : java.util.List.of();
-    return ResponseEntity.badRequest().body(Map.of("code","INVALID_USER",
-        "message","User details are invalid. Check the required fields and email format.","fields",fields));
-  }
+  // Errors are rendered by BffExceptionHandler as the canonical ApiError body.
 }

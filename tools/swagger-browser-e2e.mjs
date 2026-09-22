@@ -50,8 +50,15 @@ export async function verifySwaggerInChrome({origin,username,password}) {
           +'field.dispatchEvent(new Event("input",{bubbles:true}));field.dispatchEvent(new Event("change",{bubbles:true}));})()');
       }
       await until('Boolean(document.querySelector('+quoted+')?.querySelector("button.execute"))','Execute button is unavailable');
-      await read('document.querySelector('+quoted+').querySelector("button.execute").click()');
-      await until('Boolean(document.querySelector('+quoted+')?.querySelector(".live-responses-table tbody .response-col_status"))','No Swagger response: '+path);
+      // Swagger UI re-renders the block while Try-it-out settles; a click that lands on a stale
+      // node is silently lost, so retry Execute a few times before declaring the operation broken.
+      let responded=false;
+      for(let attempt=0;attempt<4&&!responded;attempt++) {
+        await delay(400);
+        await read('document.querySelector('+quoted+')?.querySelector("button.execute")?.click()');
+        for(let i=0;i<24&&!responded;i++){await delay(250);responded=Boolean(await read('Boolean(document.querySelector('+quoted+')?.querySelector(".live-responses-table tbody .response-col_status"))'));}
+      }
+      assert(responded,'No Swagger response: '+path);
       const status=await read('document.querySelector('+quoted+').querySelector(".live-responses-table tbody .response-col_status").textContent.trim()');
       assert.equal(status,'200','Swagger Execute returned '+status+' for '+path);
       return {path,method,httpStatus:200};

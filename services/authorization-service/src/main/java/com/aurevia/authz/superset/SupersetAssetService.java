@@ -20,7 +20,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class SupersetAssetService {
-  private static final Map<String, String> LEVEL_ACTIONS = Map.of(
+  /** Wire vocabulary shared with the OpenAPI documentation (single source of truth). */
+  public static final java.util.Set<String> ASSET_TYPES = java.util.Set.of("DASHBOARD", "CHART");
+  public static final Map<String, String> LEVEL_ACTIONS = Map.of(
       "VIEW", "view", "EDIT", "update", "MANAGE", "admin");
   private final SupersetAssetRepository repository;
   private final RelationshipAuthorizationPort relationships;
@@ -209,7 +211,7 @@ public class SupersetAssetService {
   }
   private static String validateAssetType(String value) {
     String type = value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
-    if (!Set.of("DASHBOARD", "CHART").contains(type)) {
+    if (!ASSET_TYPES.contains(type)) {
       throw new IllegalArgumentException("Invalid Superset asset type");
     }
     return type;

@@ -15,8 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OuAccessAdministrationService {
-  private static final Set<String> MODES=Set.of("EXACT","SUBTREE");
-  private static final Set<String> COMBINERS=Set.of("ANY_OF","ALL_OF");
+  public static final Set<String> MODES=Set.of("EXACT","SUBTREE");
+  public static final Set<String> COMBINERS=Set.of("ANY_OF","ALL_OF");
   private final OuAccessAdminRepository repository;
   private final OuRecalculationQueue recalculations;
   private final AuditTrail audit;

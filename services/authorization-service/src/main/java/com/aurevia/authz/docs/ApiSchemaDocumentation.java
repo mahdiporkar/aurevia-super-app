@@ -25,7 +25,7 @@ final class ApiSchemaDocumentation {
       Map.entry("resourcekey", "کلید canonical و پایدار منبع؛ باید با Resource Manifest و check مجوز یکسان باشد."),
       Map.entry("type", "نوع منبع در درخت مجوزدهی؛ مانند APPLICATION، PAGE، UI_COMPONENT یا API_RESOURCE."),
       Map.entry("parentid", "شناسه والد برای تشکیل درخت منابع؛ برای ریشه می‌تواند خالی باشد."),
-      Map.entry("ownerdomain", "دامنه کسب‌وکاری مالک منبع، مانند finance یا hr."),
+      Map.entry("ownerdomain", "دامنه کسب‌وکاری مالک منبع، مانند sales یا platform."),
       Map.entry("classification", "رده‌بندی حساسیت داده یا منبع، مانند INTERNAL یا CONFIDENTIAL."),
       Map.entry("externalsystem", "نام سامانه خارجی مالک شناسه منبع."),
       Map.entry("externaltype", "نوع منبع در سامانه خارجی."),
@@ -61,7 +61,7 @@ final class ApiSchemaDocumentation {
       Map.entry("email", "ایمیل همگام‌شده؛ می‌تواند خالی باشد و کلید هویت محسوب نمی‌شود."),
       Map.entry("relation", "relation مشتق‌شده از semantics منبع/action؛ client نباید آن را جعل کند."),
       Map.entry("expiresat", "زمان اختیاری انقضای Grant یا Role Assignment با قالب ISO-8601 UTC."),
-      Map.entry("resource", "شیء canonical OpenFGA مورد ارزیابی، مانند `resource:page/finance.payments`."),
+      Map.entry("resource", "شیء canonical OpenFGA مورد ارزیابی، مانند `resource:page/sample.orders`."),
       Map.entry("action", "عمل کسب‌وکاری مورد ارزیابی؛ استفاده از permission محاسباتی `can_*` ممنوع است."),
       Map.entry("context", "زمینه غیرحساس تصمیم مانند branch یا IP؛ policy صریح باید مصرف آن را تعریف کند."),
       Map.entry("correlationid", "شناسه یکتای رهگیری درخواست بین BFF، Authorization، Redis/OpenFGA و مقصد."),
@@ -218,9 +218,9 @@ final class ApiSchemaDocumentation {
           "3691d12f-253f-4bce-924c-e23dc8ff6b37";
       case "version" -> 0;
       case "issuer" -> "http://localhost:8180/realms/aurevia";
-      case "subject" -> "8e3a7fd6-demo-user";
-      case "search" -> "finance";
-      case "path" -> "/finance-micro/api/payments/42";
+      case "subject" -> "8c604f37-33d2-42e4-a982-35bd5613e974";
+      case "search" -> "sample";
+      case "path" -> "/sample-micro/api/orders/42";
       case "method" -> "GET";
       case "publicinstance" -> "public-default";
       case "instance" -> "operation-default";
@@ -232,36 +232,38 @@ final class ApiSchemaDocumentation {
     };
   }
 
+  /** Enum values come from the validating service constants, never from a second hand-written list. */
+  private static List<String> sorted(java.util.Collection<String> values) { return values.stream().sorted().toList(); }
+
   @SuppressWarnings({"rawtypes", "unchecked"})
   private static void applyEnums(String schemaName, String propertyName, Schema field) {
     String property = normalize(propertyName);
     if (property.equals("type") && schemaName.contains("Provider")) {
-      field.setEnum(List.of("OIDC", "KEYCLOAK", "AZURE_AD", "OKTA", "AUTH0", "GOOGLE_WORKSPACE"));
+      field.setEnum(sorted(com.aurevia.authz.identityprovider.IdentityProviderService.TYPES));
       field.setDescription("نوع سرویس هویت OIDC از انواع پشتیبانی‌شده؛ اعتبارسنجی توکن در BFF طبق issuer، امضا و audience انجام می‌شود.");
     }
-    else if (property.equals("rulecombiner")) field.setEnum(List.of("ANY_OF", "ALL_OF"));
-    else if (property.equals("matchmode")) field.setEnum(List.of("EXACT", "SUBTREE"));
-    else if (property.equals("zone")) field.setEnum(List.of("PUBLIC", "OPERATION"));
-    else if (property.equals("assettype")) field.setEnum(List.of("DASHBOARD", "CHART"));
-    else if (property.equals("level")) field.setEnum(List.of("VIEW", "EDIT", "MANAGE"));
+    else if (property.equals("rulecombiner")) field.setEnum(sorted(com.aurevia.authz.directory.OuAccessAdministrationService.COMBINERS));
+    else if (property.equals("matchmode")) field.setEnum(sorted(com.aurevia.authz.directory.OuAccessAdministrationService.MODES));
+    else if (property.equals("zone")) field.setEnum(sorted(com.aurevia.authz.superset.SupersetInstanceService.ZONES));
+    else if (property.equals("assettype")) field.setEnum(sorted(com.aurevia.authz.superset.SupersetAssetService.ASSET_TYPES));
+    else if (property.equals("level")) field.setEnum(sorted(com.aurevia.authz.superset.SupersetAssetService.LEVEL_ACTIONS.keySet()));
+    else if (property.equals("classification") && schemaName.contains("Panel"))
+      field.setEnum(sorted(com.aurevia.authz.registry.PanelAdministrationService.CLASSIFICATIONS));
     else if (property.equals("subjecttype") && schemaName.contains("RoleAssignment"))
-      field.setEnum(List.of("USER", "DIRECTORY_GROUP", "ACCESS_GROUP"));
+      field.setEnum(sorted(com.aurevia.authz.identity.IdentityAdministrationService.SUBJECT_TYPES));
     else if (property.equals("subjecttype"))
-      field.setEnum(List.of("USER", "GROUP", "ACCESS_GROUP", "ROLE"));
+      field.setEnum(sorted(com.aurevia.authz.access.AccessAdministrationService.SUBJECT_TYPES));
     else if (property.equals("type") && (schemaName.contains("ResourceRequest")
-        || schemaName.contains("ResourceDefinition"))) field.setEnum(List.of(
-            "APPLICATION", "MODULE", "PAGE", "UI_COMPONENT", "FIELD", "BUSINESS_RESOURCE",
-            "EXTERNAL_RESOURCE", "API_RESOURCE", "DATA_RESOURCE", "DATA_GOVERNANCE_RESOURCE"));
+        || schemaName.contains("ResourceDefinition")))
+      field.setEnum(sorted(com.aurevia.authz.access.AccessAdministrationService.RESOURCE_TYPES));
     else if (property.equals("source") && schemaName.contains("ResourceRequest"))
-      field.setEnum(List.of("MANIFEST", "ADMIN"));
-    else if (property.equals("requestformat")) field.setEnum(List.of(
-        "FORM_URLENCODED", "JSON", "HTTP_BASIC", "OAUTH_CLIENT_CREDENTIALS"));
-    else if (property.equals("credentialtransport")) field.setEnum(List.of(
-        "USER_AUTHORIZATION_HEADER", "INTERNAL_LEGACY_HEADER"));
+      field.setEnum(sorted(com.aurevia.authz.access.AccessAdministrationService.SOURCES));
+    else if (property.equals("requestformat")) field.setEnum(sorted(com.aurevia.authz.outbound.OutboundRegistryService.FORMATS));
+    else if (property.equals("credentialtransport")) field.setEnum(sorted(com.aurevia.authz.outbound.OutboundRegistryService.TRANSPORTS));
     else if (property.equals("authmode") && schemaName.contains("Profile"))
-      field.setEnum(List.of("FORWARD_USER_TOKEN", "LEGACY_SERVICE_TOKEN"));
+      field.setEnum(sorted(com.aurevia.authz.outbound.OutboundRegistryService.MODES));
     else if (property.equals("authmode") && schemaName.contains("Instance"))
-      field.setEnum(List.of("REMOTE_USER", "OIDC", "GUEST_TOKEN"));
+      field.setEnum(sorted(com.aurevia.authz.superset.SupersetInstanceService.AUTH_MODES));
     else if (property.equals("allowedmethods") && field instanceof ArraySchema array
         && array.getItems() != null) ((Schema) array.getItems()).setEnum(List.of(
             "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"));

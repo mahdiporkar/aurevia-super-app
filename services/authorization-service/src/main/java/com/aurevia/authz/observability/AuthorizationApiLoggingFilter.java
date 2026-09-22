@@ -17,7 +17,7 @@ public class AuthorizationApiLoggingFilter extends OncePerRequestFilter {
   @Override protected boolean shouldNotFilter(HttpServletRequest r){return r.getRequestURI().startsWith("/actuator")||r.getRequestURI().equals("/internal/v1/logging/api");}
   @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain)throws ServletException,IOException{
     long started=System.nanoTime();String correlation=CorrelationIds.normalize(request.getHeader(CorrelationIds.HEADER));
-    response.setHeader(CorrelationIds.HEADER,correlation);ContentCachingResponseWrapper wrapped=new ContentCachingResponseWrapper(response);
+    response.setHeader(CorrelationIds.HEADER,correlation);request.setAttribute("aurevia.correlationId",correlation);ContentCachingResponseWrapper wrapped=new ContentCachingResponseWrapper(response);
     Throwable failure=null;try{chain.doFilter(request,wrapped);}
     catch(ServletException|IOException|RuntimeException|Error thrown){failure=thrown;throw thrown;}
     finally{byte[] body=wrapped.getContentAsByteArray();int status=wrapped.getStatus();var safe=errors.serialize(status,wrapped.getContentType(),body);

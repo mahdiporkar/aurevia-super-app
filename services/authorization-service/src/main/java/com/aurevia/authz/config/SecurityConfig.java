@@ -21,7 +21,12 @@ class SecurityConfig {
       @Value("${aurevia.internal.password}") String password) throws Exception {
     return http.csrf(csrf -> csrf.ignoringRequestMatchers("/internal/**"))
         .authorizeHttpRequests(a -> a.requestMatchers("/actuator/health/**").permitAll().anyRequest().authenticated())
-        .httpBasic(Customizer.withDefaults()).build();
+        // Unauthenticated calls answer with the same ApiError body every other error uses.
+        .httpBasic(basic -> basic.authenticationEntryPoint((request, response, failure) -> {
+          response.setHeader("WWW-Authenticate", "Basic realm=\"aurevia-internal\"");
+          com.aurevia.authz.api.ApiError.of("AUTHENTICATION_REQUIRED",
+              "Internal service credentials are required", request).write(response, 401);
+        })).build();
   }
 
   @Bean
@@ -40,6 +45,9 @@ class SecurityConfig {
         .authorizeHttpRequests(a -> a.requestMatchers("/actuator/health/**").permitAll()
             .anyRequest().hasRole("BFF"))
         .x509(x509 -> x509.subjectPrincipalRegex("CN=(.*?)(?:,|$)"))
+        .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, failure) ->
+            com.aurevia.authz.api.ApiError.of("AUTHENTICATION_REQUIRED",
+                "A trusted workload certificate is required", request).write(response, 401)))
         .build();
   }
 

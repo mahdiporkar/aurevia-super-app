@@ -33,6 +33,9 @@ final class ApiDocumentationCatalog {
 
   static Map<String, String> tags() { return TAGS; }
 
+  /** Every documented operation key (Controller#method); tests reject entries without a real endpoint. */
+  static java.util.Set<String> documentedOperations() { return SUMMARIES.keySet(); }
+
   static String summary(String key) {
     String value = SUMMARIES.get(key);
     if (value == null) {

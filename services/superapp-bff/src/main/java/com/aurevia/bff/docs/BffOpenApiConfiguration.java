@@ -37,14 +37,22 @@ public class BffOpenApiConfiguration {
   private static final Map<String, String> SUMMARIES = summaries();
 
   static String summary(String key) { return SUMMARIES.get(key); }
+  /** Every documented operation key; tests reject entries without a real endpoint. */
+  static java.util.Set<String> documentedOperations() { return SUMMARIES.keySet(); }
+  static java.util.Set<String> taggedControllers() { return TAGS.keySet(); }
 
   @Bean
-  OpenAPI bffOpenApi() {
-    var error = new ObjectSchema()
-        .addProperty("code", new StringSchema().example("ACCESS_DENIED"))
-        .addProperty("message", new StringSchema().example("دسترسی به این عملیات مجاز نیست"))
-        .addProperty("correlationId", new StringSchema()
-            .example("5e4ddf32-1e7e-4e20-a9f3-64de1c938f97"));
+  public OpenAPI bffOpenApi() {
+    // Mirrors BffExceptionHandler exactly: every controller-level error carries these three fields.
+    var error = new ObjectSchema().description("بدنهٔ استاندارد خطای BFF؛ پاسخ 401 لایهٔ نشست بدنه ندارد")
+        .addProperty("code", new StringSchema().description(
+            "کد پایدار خطا: INVALID_REQUEST، ACCESS_DENIED، NOT_FOUND، CONFLICT، UPSTREAM_ERROR، UPSTREAM_TIMEOUT، SERVICE_UNAVAILABLE، INTERNAL_ERROR یا کدهای اختصاصی مانند KEYCLOAK_USER_CONFLICT")
+            .example("ACCESS_DENIED"))
+        .addProperty("message", new StringSchema().description("توضیح قابل فهم؛ هرگز مقدار حساس یا توکن ندارد")
+            .example("Creating users requires platform administration permission."))
+        .addProperty("correlationId", new StringSchema().description("شناسهٔ رهگیری؛ برابر هدر X-Correlation-ID پاسخ")
+            .example("5e4ddf32-1e7e-4e20-a9f3-64de1c938f97"))
+        .required(List.of("code", "message", "correlationId"));
     var session = new SecurityScheme().type(SecurityScheme.Type.APIKEY)
         .in(SecurityScheme.In.COOKIE).name("AUREVIA_SESSION")
         .description("شناسه opaque نشست HttpOnly/Secure؛ حاوی access token یا refresh token نیست.");
@@ -79,6 +87,7 @@ public class BffOpenApiConfiguration {
         throw new IllegalStateException("Missing Persian OpenAPI documentation for " + key);
       }
       operation.setTags(List.of(TAGS.getOrDefault(controller, "سایر APIهای BFF")));
+      operation.setOperationId(controller.replace("Controller", "") + "_" + method);
       operation.setSummary(summary);
       operation.setDescription(description(key, summary));
       documentParameters(operation);
@@ -96,13 +105,57 @@ public class BffOpenApiConfiguration {
             .addList("browserSession").addList("csrfToken")));
       }
       if (operation.getResponses() != null) {
-        operation.getResponses().putIfAbsent("401", errorResponse("نشست وجود ندارد یا منقضی شده است"));
-        operation.getResponses().putIfAbsent("403", errorResponse("مجوز منبع/action یا CSRF معتبر نیست"));
-        operation.getResponses().putIfAbsent("502", errorResponse("پاسخ مقصد عملیاتی یا سرویس مجوزدهی نامعتبر است"));
-        operation.getResponses().putIfAbsent("504", errorResponse("مهلت پاسخ مقصد پایان یافته است"));
+        documentSuccess(operation, method);
+        addErrorResponses(operation, controller, key, handlerMethod.getMethod());
         addResponseExample(operation, key);
       }
       return operation;
+    };
+  }
+
+  /** Schema-aware Persian field semantics (the same property name can mean different things per DTO). */
+  private static final Map<String, Map<String, String>> SCHEMA_FIELDS = Map.of(
+      "KeycloakUserModels.CreateUser", Map.of(
+          "username", "نام کاربری یکتای Keycloak؛ بدون فاصله و کاراکتر کنترلی، حداکثر 255 نویسه، پس از ایجاد در Aurevia تغییر نمی‌کند اما مبنای مجوزدهی نیست",
+          "firstName", "نام کاربر (حداکثر 255 نویسه)",
+          "lastName", "نام خانوادگی کاربر (حداکثر 255 نویسه)",
+          "email", "ایمیل معتبر و یکتا در realm (حداکثر 254 نویسه)",
+          "enabled", "فعال بودن حساب در Keycloak؛ false ورود را مسدود می‌کند",
+          "initialPassword", "رمز اولیهٔ حساس؛ فقط در همین درخواست ارسال می‌شود، ذخیره/لاگ/بازگردانده نمی‌شود و باید با سیاست رمز realm سازگار باشد (حداکثر 1024 نویسه)"),
+      "KeycloakUserModels.CreatedUser", Map.of(
+          "id", "شناسهٔ پایدار کاربر در Keycloak (sub)؛ پس از اولین ورود، همین مقدار هویت مجوزدهی کاربر در Aurevia می‌شود",
+          "username", "نام کاربری ثبت‌شده در Keycloak",
+          "firstName", "نام", "lastName", "نام خانوادگی", "email", "ایمیل ثبت‌شده",
+          "enabled", "وضعیت فعال بودن حساب پس از ایجاد"),
+      "AuthorizationServiceClient.IdentityProviderSummary", Map.of(
+          "code", "کد سرویس هویت؛ public-iam همیشه ورود اصلی مبتنی بر تنظیمات محیط است",
+          "name", "نام قابل نمایش سرویس هویت در صفحهٔ ورود",
+          "type", "نوع سرویس هویت (OIDC یا KEYCLOAK و مانند آن)",
+          "issuerUrl", "issuer دقیق OIDC که توکن‌ها با آن اعتبارسنجی می‌شوند",
+          "tenant_id", "tenant اختیاری برای انتخاب سرویس هویت؛ برای ورود اصلی خالی است",
+          "domains", "دامنه‌های ایمیل/DNS که به این سرویس هویت هدایت می‌شوند",
+          "connection_status", "وضعیت سلامت ثبت‌شده؛ برای ورود اصلی CONFIGURED است"),
+      "ApiError", Map.of());
+
+  @Bean
+  OpenApiCustomizer bffSchemaDocumentation() {
+    return openApi -> {
+      if (openApi.getComponents() == null || openApi.getComponents().getSchemas() == null) return;
+      List<String> undocumented = new java.util.ArrayList<>();
+      openApi.getComponents().getSchemas().forEach((name, schema) -> {
+        if (schema.getProperties() == null) return;
+        String key = name.substring(name.lastIndexOf('.', Math.max(0, name.lastIndexOf('.') - 1)) + 1);
+        Map<String, String> fields = SCHEMA_FIELDS.getOrDefault(key, Map.of());
+        schema.getProperties().forEach((property, field) -> {
+          var typed = (io.swagger.v3.oas.models.media.Schema<?>) field;
+          if (typed.getDescription() != null && PERSIAN.matcher(typed.getDescription()).find()) return;
+          String description = fields.get(String.valueOf(property));
+          if (description == null) undocumented.add(name + "." + property);
+          else typed.setDescription(description);
+        });
+      });
+      // A new DTO field without Persian semantics must fail loudly instead of drifting silently.
+      if (!undocumented.isEmpty()) throw new IllegalStateException("Undocumented BFF schema fields: " + undocumented);
     };
   }
 
@@ -110,6 +163,18 @@ public class BffOpenApiConfiguration {
   OpenApiCustomizer bffRequestSecurityDocumentation() {
     return openApi -> {
       if (openApi.getPaths() == null) return;
+      // Catch-all @RequestMapping handlers become one operation per HTTP method; keep ids unique and
+      // deterministic by suffixing the method instead of relying on springdoc's ordering-based "_1".
+      java.util.Map<String, Integer> occurrences = new java.util.HashMap<>();
+      openApi.getPaths().forEach((path, item) -> item.readOperationsMap().forEach((method, operation) -> {
+          if (operation.getOperationId() != null) occurrences.merge(operation.getOperationId(), 1, Integer::sum); }));
+      openApi.getPaths().forEach((path, item) -> item.readOperationsMap().forEach((method, operation) -> {
+        if (operation.getOperationId() != null && occurrences.getOrDefault(operation.getOperationId(), 0) > 1) {
+          String base = operation.getOperationId().replaceAll("_[0-9]+$", "");
+          operation.setOperationId(base + "_" + method.name().toLowerCase(java.util.Locale.ROOT)
+              + "_" + Integer.toHexString(path.hashCode() & 0xffff));
+        }
+      }));
       openApi.getPaths().forEach((path, item) -> item.readOperationsMap().forEach((method, operation) -> {
         // @RequestMapping catch-alls serve several HTTP methods; reflection alone
         // cannot determine the CSRF requirements of each generated operation.
@@ -143,7 +208,7 @@ public class BffOpenApiConfiguration {
         parameter.setExample(switch (name) {
           case "id" -> "95dc9e52-7ca5-4ad9-858d-a2d78ae1e5bd";
           case "instance", "publicInstance" -> "public-default";
-          case "panelSlug" -> "finance-micro";
+          case "panelSlug" -> "sample-micro";
           case "path" -> "api/payments/42";
           default -> null;
         });
@@ -158,6 +223,60 @@ public class BffOpenApiConfiguration {
         || method.isAnnotationPresent(org.springframework.web.bind.annotation.DeleteMapping.class);
   }
 
+  /** Persian success descriptions instead of springdoc's default "OK". */
+  private static void documentSuccess(io.swagger.v3.oas.models.Operation operation, String method) {
+    operation.getResponses().forEach((code, response) -> {
+      if (!code.startsWith("2") || (response.getDescription() != null && PERSIAN.matcher(response.getDescription()).find())) return;
+      response.setDescription(switch (code) {
+        case "201" -> "ایجاد شد؛ بدنه شامل شناسهٔ پایدار رکورد است";
+        case "204" -> "انجام شد؛ پاسخ بدنه ندارد";
+        default -> "پاسخ موفق با بدنهٔ مستندشده";
+      });
+    });
+  }
+
+  private static final java.util.regex.Pattern PERSIAN = java.util.regex.Pattern.compile("[\u0600-\u06FF]");
+
+  /** Controllers whose handlers forward to an upstream (Authorization Service, gateway, Superset, Keycloak). */
+  private static final java.util.Set<String> UPSTREAM = java.util.Set.of("AdminProxyController",
+      "OperationalProxyController", "OperationSupersetProxyController", "MicroFrontendArtifactController",
+      "KeycloakUserController", "MeController", "ReportsController", "PolicyEvaluationController",
+      "IdentityProviderLoginController");
+  /** Controllers that enforce an OpenFGA decision (or a CSRF-protected mutation) and can answer 403. */
+  private static final java.util.Set<String> AUTHORIZED = java.util.Set.of("AdminProxyController",
+      "OperationalProxyController", "OperationSupersetProxyController", "MicroFrontendArtifactController",
+      "KeycloakUserController", "PolicyEvaluationController");
+
+  /**
+   * Only errors the operation can produce: 401 (no session, empty body from the security layer) on
+   * every authenticated endpoint, 403 where an OpenFGA decision or CSRF applies, 400 when the
+   * operation has input, 409 for Keycloak user conflicts, 502/504 only for upstream forwarders.
+   */
+  private static void addErrorResponses(io.swagger.v3.oas.models.Operation operation, String controller,
+      String key, java.lang.reflect.Method method) {
+    var responses = operation.getResponses();
+    boolean anonymous = controller.equals("IdentityProviderLoginController");
+    boolean hasInput = operation.getRequestBody() != null
+        || (operation.getParameters() != null && !operation.getParameters().isEmpty());
+    if (!anonymous) responses.putIfAbsent("401", new ApiResponse()
+        .description("نشست وجود ندارد یا منقضی شده است؛ پاسخ لایهٔ امنیت بدون بدنه است"));
+    if (hasInput) responses.putIfAbsent("400", errorResponse("درخواست یا مقدار یکی از فیلدها نامعتبر است (INVALID_REQUEST)"));
+    if (AUTHORIZED.contains(controller) || isMutation(method)) responses.putIfAbsent("403",
+        errorResponse("مجوز منبع/action در OpenFGA یا CSRF معتبر نیست (ACCESS_DENIED)"));
+    if (key.equals("KeycloakUserController#create")) responses.putIfAbsent("409",
+        errorResponse("نام کاربری یا ایمیل در Keycloak تکراری است (KEYCLOAK_USER_CONFLICT)"));
+    if (key.startsWith("OperationalProxyController#") || key.startsWith("AdminProxyController#health")
+        || key.startsWith("MicroFrontendArtifactController#")) responses.putIfAbsent("404",
+        errorResponse("Route، مقصد یا artifact درخواستی ثبت نشده است (NOT_FOUND)"));
+    if (UPSTREAM.contains(controller)) {
+      responses.putIfAbsent("502", errorResponse("پاسخ مقصد (سرویس مجوزدهی، Gateway، Superset یا Keycloak) نامعتبر است (UPSTREAM_ERROR)"));
+      if (!controller.equals("IdentityProviderLoginController"))
+        responses.putIfAbsent("504", errorResponse("مهلت پاسخ مقصد پایان یافته است (UPSTREAM_TIMEOUT)"));
+    }
+    if (key.equals("KeycloakUserController#create")) responses.putIfAbsent("503",
+        errorResponse("Keycloak یا سرویس مجوزدهی در دسترس نیست (KEYCLOAK_UNAVAILABLE / AUTHORIZATION_UNAVAILABLE)"));
+  }
+
   private static ApiResponse errorResponse(String description) {
     var media = new io.swagger.v3.oas.models.media.MediaType()
         .schema(new io.swagger.v3.oas.models.media.Schema<>().$ref("#/components/schemas/ApiError"));
@@ -170,17 +289,17 @@ public class BffOpenApiConfiguration {
       case "CsrfController#csrf" -> map("headerName", "X-CSRF-TOKEN", "parameterName", "_csrf",
           "token", "f6e84940-demo-csrf-value");
       case "MeController#me" -> map("issuer", "http://localhost:8180/realms/aurevia",
-          "subject", "8e3a7fd6-demo-user", "username", "ali.rezaei", "groups", List.of());
+          "subject", "8c604f37-33d2-42e4-a982-35bd5613e974", "username", "sample.user", "groups", List.of());
       case "MeController#manifest" -> map("manifestType", "USER_ACCESS_MANIFEST",
-          "version", "W/\"manifest-42\"", "panels", List.of(map("code", "finance", "slug", "finance")),
-          "permissions", map("page:finance.payments", List.of("view", "approve")));
+          "version", "W/\"manifest-42\"", "panels", List.of(map("code", "sample", "slug", "sample")),
+          "permissions", map("page:sample.orders", List.of("view", "approve")));
       case "MeController#uiCatalog" -> map("catalogVersion","manifest-sha256-demo",
           "contractVersion","1.0","modules",List.of(map("moduleKey","hr",
               "routePrefix","hr","routes",List.of(),"navigation",List.of())));
       case "MeController#context" -> map("contractVersion","1.0",
-          "identity",map("subject","8e3a7fd6-demo-user","username","ali.rezaei"),
-          "allowedApplications",List.of("hr"),"dynamicRoutes",List.of(),
-          "actions",map("hr.employee",List.of("view")));
+          "identity",map("subject","8c604f37-33d2-42e4-a982-35bd5613e974","username","sample.user"),
+          "allowedApplications",List.of("sample"),"dynamicRoutes",List.of(),
+          "actions",map("sample.order",List.of("view")));
       case "ReportsController#reports" -> List.of(map("externalId", "dashboard:42",
           "assetType", "DASHBOARD", "title", "داشبورد فروش روزانه", "level", "VIEWER"));
       case "AdminProxyController#tokenTest" -> map("success", true, "latencyMs", 126,
@@ -219,10 +338,10 @@ public class BffOpenApiConfiguration {
           "gatewayBaseUrl","http://operation-gateway",
           "upstreamBasePath","/hr-service",
           "active",true);
-      case "KeycloakUserController#create" -> map("username","ali.rezaei","firstName","علی",
-          "lastName","رضایی","email","ali.rezaei@example.com","enabled",true,
+      case "KeycloakUserController#create" -> map("username","sample.user","firstName","نمونه",
+          "lastName","کاربر","email","sample.user@example.com","enabled",true,
           "initialPassword","<initial-password>");
-      case "PolicyEvaluationController#evaluate" -> map("resource","finance.invoice",
+      case "PolicyEvaluationController#evaluate" -> map("resource","sample.order",
           "action","approve","context",map("branch","tehran","amount",250000));
       default -> null;
     };

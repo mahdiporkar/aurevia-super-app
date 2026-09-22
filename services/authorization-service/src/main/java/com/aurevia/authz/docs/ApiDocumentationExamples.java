@@ -9,15 +9,20 @@ import java.util.Map;
 final class ApiDocumentationExamples {
   private ApiDocumentationExamples() {}
 
+  /** Operation-keyed examples; tests reject keys that no longer match a mapped endpoint. */
+  static java.util.Set<String> operationKeys() {
+    return java.util.Set.of("AuthorizationController#checkBatch", "ResourceManifestController#importDraft");
+  }
+
   static Object forOperation(String key) {
     return switch (key) {
-      case "AuthorizationController#checkBatch" -> List.of(check("application:aurevia/finance", "view"),
-          check("resource:page/finance.payments", "approve"));
+      case "AuthorizationController#checkBatch" -> List.of(check("application:aurevia/sample", "view"),
+          check("resource:page/sample.orders", "approve"));
       case "ResourceManifestController#importDraft" -> map(
-          "schemaVersion","1.0","module",map("key","finance","name","Finance",
-              "nameFa","مالی","nameEn","Finance","version","1.4.0"),
-          "resources",List.of(map("key","page:finance.payments","type","PAGE",
-              "name","Payments","nameFa","پرداخت‌ها","nameEn","Payments",
+          "schemaVersion","1.0","module",map("key","sample","name","Sample",
+              "nameFa","نمونه","nameEn","Sample","version","1.4.0"),
+          "resources",List.of(map("key","page:sample.orders","type","PAGE",
+              "name","Orders","nameFa","سفارش‌ها","nameEn","Orders",
               "classification","INTERNAL","actions",List.of("view"))));
       default -> null;
     };
@@ -40,11 +45,11 @@ final class ApiDocumentationExamples {
       case "IdentityProviderDtos.EnabledRequest" -> map("enabled", true);
       case "ExternalIdentityAdminController.LinkRequest" -> map("providerCode", "corporate-oidc", "subject", "external-subject-example");
       case "AccessAdminDtos.ResourceRequest" -> map(
-          "resourceKey", "page:finance.payments", "type", "PAGE",
+          "resourceKey", "page:sample.orders", "type", "PAGE",
           "parentId", "15484e5a-4872-4bf2-a1fa-37a0c264bf9d",
-          "nameFa", "پرداخت‌ها", "nameEn", "Payments", "ownerDomain", "finance",
+          "nameFa", "سفارش‌ها", "nameEn", "Orders", "ownerDomain", "sample",
           "classification", "INTERNAL", "source", "ADMIN",
-          "metadata", map("dataOwner", "finance-operations", "retentionClass", "standard"));
+          "metadata", map("dataOwner", "sample-operations", "retentionClass", "standard"));
       case "AccessAdminDtos.ActionRequest" -> map(
           "actionKey", "approve", "nameFa", "تأیید", "nameEn", "Approve");
       case "AccessAdminDtos.UserRequest" -> map(
@@ -55,9 +60,9 @@ final class ApiDocumentationExamples {
           "resourceId", "15484e5a-4872-4bf2-a1fa-37a0c264bf9d",
           "actionId", "76bb2db0-0c21-449c-b244-79a6bd411716",
           "relation", "direct", "expiresAt", "2027-03-20T20:30:00Z");
-      case "AuthorizationDtos.CheckRequest" -> check("resource:page/finance.payments", "view");
+      case "AuthorizationDtos.CheckRequest" -> check("resource:page/sample.orders", "view");
       case "IdentityAdminDtos.RoleRequest" -> map(
-          "roleKey", "finance-approver", "nameFa", "تأییدکننده مالی", "nameEn", "Finance approver");
+          "roleKey", "sample-approver", "nameFa", "تأییدکنندهٔ سفارش نمونه", "nameEn", "Sample approver");
       case "IdentityAdminDtos.RoleAssignmentRequest" -> map(
           "subjectType", "USER", "subjectId", "8a7c0a4e-10a9-4d23-813c-dad9fed81745",
           "roleId", "8c51f553-f995-4d0b-93ac-9d3d4b056aaa", "expiresAt", "2027-03-20T20:30:00Z");
@@ -94,60 +99,60 @@ final class ApiDocumentationExamples {
           "expirySkewSeconds", 30, "connectTimeoutMs", 3000, "responseTimeoutMs", 10000,
           "maxTokenResponseSize", 65536, "active", true);
       case "PanelDtos.PanelRequest" -> map(
-          "code", "FINANCE", "nameFa", "سامانه مالی", "nameEn", "Finance",
-          "description", "میکروفرانت عملیات مالی", "slug", "finance", "serviceSlug", "finance-micro",
-          "remoteName", "finance", "defaultRouteId", "finance-home",
-          "remoteEntry", "http://localhost:3002/remoteEntry.js", "exposedModule", "./App",
-          "routeBasePath", "/finance", "semanticVersion", "1.4.0", "contractVersion", "1.0",
+          "code", "SAMPLE", "nameFa", "سامانهٔ نمونه", "nameEn", "Sample",
+          "description", "میکروفرانت نمونه", "slug", "sample", "serviceSlug", "sample-micro",
+          "remoteName", "sample", "defaultRouteId", "sample-home",
+          "remoteEntry", "https://static.example.test/sample/remoteEntry.js", "exposedModule", "./App",
+          "routeBasePath", "/sample", "semanticVersion", "1.4.0", "contractVersion", "1.0",
            "integrity", "sha384-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
            "resourceDefinitionMode","HYBRID","classification","REAL",
-           "mfManifestUrl","https://static.example.test/finance/mf-manifest.json",
-           "resourceManifestUrl","https://static.example.test/finance/resource-manifest.json",
+           "mfManifestUrl","https://static.example.test/sample/mf-manifest.json",
+           "resourceManifestUrl","https://static.example.test/sample/resource-manifest.json",
           "active", true, "sortOrder", 20);
       case "ProxyRouteDtos.TargetRequest" -> map(
-          "code", "finance-operation", "name", "Finance operation service",
+          "code", "sample-operation", "name", "Sample operation service",
           "description", "مقصد ثابت در Operation Gateway", "gatewayBaseUrl", "http://operation-gateway:80",
-          "upstreamBasePath", "/finance", "environment", "OPERATION",
-          "healthCheckPath", "/finance/actuator/health", "connectTimeoutMs", 3000,
+          "upstreamBasePath", "/sample", "environment", "OPERATION",
+          "healthCheckPath", "/sample/actuator/health", "connectTimeoutMs", 3000,
           "responseTimeoutMs", 30000, "maxResponseSize", 10485760,
           "outboundAuthProfileId", "95dc9e52-7ca5-4ad9-858d-a2d78ae1e5bd", "active", true);
       case "ProxyRouteDtos.RouteRequest" -> map(
-          "code", "finance-api", "panelId", "2b6a0a84-da5b-4795-b9e7-e4fd8a93a180",
+          "code", "sample-api", "panelId", "2b6a0a84-da5b-4795-b9e7-e4fd8a93a180",
           "serviceTargetId", "3691d12f-253f-4bce-924c-e23dc8ff6b37",
           "outboundAuthProfileId", "95dc9e52-7ca5-4ad9-858d-a2d78ae1e5bd",
-          "serviceSlug", "finance-micro", "pathPrefix", "/finance-micro/api",
+          "serviceSlug", "sample-micro", "pathPrefix", "/sample-micro/api",
           "stripPrefix", 1, "priority", 100, "allowedMethods", List.of("GET", "POST", "PUT"),
           "preserveHost", false, "retryEnabled", false, "maxRetries", 0, "active", true);
       case "ProxyRouteDtos.OperationRequest" -> map(
           "httpMethod", "POST", "pathPattern", "/payments/{id}/approve",
-          "resourceKey", "page:finance.payments", "actionKey", "approve",
-          "authorizationRequired", true, "dataPolicyKey", "finance-own-branch",
+          "resourceKey", "page:sample.orders", "actionKey", "approve",
+          "authorizationRequired", true, "dataPolicyKey", "sample-own-branch",
           "active", true, "maxBodyBytes", 1048576);
       case "ProxyRouteDtos.PreviewRequest" -> map(
-          "routeId", "e2350172-118d-45bb-a51f-f681713996d1", "path", "/finance-micro/api/payments/42");
+          "routeId", "e2350172-118d-45bb-a51f-f681713996d1", "path", "/sample-micro/api/orders/42");
       case "ProxyRouteDtos.MatchRequest" -> map("method", "POST", "path", "/payments/42/approve");
       case "ResourceManifestDtos.DefinitionManifest" -> map(
-          "application", "finance", "manifestVersion", "2026.09.1",
+          "application", "sample", "manifestVersion", "2026.09.1",
           "resources", List.of(
-              map("key", "application:aurevia/finance", "type", "APPLICATION", "nameFa", "سامانه مالی",
-                  "nameEn", "Finance", "ownerDomain", "finance", "classification", "INTERNAL",
+              map("key", "application:aurevia/sample", "type", "APPLICATION", "nameFa", "سامانهٔ نمونه",
+                  "nameEn", "Sample", "ownerDomain", "sample", "classification", "INTERNAL",
                   "actions", List.of("view", "manage"), "status", "ACTIVE",
                   "source", "MANIFEST", "metadata", map()),
-              map("key", "module:finance", "type", "MODULE",
-                  "parent", "application:aurevia/finance", "nameFa", "عملیات مالی",
-                  "nameEn", "Finance Operations", "ownerDomain", "finance",
+              map("key", "module:sample", "type", "MODULE",
+                  "parent", "application:aurevia/sample", "nameFa", "عملیات نمونه",
+                  "nameEn", "Sample Operations", "ownerDomain", "sample",
                   "classification", "INTERNAL", "actions", List.of("view"),
                   "source", "MANIFEST", "metadata", map()),
-              map("key", "page:finance.payments", "type", "PAGE",
-                  "parent", "module:finance", "nameFa", "پرداخت‌ها", "nameEn", "Payments",
-                  "ownerDomain", "finance", "classification", "INTERNAL",
+              map("key", "page:sample.orders", "type", "PAGE",
+                  "parent", "module:sample", "nameFa", "سفارش‌ها", "nameEn", "Orders",
+                  "ownerDomain", "sample", "classification", "INTERNAL",
                    "actions", List.of("view", "create", "approve", "reject"), "status", "ACTIVE",
                    "source", "MANIFEST", "metadata", map())));
       case "ResourceManifestDtos.ResourceManifest" -> map(
-           "schemaVersion","1.0","module",map("key","finance","name","Finance",
-               "nameFa","مالی","nameEn","Finance","version","1.4.0"),
-           "resources",List.of(map("key","page:finance.payments","type","PAGE",
-               "name","Payments","nameFa","پرداخت‌ها","nameEn","Payments",
+           "schemaVersion","1.0","module",map("key","sample","name","Sample",
+               "nameFa","نمونه","nameEn","Sample","version","1.4.0"),
+           "resources",List.of(map("key","page:sample.orders","type","PAGE",
+               "name","Orders","nameFa","سفارش‌ها","nameEn","Orders",
                "classification","INTERNAL","actions",List.of("view"))));
       case "SupersetAssetDtos.AssetRequest" -> map(
           "externalId", "dashboard:42", "assetType", "DASHBOARD", "title", "داشبورد فروش روزانه",
@@ -166,22 +171,22 @@ final class ApiDocumentationExamples {
           "publicPath", "/reports-runtime", "isDefault", true, "active", true);
       case "UiPluginDtos.ArtifactRequest" -> map(
           "artifactVersion", "1.4.0", "remoteEntryUrl", "http://localhost:3002/remoteEntry.js",
-          "remoteName", "finance", "exposedModule", "./App", "contractVersion", "1.0",
+          "remoteName", "sample", "exposedModule", "./App", "contractVersion", "1.0",
           "integrity", "sha384-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-          "manifest", "{\"schemaVersion\":\"1.0\",\"moduleKey\":\"finance\",\"routes\":[{\"id\":\"payments\",\"path\":\"payments\",\"resource\":\"page:finance.payments\",\"action\":\"view\"}],\"menus\":[{\"id\":\"payments-menu\",\"routeId\":\"payments\",\"title\":\"پرداخت‌ها\"}]}");
+          "manifest", "{\"schemaVersion\":\"1.0\",\"moduleKey\":\"sample\",\"routes\":[{\"id\":\"orders\",\"path\":\"orders\",\"resource\":\"page:sample.orders\",\"action\":\"view\"}],\"menus\":[{\"id\":\"payments-menu\",\"routeId\":\"payments\",\"title\":\"پرداخت‌ها\"}]}");
       case "UiPluginDtos.MenuOverrideRequest" -> map(
           "title", "پرداخت‌های سازمان", "icon", "credit-card", "order", 30, "hidden", false);
       case "UiPluginDtos.NavigationOverrideRequest" -> map(
           "title","مدیریت پرداخت‌ها","icon","credit-card","order",30,"hidden",false,
-          "source","MANIFEST","nodeType","PAGE","parentKey","finance.nav.root",
+          "source","MANIFEST","nodeType","PAGE","parentKey","sample.nav.root",
           "pageKey","payments");
       case "LogIngestionController.ApiIngest" -> map(
           "eventTime", Instant.parse("2026-09-05T08:30:00Z").toString(), "userId", "8e3a7fd6-demo-user",
           "actorType", "USER", "serviceName", "superapp-bff", "httpMethod", "GET",
-          "routeTemplate", "/finance-micro/api/payments", "statusCode", 200, "durationMs", 84,
+          "routeTemplate", "/sample-micro/api/orders", "statusCode", 200, "durationMs", 84,
           "sourceIp", "192.0.2.10", "correlationId", "5e4ddf32-1e7e-4e20-a9f3-64de1c938f97",
           "authorizationResult", "ALLOW", "resourceType", "PAGE",
-          "resourceId", "page:finance.payments", "businessAction", "view");
+          "resourceId", "page:sample.orders", "businessAction", "view");
       default -> null;
     };
   }

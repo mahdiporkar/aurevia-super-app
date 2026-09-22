@@ -51,7 +51,7 @@ class KeycloakUserControllerTest {
     authorization.start();
     var controller=new KeycloakUserController(WebClient.builder()
         .baseUrl("http://127.0.0.1:"+authorization.getAddress().getPort()).build(),users);
-    client=WebTestClient.bindToController(controller).webFilter(principal()).build();
+    client=WebTestClient.bindToController(controller).controllerAdvice(new BffExceptionHandler()).webFilter(principal()).build();
   }
   @AfterEach void stop(){authorization.stop(0);}
 
@@ -83,7 +83,7 @@ class KeycloakUserControllerTest {
             "enabled",true,"initialPassword",PASSWORD))
         .exchange().expectStatus().isBadRequest()
         .expectBody(String.class).value(json->{
-          assertThat(json).contains("\"code\":\"INVALID_USER\"","\"email\"","\"firstName\"","\"username\"");
+          assertThat(json).contains("\"code\":\"INVALID_REQUEST\"","email","firstName","username","correlationId");
           assertThat(json).doesNotContain(PASSWORD,"has space","not-an-email");
         });
     verify(users,never()).create(any());
