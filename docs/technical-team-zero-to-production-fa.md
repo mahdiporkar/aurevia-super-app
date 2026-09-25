@@ -502,9 +502,9 @@ token تولیدشده Spring را به شکل `{headerName, token}` برمی‌
 - `resource` پنج نوع داخلی catalog را نمایندگی می‌کند.
 - `external_resource` dashboard و سامانه خارجی را نمایندگی می‌کند.
 - `parent` ارث‌بری را فعال می‌کند.
-- relationهای viewer/editor/manager grant مستقیم‌اند.
+- relationهای عادی grant مستقیم‌اند؛ manager می‌تواند مستقیم یا ارث‌رسیده از والد باشد.
 - `can_*` permissionهای computed هستند.
-- عبارت `can_view from parent` دسترسی والد را به فرزند می‌رساند.
+- فقط `manager from parent` دسترسی مدیریتی والد را به فرزند می‌رساند؛ مجوزهای عادی محلی هستند.
 
 نمونه tuple:
 

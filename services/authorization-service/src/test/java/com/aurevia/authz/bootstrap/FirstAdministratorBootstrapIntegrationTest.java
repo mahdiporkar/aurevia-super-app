@@ -99,6 +99,24 @@ class FirstAdministratorBootstrapIntegrationTest {
     await(() -> "ALLOW".equals(decision(ADMIN_SUB, "application:aurevia", "admin")));
     // Root admin inherits into the deployment applications, including the Admin Panel.
     assertThat(decision(ADMIN_SUB, "application:aurevia/admin", "admin")).isEqualTo("ALLOW");
+    // Exercise the real seeded resource subtree, not just the application parent edge.
+    List<Map<String,Object>> descendants=database.sql("""
+        with recursive subtree as (
+          select id,resource_key,type from resource where resource_key='application:aurevia/admin'
+          union all
+          select r.id,r.resource_key,r.type from resource r join subtree p on r.parent_id=p.id
+        ) select case when s.type='APPLICATION' then s.resource_key
+          when s.type='EXTERNAL_RESOURCE' then 'external_resource:'||replace(
+            regexp_replace(s.resource_key,'^external_resource:',''),':','/')
+          else 'resource:'||replace(s.resource_key,':','/') end as object, a.action_key
+        from subtree s join resource_action ra on ra.resource_id=s.id
+          join action a on a.id=ra.action_id
+        """).query().listOfRows();
+    assertThat(descendants).hasSizeGreaterThan(1);
+    for(var entry:descendants) {
+      String resource=(String)entry.get("object"),action=(String)entry.get("action_key");
+      await(() -> "ALLOW".equals(decision(ADMIN_SUB,resource,action)));
+    }
     assertThat(manifestPermissions(ADMIN_SUB).get("application:aurevia")).contains("admin");
     assertThat(database.sql("select count(*) from audit_event where actor_key='FIRST_ADMIN_BOOTSTRAP' and event_type='GRANT_CREATED'")
         .query(Long.class).single()).isGreaterThanOrEqualTo(1);

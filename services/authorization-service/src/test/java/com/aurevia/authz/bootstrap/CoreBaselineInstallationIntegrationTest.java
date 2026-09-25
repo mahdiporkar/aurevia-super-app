@@ -55,7 +55,7 @@ class CoreBaselineInstallationIntegrationTest {
 
   @Test void freshInstallationAppliesTheBaselineInsteadOfTheHistoricalChain() {
     assertThat(production.list("select type||':'||version from flyway_schema_history where success and version is not null"))
-        .containsExactly("SQL_BASELINE:79");
+        .containsExactly("SQL_BASELINE:79", "SQL:80");
   }
 
   @Test void productionContainsNoDemoOrTestArtifacts() {

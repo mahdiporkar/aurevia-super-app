@@ -13,6 +13,30 @@ tuples:
   - user: user:bob
     relation: viewer
     object: external_resource:superset-public_dashboard_sales
+  - user: application:root
+    relation: parent
+    object: application:hr
+  - user: application:hr
+    relation: parent
+    object: resource:module
+  - user: resource:module
+    relation: parent
+    object: resource:page-a
+  - user: resource:page-a
+    relation: parent
+    object: resource:salary
+  - user: resource:module
+    relation: parent
+    object: resource:page-b
+  - user: resource:module
+    relation: parent
+    object: external_resource:catalog
+  - user: external_resource:catalog
+    relation: parent
+    object: external_resource:asset
+  - user: external_resource:asset
+    relation: parent
+    object: resource:mixed-child
 tests:
   - name: group-role-and-direct-grants
     check:
@@ -25,3 +49,768 @@ tests:
       - user: user:unrelated
         object: resource:hr.employee
         assertions: { can_view: false }
+  - name: leaf-view-keeps-ancestors-siblings-and-component-denied
+    tuples:
+      - user: user:subject
+        relation: viewer
+        object: resource:page-a
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: true, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: application-hr-viewer-is-local
+    tuples:
+      - user: user:subject
+        relation: viewer
+        object: application:hr
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: true, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: application-hr-creator-is-local
+    tuples:
+      - user: user:subject
+        relation: creator
+        object: application:hr
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: true, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: application-hr-editor-is-local
+    tuples:
+      - user: user:subject
+        relation: editor
+        object: application:hr
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: true, can_create: false, can_edit: true, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: application-hr-deleter-is-local
+    tuples:
+      - user: user:subject
+        relation: deleter
+        object: application:hr
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: true, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: application-hr-sharer-is-local
+    tuples:
+      - user: user:subject
+        relation: sharer
+        object: application:hr
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: true, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: application-hr-exporter-is-local
+    tuples:
+      - user: user:subject
+        relation: exporter
+        object: application:hr
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: true, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: resource-module-viewer-is-local
+    tuples:
+      - user: user:subject
+        relation: viewer
+        object: resource:module
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: true, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: resource-module-creator-is-local
+    tuples:
+      - user: user:subject
+        relation: creator
+        object: resource:module
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: true, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: resource-module-editor-is-local
+    tuples:
+      - user: user:subject
+        relation: editor
+        object: resource:module
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: true, can_create: false, can_edit: true, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: resource-module-deleter-is-local
+    tuples:
+      - user: user:subject
+        relation: deleter
+        object: resource:module
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: true, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: resource-module-sharer-is-local
+    tuples:
+      - user: user:subject
+        relation: sharer
+        object: resource:module
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: true, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: resource-module-exporter-is-local
+    tuples:
+      - user: user:subject
+        relation: exporter
+        object: resource:module
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: true, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: external_resource-catalog-viewer-is-local
+    tuples:
+      - user: user:subject
+        relation: viewer
+        object: external_resource:catalog
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: true, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: external_resource-catalog-creator-is-local
+    tuples:
+      - user: user:subject
+        relation: creator
+        object: external_resource:catalog
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: true, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: external_resource-catalog-editor-is-local
+    tuples:
+      - user: user:subject
+        relation: editor
+        object: external_resource:catalog
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: true, can_create: false, can_edit: true, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: external_resource-catalog-deleter-is-local
+    tuples:
+      - user: user:subject
+        relation: deleter
+        object: external_resource:catalog
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: true, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: external_resource-catalog-sharer-is-local
+    tuples:
+      - user: user:subject
+        relation: sharer
+        object: external_resource:catalog
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: true, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: external_resource-catalog-exporter-is-local
+    tuples:
+      - user: user:subject
+        relation: exporter
+        object: external_resource:catalog
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: true, can_manage: false }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+  - name: bootstrap-root-manager-manages-all-descendants
+    tuples:
+      - user: user:subject
+        relation: manager
+        object: application:root
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+  - name: resource-manager-does-not-grant-ancestors
+    tuples:
+      - user: user:subject
+        relation: manager
+        object: resource:module
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+  - name: external-manager-crosses-back-to-resource
+    tuples:
+      - user: user:subject
+        relation: manager
+        object: external_resource:catalog
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: false, can_create: false, can_edit: false, can_delete: false, can_share: false, can_export: false, can_manage: false }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+  - name: group-role-manager-inherits
+    tuples:
+      - user: user:subject
+        relation: member
+        object: group:admins
+      - user: group:admins#member
+        relation: assignee
+        object: role:admins
+      - user: role:admins#assignee
+        relation: manager
+        object: application:root
+    check:
+      - user: user:subject
+        object: application:root
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: application:hr
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:module
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:page-a
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:salary
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:page-b
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: external_resource:catalog
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: external_resource:asset
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }
+      - user: user:subject
+        object: resource:mixed-child
+        assertions: { can_view: true, can_create: true, can_edit: true, can_delete: true, can_share: true, can_export: true, can_manage: true }

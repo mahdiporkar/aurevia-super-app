@@ -129,6 +129,44 @@ class AuthorizationDecisionServiceManifestTest {
     verify(relationships,never()).check(anyString(),anyString(),anyString());
   }
 
+  @Test void leafGrantIncludesOnlyNavigationAncestorsWithoutAuthorizingThemOrOtherResources() {
+    UUID app=UUID.randomUUID(),module=UUID.randomUUID(),page=UUID.randomUUID();
+    var catalog=List.of(
+        new AuthorizationQueryRepository.ResourceRecord(app,null,"application:aurevia/admin",
+            "APPLICATION","Admin","Admin","admin","REAL"),
+        new AuthorizationQueryRepository.ResourceRecord(module,app,"module:admin",
+            "MODULE","Module","Module","admin","REAL"),
+        new AuthorizationQueryRepository.ResourceRecord(page,module,"page:admin.allowed",
+            "PAGE","Allowed","Allowed","admin","REAL"),
+        new AuthorizationQueryRepository.ResourceRecord(UUID.randomUUID(),module,"page:admin.denied",
+            "PAGE","Denied","Denied","admin","REAL"),
+        new AuthorizationQueryRepository.ResourceRecord(UUID.randomUUID(),page,"component:salary",
+            "UI_COMPONENT","Salary","Salary","admin","REAL"));
+    when(queries.activePanels()).thenReturn(List.of(panel()));
+    when(queries.activeResources()).thenReturn(catalog);
+    when(queries.permissionCandidates()).thenReturn(catalog.stream().map(resource->
+        new AuthorizationQueryRepository.PermissionCandidate(resource.resourceKey(),resource.type(),"view"))
+        .toList());
+    allowBatchObjects(Set.of("resource:page/admin.allowed"));
+
+    var manifest=service.manifest("user-1","https://issuer.example");
+
+    assertThat(manifest.permissions()).containsOnlyKeys("page:admin.allowed")
+        .containsEntry("page:admin.allowed",List.of("view"));
+    assertThat(manifest.resourceTree()).extracting(node->node.resourceKey())
+        .containsExactly("application:aurevia/admin","module:admin","page:admin.allowed");
+    assertThat(manifest.resourceTree()).filteredOn(node->!node.resourceKey().equals("page:admin.allowed"))
+        .allSatisfy(node->assertThat(node.actions()).isEmpty());
+    assertThat(manifest.panels()).extracting(value->value.slug()).containsExactly("admin");
+    assertThat(manifest.uiCatalog().modules().getFirst().routes())
+        .extracting(route->route.id()).containsExactly("allowed");
+    for(String object:List.of("application:aurevia/admin","resource:module/admin",
+        "resource:page/admin.denied","resource:component/salary")) {
+      assertThat(service.check(new CheckRequest("user-1","https://issuer.example",object,"view",
+          Map.of(),"navigation-only")).decision().result()).isEqualTo("DENY");
+    }
+  }
+
   @Test void supersetAssetGrantExposesOnlyReportsLandingWithoutApplicationPermission() {
     String asset="external_resource:superset/operation-east/dashboard/7";
     when(queries.activePanels()).thenReturn(List.of(reportsPanel("reports")));

@@ -147,6 +147,35 @@ class PermissionLifecycleIntegrationTest {
     assertThat(openFgaTuples(bob.canonical)).contains("group:directory/" + groupId);
   }
 
+  @Test void moduleViewDoesNotAuthorizeEitherChildPage() {
+    Catalog catalog=catalog("local-module");
+    Subject subject=login("local-module-viewer",List.of());
+    UUID module=database.sql("select parent_id from resource where id=:id")
+        .param("id",catalog.pageA).query(UUID.class).single();
+    String key=database.sql("select resource_key from resource where id=:id")
+        .param("id",module).query(String.class).single();
+    access.grant(new GrantCommand(null,"USER",subject.userId,module,catalog.view,null),ACTOR);
+    awaitProjection("USER",subject.userId,key,"APPLIED");
+    awaitAllowed(subject,key,true);
+    assertThat(decision(subject,catalog.pageAKey)).isEqualTo("DENY");
+    assertThat(decision(subject,catalog.pageBKey)).isEqualTo("DENY");
+    assertThat(contextPermissions(subject)).containsOnlyKeys(key);
+  }
+
+  @Test void leafViewDoesNotAuthorizeItsComponent() {
+    Catalog catalog=catalog("local-leaf");
+    Subject subject=login("local-leaf-viewer",List.of());
+    String componentKey="component:hr."+catalog.suffix+".salary";
+    UUID component=access.createResource(resource(componentKey,"UI_COMPONENT",catalog.pageA),ACTOR).id();
+    access.attachAction(component,catalog.view,ACTOR);
+    access.grant(new GrantCommand(null,"USER",subject.userId,catalog.pageA,catalog.view,null),ACTOR);
+    awaitProjection("USER",subject.userId,catalog.pageAKey,"APPLIED");
+    awaitAllowed(subject,catalog.pageAKey,true);
+    assertThat(decision(subject,componentKey)).isEqualTo("DENY");
+    assertThat(decision(subject,catalog.pageBKey)).isEqualTo("DENY");
+    assertThat(contextPermissions(subject)).containsOnlyKeys(catalog.pageAKey);
+  }
+
   @Test void accessGroupGrantIsInheritedThroughEffectiveMembership() {
     Catalog catalog = catalog("ag-direct");
     Subject carol = login("carol-ag", List.of());

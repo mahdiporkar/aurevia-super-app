@@ -258,7 +258,7 @@ relation: parent
 object: resource:module:hr
 ```
 
-مدل روی فرزند عبارت `can_view from parent` و مشابه آن را محاسبه می‌کند. در نتیجه manager برنامه می‌تواند منابع پایین‌دست را مدیریت کند، مگر اینکه در نسخه آینده مدل deny/exception صریح اضافه شود. OpenFGA فعلی deny tuple ندارد؛ نبود مسیر allow برابر deny است.
+فقط relation مدیریتی از والد به فرزند ارث می‌رسد: `manager = direct manager or manager from parent`. مجوزهای عادی محلی هستند؛ نمایش والدها در درخت ناوبری مجوز ایجاد نمی‌کند. مدیر ریشه همچنان کل زیردرخت را مدیریت می‌کند. نبود مسیر allow برابر deny است.
 
 قواعد ایمنی درخت در API مدیریت:
 

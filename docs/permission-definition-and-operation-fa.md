@@ -25,18 +25,18 @@
 | action | RESOURCE | APPLICATION | EXTERNAL_RESOURCE | permission چک‌شده |
 |---|---|---|---|---|
 | `view`, `access`, `list` | viewer | viewer | viewer | `can_view` |
-| `create`, `import`, `upload` | creator | manager | manager | `can_create` |
-| `update`, `approve`, `reject` | editor | manager | editor | `can_edit` |
-| `delete` | deleter | manager | manager | `can_delete` |
-| `share` | manager | manager | sharer | `can_share` |
-| `export`, `download` | manager | manager | exporter | `can_export` |
+| `create`, `import`, `upload` | creator | creator | creator | `can_create` |
+| `update`, `approve`, `reject` | editor | editor | editor | `can_edit` |
+| `delete` | deleter | deleter | deleter | `can_delete` |
+| `share` | sharer | sharer | sharer | `can_share` |
+| `export`, `download` | exporter | exporter | exporter | `can_export` |
 | `admin`, `manage`, … | manager | manager | manager | `can_manage` |
 
 ---
 
 ## B. سلسله‌مراتب منابع
 
-مدل OpenFGA وراثت را از **والد به فرزند** انجام می‌دهد: `can_view = viewer or … or can_view from parent`. یعنی اعطای `view` روی Module، همهٔ Pageهای زیر آن را قابل مشاهده می‌کند؛ ولی اعطای `view` روی یک Page، به Module یا Application دسترسی **نمی‌دهد**.
+مجوزهای عادی فقط روی همان منبع مؤثرند؛ تنها `manager = direct manager or manager from parent` به فرزندان ارث می‌رسد. اعطای `view` روی یک Page، والدها را فقط برای مسیر ناوبری در درخت نشان می‌دهد، با `actions: []` و بدون ایجاد permission روی والد یا خواهر/برادر و فرزندان. راهنمای ارتقا: [Resource permission inheritance](resource-permission-inheritance.md).
 
 ```
 application:aurevia                         (ریشهٔ سامانه)

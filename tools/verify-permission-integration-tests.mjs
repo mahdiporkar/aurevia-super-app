@@ -6,6 +6,9 @@ import { readFileSync, existsSync } from 'node:fs';
 
 const reports = 'services/authorization-service/target/surefire-reports';
 const required = [
+  'com.aurevia.authz.bootstrap.CoreBaselineInstallationIntegrationTest',
+  'com.aurevia.authz.bootstrap.FirstAdministratorBootstrapIntegrationTest',
+  'com.aurevia.authz.sync.NormalPermissionMigrationIntegrationTest',
   'com.aurevia.authz.sync.PermissionLifecycleIntegrationTest',
   'com.aurevia.authz.sync.OpenFgaReconciliationRepositoryIntegrationTest',
   'com.aurevia.authz.diagnostics.AuthorizationDiagnosticsRepositoryIntegrationTest',
