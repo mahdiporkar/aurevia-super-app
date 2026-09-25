@@ -47,6 +47,7 @@ public final class OutboxReconciler {
 
   private final OutboxRepository outbox;
   private final RelationshipAuthorizationPort relationships;
+  private final JdbcCatalogTupleProjector catalogProjector;
   private final int maxAttempts;
   private final int claimTimeoutSeconds;
   private final Timer projectionLatency;
@@ -70,10 +71,12 @@ public final class OutboxReconciler {
       @Value("${aurevia.outbox.max-attempts:12}") int maxAttempts,
       @Value("${aurevia.outbox.claim-timeout-seconds:120}") int claimTimeoutSeconds,
       MeterRegistry metrics,
-      @Value("${aurevia.openfga.reconcile-on-startup:false}") boolean reconcileOnStartup
+      @Value("${aurevia.openfga.reconcile-on-startup:false}") boolean reconcileOnStartup,
+      JdbcCatalogTupleProjector catalogProjector
   ) {
     this.outbox = outbox;
     this.relationships = relationships;
+    this.catalogProjector = catalogProjector;
     this.maxAttempts = maxAttempts;
     this.claimTimeoutSeconds = claimTimeoutSeconds;
     this.projectionLatency =
@@ -153,7 +156,9 @@ public final class OutboxReconciler {
 
     try {
 
-      if (WRITES.contains(event.eventType())) {
+      if (catalogProjector.project(event)) {
+        // Projected the current catalog state under the shared panel lock.
+      } else if (WRITES.contains(event.eventType())) {
 
         requireTuple(event);
 

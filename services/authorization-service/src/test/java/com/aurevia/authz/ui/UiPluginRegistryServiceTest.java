@@ -35,7 +35,7 @@ class UiPluginRegistryServiceTest {
         new NavigationOverrideView("hr.nav.removed","عنوان قدیمی",null,20,false,
             "MANIFEST","PAGE",null,"removed",null,"ACTIVE",1,null,"operator")));
     var service=new UiPluginRegistryService(repository,new ObjectMapper(),
-        mock(UiArtifactPolicy.class),mock(ManifestFetcher.class),mock(AuditTrail.class));
+        mock(UiArtifactPolicy.class),mock(ManifestFetcher.class),mock(AuditTrail.class),mock(com.aurevia.authz.registry.ResourceManifestService.class));
 
     var definitions=service.navigationDefinitions(panel);
 
@@ -87,7 +87,7 @@ class UiPluginRegistryServiceTest {
           value.id(),value.checksum(),value.manifest(),true,value.remoteEntryUrl(),
           value.remoteName(),value.exposedModule(),value.contractVersion(),value.integrity()));
     });
-    var service=new UiPluginRegistryService(repository,new ObjectMapper(),policy,fetcher,audit);
+    var service=new UiPluginRegistryService(repository,new ObjectMapper(),policy,fetcher,audit,mock(com.aurevia.authz.registry.ResourceManifestService.class));
 
     FrontendManifestSyncResult first=service.syncFrontendManifest(panel,"operator");
     FrontendManifestSyncResult second=service.syncFrontendManifest(panel,"operator");
@@ -111,7 +111,7 @@ class UiPluginRegistryServiceTest {
         """);
     when(repository.navigationOverrides(panel)).thenReturn(List.of());
     var service=new UiPluginRegistryService(repository,new ObjectMapper(),
-        mock(UiArtifactPolicy.class),mock(ManifestFetcher.class),mock(AuditTrail.class));
+        mock(UiArtifactPolicy.class),mock(ManifestFetcher.class),mock(AuditTrail.class),mock(com.aurevia.authz.registry.ResourceManifestService.class));
 
     service.overrideNavigation(panel,"hr.nav.employees","operator",
         new NavigationOverrideRequest("مدیریت کارکنان","user",5,false,
@@ -133,7 +133,7 @@ class UiPluginRegistryServiceTest {
         """);
     when(repository.navigationOverrides(panel)).thenReturn(List.of());
     var service=new UiPluginRegistryService(repository,new ObjectMapper(),
-        mock(UiArtifactPolicy.class),mock(ManifestFetcher.class),mock(AuditTrail.class));
+        mock(UiArtifactPolicy.class),mock(ManifestFetcher.class),mock(AuditTrail.class),mock(com.aurevia.authz.registry.ResourceManifestService.class));
 
     assertThatThrownBy(()->service.overrideNavigation(panel,"hr.nav.employees","operator",
         new NavigationOverrideRequest("Employees",null,10,false,
@@ -150,7 +150,7 @@ class UiPluginRegistryServiceTest {
     when(policy.validate("https://static.example.test/hr/remoteEntry.js",null))
         .thenReturn("https://static.example.test/hr/remoteEntry.js");
     var service=new UiPluginRegistryService(repository,new ObjectMapper(),policy,
-        mock(ManifestFetcher.class),mock(AuditTrail.class));
+        mock(ManifestFetcher.class),mock(AuditTrail.class),mock(com.aurevia.authz.registry.ResourceManifestService.class));
     var request=new ArtifactRequest("1.0.0",
         "https://static.example.test/hr/remoteEntry.js","aurevia_hr","./bootstrap","1.0",
         null,"""
@@ -173,7 +173,7 @@ class UiPluginRegistryServiceTest {
     when(policy.validate("https://static.example.test/hr/remoteEntry.js",null))
         .thenReturn("https://static.example.test/hr/remoteEntry.js");
     var service=new UiPluginRegistryService(repository,new ObjectMapper(),policy,
-        mock(ManifestFetcher.class),mock(AuditTrail.class));
+        mock(ManifestFetcher.class),mock(AuditTrail.class),mock(com.aurevia.authz.registry.ResourceManifestService.class));
     var request=new ArtifactRequest("1.0.0",
         "https://static.example.test/hr/remoteEntry.js","aurevia_hr","./bootstrap","1.0",
         null,"""
@@ -195,7 +195,7 @@ class UiPluginRegistryServiceTest {
     String remote="https://static.example.test/hr/remoteEntry.js";
     when(policy.validate(remote,null)).thenReturn(remote);
     var service=new UiPluginRegistryService(repository,new ObjectMapper(),policy,
-        mock(ManifestFetcher.class),mock(AuditTrail.class));
+        mock(ManifestFetcher.class),mock(AuditTrail.class),mock(com.aurevia.authz.registry.ResourceManifestService.class));
     var request=new ArtifactRequest("1.0.0",remote,"aurevia_hr","./bootstrap","1.0",null,"""
         {"schemaVersion":"1.0","microfrontend":{"key":"hr"},
          "routes":[
@@ -219,7 +219,7 @@ class UiPluginRegistryServiceTest {
     String remote="https://static.example.test/hr/remoteEntry.js";
     when(policy.validate(remote,null)).thenReturn(remote);
     var service=new UiPluginRegistryService(repository,new ObjectMapper(),policy,
-        mock(ManifestFetcher.class),mock(AuditTrail.class));
+        mock(ManifestFetcher.class),mock(AuditTrail.class),mock(com.aurevia.authz.registry.ResourceManifestService.class));
     var request=new ArtifactRequest("1.0.0",remote,"aurevia_hr","./bootstrap","1.0",null,"""
         {"schemaVersion":"1.0","microfrontend":{"key":"hr"},
          "routes":[],"navigation":[],"resources":[]}

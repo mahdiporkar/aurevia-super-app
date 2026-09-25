@@ -25,6 +25,8 @@ import org.junit.jupiter.api.Test;
 
 class ResourceManifestWorkflowTest {
   private final ResourceManifestRepository repository=mock(ResourceManifestRepository.class);
+  private final JdbcManifestReleaseRepository releases=mock(JdbcManifestReleaseRepository.class);
+  private final JdbcManifestCatalogProjection projection=mock(JdbcManifestCatalogProjection.class);
   private final ObjectMapper json=new ObjectMapper();
 
   @Test void hybridImportCreatesDraftAndPublishAppliesOnlyAfterApproval() {
@@ -56,6 +58,7 @@ class ResourceManifestWorkflowTest {
     when(repository.addAction(any(),anyString())).thenReturn(true);
     when(repository.deprecateMissing(any(),anyString(),any())).thenReturn(1);
     when(repository.markPublished(any(),anyString())).thenReturn(true);
+    when(releases.lock(panelId)).thenReturn(new JdbcManifestReleaseRepository.State(null,null,0));
     ResourceManifestService service=service();
 
     ManifestDraftView draft=service.stage(panelId,manifest(),"operator-1");
@@ -70,8 +73,7 @@ class ResourceManifestWorkflowTest {
     assertThat(result.created()).isEqualTo(3);
     assertThat(result.deprecated()).isEqualTo(1);
     assertThat(ids).containsKeys("application:aurevia/hr","module:hr","page:hr.employee.list");
-    verify(repository,atLeastOnce()).enqueueParent(any(),any(),
-        org.mockito.ArgumentMatchers.eq("RESOURCE_PARENT_WRITE"));
+    verify(projection).enqueueChanges(org.mockito.ArgumentMatchers.eq(panelId),any());
   }
 
   @Test void manualModeRejectsManifestImport() {
@@ -140,7 +142,7 @@ class ResourceManifestWorkflowTest {
          "resources":[],"routes":[]}
         """);
     ResourceManifestService service=new ResourceManifestService(repository,fetcher,policy,
-        mock(AuditTrail.class),json);
+        mock(AuditTrail.class),json,releases,projection);
 
     assertThatThrownBy(()->service.fetch(panelId,"operator-1"))
         .isInstanceOf(IllegalArgumentException.class)
@@ -164,7 +166,7 @@ class ResourceManifestWorkflowTest {
            "metadata":{"route":"/hr/employees"}}]}
         """);
     ResourceManifestService service=new ResourceManifestService(repository,fetcher,policy,
-        mock(AuditTrail.class),json);
+        mock(AuditTrail.class),json,releases,projection);
 
     assertThatThrownBy(()->service.fetch(panelId,"operator-1"))
         .isInstanceOf(IllegalArgumentException.class)
@@ -173,7 +175,7 @@ class ResourceManifestWorkflowTest {
 
   private ResourceManifestService service() {
     return new ResourceManifestService(repository,mock(ResourceManifestFetcher.class),
-        mock(UiArtifactPolicy.class),mock(AuditTrail.class),json);
+        mock(UiArtifactPolicy.class),mock(AuditTrail.class),json,releases,projection);
   }
 
   private static ResourceManifest manifest() {

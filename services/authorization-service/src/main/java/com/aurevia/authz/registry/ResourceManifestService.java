@@ -53,11 +53,14 @@ public class ResourceManifestService {
   private final UiArtifactPolicy locationPolicy;
   private final AuditTrail audit;
   private final ObjectMapper json;
+  private final JdbcManifestReleaseRepository releases;
+  private final JdbcManifestCatalogProjection projection;
 
   public ResourceManifestService(ResourceManifestRepository resources,ResourceManifestFetcher fetcher,
-      UiArtifactPolicy locationPolicy,AuditTrail audit,ObjectMapper json) {
+      UiArtifactPolicy locationPolicy,AuditTrail audit,ObjectMapper json,
+      JdbcManifestReleaseRepository releases,JdbcManifestCatalogProjection projection) {
     this.resources=resources;this.fetcher=fetcher;this.locationPolicy=locationPolicy;
-    this.audit=audit;this.json=json;
+    this.audit=audit;this.json=json;this.releases=releases;this.projection=projection;
   }
 
   public DefinitionManifest definition(String application) {
@@ -130,20 +133,132 @@ public class ResourceManifestService {
 
   @Transactional
   public PublishResult publish(UUID panelId,UUID draftId,String actor) {
-    String safeActor=safeActor(actor);
+    return applyRevision(panelId,draftId,actor,true,null);
+  }
+
+  @Transactional
+  public PublishResult activate(UUID panelId,UUID revisionId,String actor,UUID artifactId) {
+    return applyRevision(panelId,revisionId,actor,false,artifactId);
+  }
+
+  private PublishResult applyRevision(UUID panelId,UUID revisionId,String actor,boolean publish,
+      UUID requestedArtifact) {
+    String operator=safeActor(actor);
+    var state=releases.lock(panelId);
     var panel=requirePanel(panelId);
     ensureManifestMode(panel);
-    var draft=requireDraft(panelId,draftId);
-    if(!"DRAFT".equals(draft.workflowStatus())) {
-      throw new IllegalArgumentException("only a DRAFT manifest can be published");
+    var revision=requireDraft(panelId,revisionId);
+    requireStatus(revision,publish?"DRAFT":"PUBLISHED");
+    DefinitionManifest normalized=validatedRevision(panel,revision);
+    UUID artifactId=requestedArtifact;
+    if(artifactId==null) {
+      List<UUID> candidates=releases.artifactsForRevision(panelId,revisionId);
+      if(candidates.contains(state.artifactId()))artifactId=state.artifactId();
+      else if(candidates.size()==1)artifactId=candidates.getFirst();
+      else if(state.artifactId()!=null||!candidates.isEmpty())throw new IllegalArgumentException(
+          "select a valid artifact explicitly associated with the target resource revision");
     }
-    ResourceManifest manifest=readStored(draft.payload());
-    if(hasFrontendFields(draft.payload()))throw new IllegalArgumentException(
-        "legacy mixed manifest drafts must be restaged as authorization-only resource manifests");
-    DefinitionManifest normalized=normalize(panel,manifest);
-    if(!checksum(manifest).equals(draft.checksum())) {
+    if(artifactId!=null) {
+      var artifact=releases.artifact(panelId,artifactId);
+      if(artifact.revisionId()!=null&&!revisionId.equals(artifact.revisionId()))
+        throw new IllegalArgumentException("artifact belongs to another resource revision");
+      validateArtifactRoutes(panelId,revisionId,artifact.manifest());
+      locationPolicy.validate(artifact.remoteEntryUrl(),artifact.integrity());
+      releases.bind(panelId,artifactId,revisionId);
+    }
+    var result=materialize(panel,revision,normalized);
+    if(publish&&!resources.markPublished(revisionId,operator))
+      throw new IllegalStateException("manifest draft changed while publishing");
+    releases.setActiveRevision(panelId,revisionId);
+    releases.activateArtifact(panelId,artifactId);
+    if(audit!=null)audit.success("RESOURCE_CATALOG",publish?"manifest.published":"manifest.activated",
+        null,null,"PANEL",panelId.toString(),revisionId.toString(),publish?"PUBLISH":"ACTIVATE",null,
+        Map.of("manifestVersion",revision.manifestVersion(),"created",result.created(),
+            "updated",result.updated(),"deprecated",result.deprecated()));
+    return result;
+  }
+
+  /** Called inside the UI activation transaction, before its optimistic panel update. */
+  @Transactional
+  public void activateForArtifact(UUID panelId,UUID artifactId,UUID requestedRevision) {
+    releases.lock(panelId);
+    var artifact=releases.artifact(panelId,artifactId);
+    UUID revisionId=requestedRevision==null?artifact.revisionId():requestedRevision;
+    if(revisionId==null) {
+      if(releases.hasHistory(panelId))throw new IllegalArgumentException(
+          "artifact has no resource revision association; select its published revision explicitly");
+      return;
+    }
+    if(artifact.revisionId()!=null&&!artifact.revisionId().equals(revisionId))
+      throw new IllegalArgumentException("artifact resource revision association is immutable");
+    var panel=requirePanel(panelId);
+    ensureManifestMode(panel);
+    var revision=requireDraft(panelId,revisionId);
+    requireStatus(revision,"PUBLISHED");
+    validateArtifactRoutes(panelId,revisionId,artifact.manifest());
+    materialize(panel,revision,validatedRevision(panel,revision));
+    releases.bind(panelId,artifactId,revisionId);
+    releases.setActiveRevision(panelId,revisionId);
+  }
+
+  public UUID resolveArtifactRevision(UUID panelId,String version,UUID requested) {
+    releases.lock(panelId);
+    if(requested!=null) { requireDraft(panelId,requested);return requested; }
+    var matching=resources.revisionByVersion(panelId,version);
+    if(matching.isPresent())return matching.orElseThrow().id();
+    if(releases.hasHistory(panelId))throw new IllegalArgumentException(
+        "stage the matching resource revision or supply resourceManifestId explicitly");
+    return null;
+  }
+
+  public void bindArtifact(UUID panelId,UUID artifactId,UUID revisionId) {
+    releases.bind(panelId,artifactId,revisionId);
+  }
+
+  public boolean isPublished(UUID panelId,UUID revisionId) {
+    return revisionId==null||"PUBLISHED".equals(requireDraft(panelId,revisionId).workflowStatus());
+  }
+
+  public void validateArtifactRoutes(UUID panelId,UUID revisionId,String payload) {
+    try {
+      JsonNode manifest=json.readTree(payload);
+      Map<String,List<String>> declared=new LinkedHashMap<>();
+      if(revisionId!=null)validatedRevision(requirePanel(panelId),requireDraft(panelId,revisionId))
+          .resources().forEach(r->declared.put(r.key(),r.actions()));
+      for(JsonNode route:manifest.path("routes")) {
+        String key=first(text(route,"requiredResource"),text(route,"resourceKey"),text(route,"resource"));
+        String action=first(text(route,"requiredAction"),text(route,"action"),"view");
+        boolean allowed=declared.containsKey(key)?declared.get(key).contains(action):
+            resources.resourceOwnership(key).filter(owner->revisionId!=null&&panelId.equals(owner.panelId())
+                &&"MANIFEST".equals(owner.source())).isEmpty()&&resources.resourceActionExists(key,action);
+        if(!allowed)throw new IllegalArgumentException("MF route references undeclared resource/action in target revision: "+key+"/"+action);
+      }
+    } catch(IllegalArgumentException failure) { throw failure; }
+    catch(Exception failure) { throw new IllegalArgumentException("invalid MF manifest",failure); }
+  }
+
+  private static String text(JsonNode value,String field) {
+    JsonNode result=value.get(field);return result==null||result.isNull()?null:result.asText();
+  }
+
+  private static void requireStatus(ResourceManifestRepository.DraftRecord revision,String expected) {
+    if(!expected.equals(revision.workflowStatus()))
+      throw new IllegalArgumentException("only a "+expected+" manifest can be "+(expected.equals("DRAFT")?"published":"activated"));
+  }
+
+  private DefinitionManifest validatedRevision(ResourceManifestRepository.PanelManifestSettings panel,
+      ResourceManifestRepository.DraftRecord revision) {
+    if(hasFrontendFields(revision.payload()))throw new IllegalArgumentException(
+        "legacy mixed manifest revisions must be restaged as authorization-only resource manifests");
+    ResourceManifest manifest=readStored(revision.payload());
+    if(!checksum(manifest).equals(revision.checksum()))
       throw new IllegalArgumentException("stored manifest checksum mismatch");
-    }
+    return normalize(panel,manifest);
+  }
+
+  private PublishResult materialize(ResourceManifestRepository.PanelManifestSettings panel,
+      ResourceManifestRepository.DraftRecord revision,DefinitionManifest normalized) {
+    var before=projection.snapshot(panel.id());
     List<ManifestChange> changes=diff(normalized);
     if(changes.stream().anyMatch(change->"CONFLICT".equals(change.changeType()))) {
       throw new IllegalArgumentException("manifest has ownership or type conflicts; publish refused");
@@ -162,14 +277,7 @@ public class ResourceManifestService {
         var ownership=resources.resourceOwnership(resource.key());
         boolean exists=ownership.isPresent();
         if(exists)assertManifestOwnership(resource,panel.id(),ownership.orElseThrow());
-        UUID previousParent=ownership.map(ResourceManifestRepository.ResourceOwnership::parentId)
-            .orElse(null);
-        UUID effectiveParent=upsert(resource,panel.id(),normalized.manifestVersion());
-        if(!Objects.equals(previousParent,effectiveParent)) {
-          UUID resourceId=resources.resourceId(resource.key()).orElseThrow();
-          resources.enqueueParent(resourceId,previousParent,"RESOURCE_PARENT_DELETE");
-          resources.enqueueParent(resourceId,effectiveParent,"RESOURCE_PARENT_WRITE");
-        }
+        upsert(resource,panel.id(),normalized.manifestVersion());
         replaceActions(resource);
         pending.remove(resource.key());
         if(exists)updated++;else created++;
@@ -181,14 +289,8 @@ public class ResourceManifestService {
     String[] keys=normalized.resources().stream().map(ResourceDefinition::key)
         .toArray(String[]::new);
     int deprecated=resources.deprecateMissing(panel.id(),root,keys);
-    if(!resources.markPublished(draftId,safeActor)) {
-      throw new IllegalStateException("manifest draft changed while publishing");
-    }
-    if(audit!=null)audit.success("RESOURCE_CATALOG","manifest.published",null,null,
-        "PANEL",panelId.toString(),draftId.toString(),"PUBLISH",null,
-        Map.of("created",created,"updated",updated,"deprecated",deprecated,
-            "manifestVersion",normalized.manifestVersion()));
-    return new PublishResult(draftId,"PUBLISHED",created,updated,deprecated,draft.checksum());
+    projection.enqueueChanges(panel.id(),before);
+    return new PublishResult(revision.id(),"PUBLISHED",created,updated,deprecated,revision.checksum());
   }
 
   public void validate(DefinitionManifest manifest,String root) {
@@ -353,6 +455,10 @@ public class ResourceManifestService {
   private UUID upsert(ResourceDefinition resource,UUID panelId,String manifestVersion) {
     UUID parentId=resource.parent()==null?null:resources.resourceId(resource.parent())
         .orElseThrow(()->new IllegalArgumentException("resource parent does not exist"));
+    if("APPLICATION".equals(resource.type())&&parentId==null) {
+      parentId=resources.resourceOwnership(resource.key()).map(ResourceManifestRepository.ResourceOwnership::parentId)
+          .orElseGet(()->resources.resourceId("application:aurevia").orElse(null));
+    }
     String metadata=write(resource.metadata());
     resources.upsertResource(resource,parentId,metadata,panelId,manifestVersion);
     if("EXTERNAL_RESOURCE".equals(resource.type()))resources.upsertExternalBinding(resource,metadata);
@@ -382,7 +488,8 @@ public class ResourceManifestService {
       return new ManifestDraftView(value.id(),value.panelId(),manifest.module().key(),
           value.manifestVersion(),value.schemaVersion(),value.checksum(),value.workflowStatus(),
           value.sourceUrl(),json.readValue(value.diffSummary(),CHANGES),value.createdAt(),
-          value.importedBy(),value.publishedAt(),value.publishedBy());
+          value.importedBy(),value.publishedAt(),value.publishedBy(),
+          releases.activeRevision(value.panelId()).filter(value.id()::equals).isPresent());
     } catch(Exception failure) {
       throw new IllegalStateException("stored resource manifest is invalid",failure);
     }

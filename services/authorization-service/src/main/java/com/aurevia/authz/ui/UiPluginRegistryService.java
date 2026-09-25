@@ -30,11 +30,13 @@ public class UiPluginRegistryService {
   private final UiArtifactPolicy artifactPolicy;
   private final ManifestFetcher manifestFetcher;
   private final AuditTrail audit;
+  private final com.aurevia.authz.registry.ResourceManifestService resourceManifests;
 
   public UiPluginRegistryService(UiPluginRepository plugins,ObjectMapper json,
-      UiArtifactPolicy artifactPolicy,ManifestFetcher manifestFetcher,AuditTrail audit) {
+      UiArtifactPolicy artifactPolicy,ManifestFetcher manifestFetcher,AuditTrail audit,
+      com.aurevia.authz.registry.ResourceManifestService resourceManifests) {
     this.plugins=plugins;this.json=json;this.artifactPolicy=artifactPolicy;
-    this.manifestFetcher=manifestFetcher;this.audit=audit;
+    this.manifestFetcher=manifestFetcher;this.audit=audit;this.resourceManifests=resourceManifests;
   }
 
   public List<ArtifactView> artifacts(UUID panelId) { return plugins.artifacts(panelId); }
@@ -81,13 +83,15 @@ public class UiPluginRegistryService {
   @Transactional
   public ArtifactPublishedResponse publish(UUID panelId,String actor,ArtifactRequest request) {
     String safeActor=actor(actor);
-    JsonNode manifest=validate(panelId,request);
+    UUID revision=resourceManifests.resolveArtifactRevision(panelId,request.artifactVersion(),request.resourceManifestId());
+    JsonNode manifest=validate(panelId,request,revision);
     UUID id=UUID.randomUUID();
     String remoteUrl=artifactPolicy.validate(request.remoteEntryUrl(),request.integrity());
     plugins.insertArtifact(new UiPluginRepository.ArtifactInsert(id,panelId,
         request.artifactVersion(),remoteUrl,request.remoteName(),request.exposedModule(),
         request.contractVersion(),manifest.path("schemaVersion").asText(),request.integrity(),
         manifest.toString(),checksum(manifest),null,safeActor));
+    resourceManifests.bindArtifact(panelId,id,revision);
     audit.success("UI_REGISTRY","UI_ARTIFACT_PUBLISHED",null,null,"PANEL",
         panelId.toString(),request.artifactVersion(),"CREATE",null,
         Map.of("artifactId",id.toString(),"version",request.artifactVersion(),
@@ -131,7 +135,9 @@ public class UiPluginRegistryService {
     String effectiveRemote=artifactPolicy.validate(panel.remoteEntryPath(),panel.integrity());
     ArtifactRequest effective=new ArtifactRequest(version,effectiveRemote,panel.remoteName(),
         panel.exposedModule(),panel.contractVersion(),panel.integrity(),root.toString());
-    JsonNode validated=validate(panelId,effective);
+    UUID resourceRevision=resourceManifests.resolveArtifactRevision(panelId,version,null);
+    JsonNode validated=validate(panelId,effective,resourceRevision);
+    boolean canActivate=resourceRevision==null||resourceManifests.isPublished(panelId,resourceRevision);
     String checksum=checksum(validated);
     var current=plugins.activeManifestOptional(panelId);
     ManifestDiff diff=diff(current.orElse(null),validated);
@@ -158,17 +164,22 @@ public class UiPluginRegistryService {
             "MF manifest version was synchronized with different deployment settings; bump its version");
       artifactId=revision.id();
       if(revision.active())idempotent=true;
-      else if(!plugins.activate(panelId,artifactId,panel.version()))
-        throw new OptimisticLockingFailureException("VERSION_CONFLICT");
+
     } else {
       artifactId=UUID.randomUUID();
       plugins.insertArtifact(new UiPluginRepository.ArtifactInsert(artifactId,panelId,version,
           effectiveRemote,panel.remoteName(),panel.exposedModule(),panel.contractVersion(),
           validated.path("schemaVersion").asText(),panel.integrity(),validated.toString(),checksum,
           sourceUrl,safeActor));
+
+    }
+    resourceManifests.bindArtifact(panelId,artifactId,resourceRevision);
+    if(canActivate&&!idempotent) {
+      resourceManifests.activateForArtifact(panelId,artifactId,null);
       if(!plugins.activate(panelId,artifactId,panel.version()))
         throw new OptimisticLockingFailureException("VERSION_CONFLICT");
     }
+    if(!canActivate)warnings.add("Artifact staged; publish the resource draft to activate this release atomically");
     audit.success("UI_REGISTRY","MF_MANIFEST_SYNCHRONIZED",null,null,"PANEL",
         panelId.toString(),version,"SYNC",null,Map.ofEntries(
             Map.entry("artifactId",artifactId.toString()),Map.entry("manifestVersion",version),
@@ -182,7 +193,7 @@ public class UiPluginRegistryService {
             Map.entry("navigationAdded",diff.navigationAdded()),
             Map.entry("navigationUpdated",diff.navigationUpdated()),
             Map.entry("navigationRemoved",diff.navigationRemoved())));
-    return new FrontendManifestSyncResult(artifactId,"SUCCESS",idempotent,
+    return new FrontendManifestSyncResult(artifactId,canActivate?"SUCCESS":"STAGED",idempotent,
         idempotent?0:diff.routesAdded(),idempotent?0:diff.routesUpdated(),
         idempotent?0:diff.routesRemoved(),idempotent?0:diff.navigationAdded(),
         idempotent?0:diff.navigationUpdated(),idempotent?0:diff.navigationRemoved(),
@@ -191,10 +202,16 @@ public class UiPluginRegistryService {
 
   @Transactional
   public ArtifactActivatedResponse activate(UUID panelId,UUID artifactId,long version) {
+    return activate(panelId,artifactId,version,null);
+  }
+
+  @Transactional
+  public ArtifactActivatedResponse activate(UUID panelId,UUID artifactId,long version,UUID revisionId) {
     var artifact=plugins.validArtifact(panelId,artifactId).orElseThrow(()->
         new IllegalArgumentException("artifact is not valid for this module"));
     artifactPolicy.validate(artifact.remoteEntryUrl(),artifact.integrity());
     var prior=plugins.panelState(panelId);
+    resourceManifests.activateForArtifact(panelId,artifactId,revisionId);
     if(!plugins.activate(panelId,artifactId,version)) {
       throw new OptimisticLockingFailureException("VERSION_CONFLICT");
     }
@@ -285,7 +302,7 @@ public class UiPluginRegistryService {
         panelId.toString(),key,"DELETE",null,Map.of("navigationKey",key,"actor",actor(actor)));
   }
 
-  private JsonNode validate(UUID panelId,ArtifactRequest request) {
+  private JsonNode validate(UUID panelId,ArtifactRequest request,UUID resourceRevision) {
     try {
       artifactPolicy.validate(request.remoteEntryUrl(),request.integrity());
       if(!request.artifactVersion().matches(
@@ -341,7 +358,7 @@ public class UiPluginRegistryService {
             "MF route "+id+" must not contain component implementation details");
         if(resource==null||resource.isBlank()||action.isBlank())throw new IllegalArgumentException(
             "MF route "+id+" requires a resource/action reference");
-        if(!plugins.resourceActionExists(resource,action)) {
+        if(resourceRevision==null&&!plugins.resourceActionExists(resource,action)) {
           throw new IllegalArgumentException(
               "MF route "+id+" references undeclared resource/action "+resource+"/"+action);
         }
@@ -383,6 +400,7 @@ public class UiPluginRegistryService {
           throw new IllegalArgumentException("navigation parent must be a GROUP");
         assertNavigationAcyclic(entry.getKey(),declaredNavigation);
       }
+      if(resourceRevision!=null)resourceManifests.validateArtifactRoutes(panelId,resourceRevision,root.toString());
       return root;
     } catch(IllegalArgumentException failure) { throw failure; }
     catch(Exception failure) {

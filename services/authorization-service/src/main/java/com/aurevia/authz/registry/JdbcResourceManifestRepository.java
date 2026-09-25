@@ -53,8 +53,9 @@ class JdbcResourceManifestRepository implements ResourceManifestRepository {
 
   @Override public String latestVersion(String rootKey) {
     return database.sql("""
-        select coalesce(max(manifest_version),'catalog')
-        from resource_manifest_import where application_key=:root
+        select coalesce((select m.manifest_version from panel p
+          join resource_manifest_import m on m.id=p.active_resource_manifest_id
+          where m.application_key=:root),'catalog')
         """).param("root",rootKey).query(String.class).single();
   }
 
@@ -182,11 +183,20 @@ class JdbcResourceManifestRepository implements ResourceManifestRepository {
 
   @Override public void upsertExternalBinding(ResourceDefinition value,String metadata) {
     database.sql("""
+        update resource_external_binding set active=false,version=version+1,updated_at=now()
+        where resource_id=(select id from resource where resource_key=:key)
+          and active and provider<>:provider
+        """).param("key",value.key()).param("provider",value.provider()).update();
+    // UNIQUE(resource_id,provider) is not partial, so a rebind must update the existing row in
+    // place; deactivating it and inserting a replacement would violate the constraint and break
+    // rollback to a revision that binds the same provider to a different external id.
+    database.sql("""
         insert into resource_external_binding(resource_id,provider,external_type,external_id,metadata)
         select id,:provider,:externalType,:externalId,cast(:metadata as jsonb)
         from resource where resource_key=:key
-        on conflict(provider,external_type,external_id) do update set
-          resource_id=excluded.resource_id,metadata=excluded.metadata,active=true,
+        on conflict(resource_id,provider) do update set
+          external_type=excluded.external_type,external_id=excluded.external_id,
+          metadata=excluded.metadata,active=true,
           version=resource_external_binding.version+1,updated_at=now()
         """).param("provider",value.provider()).param("externalType",value.externalType())
         .param("externalId",value.externalId()).param("metadata",metadata)
@@ -221,15 +231,21 @@ class JdbcResourceManifestRepository implements ResourceManifestRepository {
   }
 
   @Override public int deprecateMissing(UUID panelId,String rootKey,String[] retainedKeys) {
-    return database.sql("""
-        with recursive tree as (
-          select id,resource_key from resource where resource_key=:root
-          union all select r.id,r.resource_key from resource r join tree p on r.parent_id=p.id
-        )
+    int count=database.sql("""
         update resource set status='DEPRECATED',version=version+1,updated_at=now()
-        where id in(select id from tree) and source='MANIFEST' and panel_id=:panel
+        where source='MANIFEST' and panel_id=:panel
           and not(resource_key=any(:keys)) and status<>'DEPRECATED'
-        """).param("root",rootKey).param("panel",panelId).param("keys",retainedKeys).update();
+        """).param("panel",panelId).param("keys",retainedKeys).update();
+    database.sql("""
+        delete from resource_action where resource_id in (
+          select id from resource where panel_id=:panel and source='MANIFEST' and status='DEPRECATED')
+        """).param("panel",panelId).update();
+    database.sql("""
+        update resource_external_binding set active=false,version=version+1,updated_at=now()
+        where active and resource_id in (select id from resource
+          where panel_id=:panel and source='MANIFEST' and status='DEPRECATED')
+        """).param("panel",panelId).update();
+    return count;
   }
 
   private DraftRecord draft(java.sql.ResultSet result,int row) throws java.sql.SQLException {

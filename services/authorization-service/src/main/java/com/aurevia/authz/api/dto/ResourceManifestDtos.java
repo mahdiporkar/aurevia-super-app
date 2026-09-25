@@ -61,7 +61,7 @@ public final class ResourceManifestDtos {
   public record ManifestDraftView(UUID id,UUID panelId,String moduleKey,String manifestVersion,
       String schemaVersion,String checksum,String workflowStatus,String sourceUrl,
       List<ManifestChange> changes,Instant createdAt,String createdBy,Instant publishedAt,
-      String publishedBy) {}
+      String publishedBy,boolean active) {}
 
   public record PublishResult(UUID draftId,String workflowStatus,int created,int updated,
       int deprecated,String checksum) {}

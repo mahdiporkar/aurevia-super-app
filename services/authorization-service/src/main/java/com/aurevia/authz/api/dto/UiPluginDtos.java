@@ -12,7 +12,12 @@ public final class UiPluginDtos {
   public record ArtifactRequest(@NotBlank String artifactVersion,
       @NotBlank String remoteEntryUrl,@NotBlank String remoteName,
       @NotBlank String exposedModule,@NotBlank String contractVersion,
-      String integrity,@NotBlank String manifest) {}
+      String integrity,@NotBlank String manifest,UUID resourceManifestId) {
+    public ArtifactRequest(String artifactVersion,String remoteEntryUrl,String remoteName,
+        String exposedModule,String contractVersion,String integrity,String manifest) {
+      this(artifactVersion,remoteEntryUrl,remoteName,exposedModule,contractVersion,integrity,manifest,null);
+    }
+  }
 
   public record MenuOverrideRequest(String title,String icon,Integer order,boolean hidden) {}
   public record NavigationOverrideRequest(String title,String icon,Integer order,boolean hidden,
@@ -45,7 +50,8 @@ public final class UiPluginDtos {
       @JsonProperty("created_by") String createdBy,
       @JsonProperty("synchronized_at") Instant synchronizedAt,
       boolean active,
-      @JsonProperty("panel_version") long panelVersion) {}
+      @JsonProperty("panel_version") long panelVersion,
+      @JsonProperty("resource_manifest_id") UUID resourceManifestId) {}
 
   public record ArtifactPublishedResponse(UUID id,String validationStatus) {}
   public record ArtifactActivatedResponse(UUID activeArtifactId,long version) {}

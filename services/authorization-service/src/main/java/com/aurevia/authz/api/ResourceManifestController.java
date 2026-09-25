@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
@@ -69,5 +70,11 @@ public final class ResourceManifestController {
   public PublishResult publish(@PathVariable UUID panelId,@PathVariable UUID draftId,
       @RequestHeader("X-Actor") String actor) {
     return manifests.publish(panelId,draftId,actor);
+  }
+
+  @PostMapping("/panels/{panelId}/resource-manifests/{revisionId}/activate")
+  public PublishResult activate(@PathVariable UUID panelId,@PathVariable UUID revisionId,
+      @RequestParam(required=false) UUID artifactId,@RequestHeader("X-Actor") String actor) {
+    return manifests.activate(panelId,revisionId,actor,artifactId);
   }
 }

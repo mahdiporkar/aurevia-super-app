@@ -28,6 +28,11 @@ class JdbcAuthorizationQueryRepository implements AuthorizationQueryRepository {
         from panel p join ui_module_artifact a on a.id=p.active_artifact_id
           and a.validation_status='VALID'
         where p.active and (:demoEnabled or p.classification='REAL')
+          and (p.active_resource_manifest_id is null and not exists (
+            select 1 from resource_manifest_import m where m.panel_id=p.id and m.workflow_status='PUBLISHED')
+            or p.active_resource_manifest_id=a.resource_manifest_id)
+          and not exists(select 1 from outbox_event e where e.processed_at is null
+            and e.payload->>'manifestPanelId'=p.id::text)
         order by p.sort_order,p.code
         """).param("demoEnabled",demoData.enabled()).query(PanelRecord.class).list();
   }
@@ -36,7 +41,7 @@ class JdbcAuthorizationQueryRepository implements AuthorizationQueryRepository {
     return database.sql("""
         select r.resource_key as "resourceKey",r.type::text as "resourceType",
           a.action_key as "actionKey"
-        from resource r join resource_action ra on ra.resource_id=r.id
+        from effective_resource_catalog r join resource_action ra on ra.resource_id=r.id
         join action a on a.id=ra.action_id
         left join panel p on p.id=r.panel_id
         where r.status='ACTIVE' and r.visibility_enabled
@@ -50,7 +55,7 @@ class JdbcAuthorizationQueryRepository implements AuthorizationQueryRepository {
         select r.id,r.parent_id as "parentId",r.resource_key as "resourceKey",r.type::text,
           r.name_fa as "nameFa",r.name_en as "nameEn",r.owner_domain as "ownerDomain",
           r.classification
-        from resource r left join panel p on p.id=r.panel_id
+        from effective_resource_catalog r left join panel p on p.id=r.panel_id
         where r.status='ACTIVE' and r.visibility_enabled
           and (:demoEnabled or p.id is null or p.classification='REAL')
         order by r.resource_key
@@ -69,7 +74,7 @@ class JdbcAuthorizationQueryRepository implements AuthorizationQueryRepository {
   @Override public Optional<Boolean> runtimeResourceActionEnabled(String canonicalObject,
       String actionKey) {
     return database.sql("""
-        select (r.status='ACTIVE' and (:demoEnabled or p.id is null
+        select (exists(select 1 from effective_resource_catalog e where e.id=r.id) and (:demoEnabled or p.id is null
           or p.classification='REAL') and exists(
             select 1 from resource_action ra join action a on a.id=ra.action_id
             where ra.resource_id=r.id and a.action_key=:action)) as enabled

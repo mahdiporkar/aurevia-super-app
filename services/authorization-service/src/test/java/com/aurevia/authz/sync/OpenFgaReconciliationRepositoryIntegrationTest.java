@@ -187,6 +187,10 @@ class OpenFgaReconciliationRepositoryIntegrationTest {
         .param("id", pageId).param("parent", moduleId).update();
     viewActionId = database.sql("select id from action where action_key='view'")
         .query(UUID.class).single();
+    // Only capabilities the catalog still declares are projected, so the fixture must declare
+    // the action it grants, exactly as manifest materialization and admin definitions do.
+    database.sql("insert into resource_action(resource_id,action_id) values(:r,:a)")
+        .param("r", pageId).param("a", viewActionId).update();
     userId = UUID.randomUUID();
     database.sql("insert into app_user(id,issuer,external_id,username,canonical_user_id)"
         + " values(:id,'https://issuer.test','alice','alice','usr_alice')")

@@ -25,7 +25,8 @@ class JdbcUiPluginRepository implements UiPluginRepository {
           immutable,created_at as "createdAt",created_by as "createdBy",
           synchronized_at as "synchronizedAt",
           coalesce(id=(select active_artifact_id from panel where id=:panel),false) active,
-          (select version from panel where id=:panel) as "panelVersion"
+          (select version from panel where id=:panel) as "panelVersion",
+          resource_manifest_id as "resourceManifestId"
         from ui_module_artifact where panel_id=:panel order by created_at desc
         """).param("panel",panelId).query(ArtifactView.class).list();
   }

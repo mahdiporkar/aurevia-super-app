@@ -13,24 +13,7 @@ class JdbcOpenFgaReconciliationRepository implements OpenFgaReconciliationReposi
   @Override public Set<ReconciliationTuple> expectedTuples() {
     Set<ReconciliationTuple> tuples=new LinkedHashSet<>();
     tuples.addAll(database.sql("""
-      select case g.subject_type when 'USER' then 'user:'||u.canonical_user_id
-        when 'GROUP' then 'group:directory/'||dg.id||'#member'
-        when 'ACCESS_GROUP' then 'group:'||lower(ag.code)||'#member'
-        when 'ROLE' then 'role:'||ar.role_key||'#assignee' end "user",
-        g.relation,
-        case r.type when 'APPLICATION' then 'application:'||regexp_replace(r.resource_key,'^application:','')
-          when 'EXTERNAL_RESOURCE' then 'external_resource:'||replace(regexp_replace(r.resource_key,'^external_resource:',''),':','/')
-          else 'resource:'||replace(r.resource_key,':','/') end object
-      from authorization_grant g left join app_user u on g.subject_type='USER' and u.id=g.subject_id
-      left join directory_group dg on g.subject_type='GROUP' and dg.id=g.subject_id
-      left join access_group ag on g.subject_type='ACCESS_GROUP' and ag.id=g.subject_id
-      left join application_role ar on g.subject_type='ROLE' and ar.id=g.subject_id
-      join resource r on r.id=g.resource_id
-      where g.status='ACTIVE' and (g.expires_at is null or g.expires_at>now())
-        and ((g.subject_type='USER' and u.id is not null)
-          or (g.subject_type='GROUP' and dg.status='ACTIVE')
-          or (g.subject_type='ACCESS_GROUP' and ag.active)
-          or (g.subject_type='ROLE' and ar.status='ACTIVE'))
+      select distinct "user",relation,object from catalog_grant_tuple
       """).query(ReconciliationTuple.class).list());
     tuples.addAll(database.sql("""
       select case p.type when 'APPLICATION' then 'application:'||regexp_replace(p.resource_key,'^application:','')

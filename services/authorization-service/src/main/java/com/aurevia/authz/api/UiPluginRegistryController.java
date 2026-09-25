@@ -47,8 +47,9 @@ public final class UiPluginRegistryController {
 
   @PostMapping("/artifacts/{artifactId}/activate")
   public ArtifactActivatedResponse activate(@PathVariable UUID panelId,
-      @PathVariable UUID artifactId,@RequestParam long version) {
-    return plugins.activate(panelId,artifactId,version);
+      @PathVariable UUID artifactId,@RequestParam long version,
+      @RequestParam(required=false) UUID resourceManifestId) {
+    return plugins.activate(panelId,artifactId,version,resourceManifestId);
   }
 
   @PutMapping("/menu-overrides/{menuId}")

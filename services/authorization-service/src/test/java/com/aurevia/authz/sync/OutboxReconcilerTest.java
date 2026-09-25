@@ -31,7 +31,7 @@ class OutboxReconcilerTest {
             12,
             120,
             new SimpleMeterRegistry(),
-            true
+            true, mock(JdbcCatalogTupleProjector.class)
         );
 
     /*
@@ -84,7 +84,7 @@ class OutboxReconcilerTest {
             12,
             120,
             new SimpleMeterRegistry(),
-            false
+            false, mock(JdbcCatalogTupleProjector.class)
         );
 
     reconciler.reconcile();
@@ -157,7 +157,7 @@ class OutboxReconcilerTest {
             12,
             120,
             metrics,
-            false
+            false, mock(JdbcCatalogTupleProjector.class)
         );
 
     reconciler.reconcileBatch();

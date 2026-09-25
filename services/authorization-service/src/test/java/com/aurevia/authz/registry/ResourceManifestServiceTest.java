@@ -15,7 +15,7 @@ class ResourceManifestServiceTest {
   private final ResourceManifestService service=
       new ResourceManifestService(mock(ResourceManifestRepository.class),
           mock(ResourceManifestFetcher.class),mock(UiArtifactPolicy.class),
-          mock(AuditTrail.class),new ObjectMapper());
+          mock(AuditTrail.class),new ObjectMapper(),mock(JdbcManifestReleaseRepository.class),mock(JdbcManifestCatalogProjection.class));
 
   @Test void acceptsCanonicalResourceTree() {
     service.validate(manifest(List.of(
