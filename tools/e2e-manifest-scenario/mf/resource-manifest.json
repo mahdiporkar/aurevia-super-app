@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "module": {
+    "key": "e2e-hybrid-test-micro",
+    "name": "E2E Hybrid Test Micro",
+    "nameFa": "میکرو آزمون هیبرید",
+    "nameEn": "E2E Hybrid Test Micro",
+    "version": "2.0.0"
+  },
+  "resources": [
+    { "key": "page:e2e-hybrid-test-micro.page-a", "type": "PAGE", "nameFa": "صفحه الف", "nameEn": "Page A", "classification": "INTERNAL", "actions": ["view","update"] },
+    { "key": "component:e2e-hybrid-test-micro.section-a1", "type": "UI_COMPONENT", "parent": "page:e2e-hybrid-test-micro.page-a", "nameFa": "بخش الف۱", "nameEn": "Section A1", "classification": "INTERNAL", "actions": ["view"] },
+    { "key": "component:e2e-hybrid-test-micro.section-a2", "type": "UI_COMPONENT", "parent": "page:e2e-hybrid-test-micro.page-b", "nameFa": "بخش الف۲", "nameEn": "Section A2 (moved)", "classification": "INTERNAL", "actions": ["view"] },
+    { "key": "page:e2e-hybrid-test-micro.page-b", "type": "PAGE", "nameFa": "صفحه ب", "nameEn": "Page B", "classification": "INTERNAL", "actions": ["view"] },
+    { "key": "page:e2e-hybrid-test-micro.page-c", "type": "PAGE", "nameFa": "صفحه ج", "nameEn": "Page C", "classification": "INTERNAL", "actions": ["view"] }
+  ]
+}

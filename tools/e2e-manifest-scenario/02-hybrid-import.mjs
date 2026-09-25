@@ -1,0 +1,11 @@
+import {admin,show,state,save} from './lib.mjs';
+const s=await admin(); const st=state(); const P=st.panelId;
+show('1) MF manifest sync',await s.json(`/api/v1/admin/panels/${P}/frontend-manifests/sync`,'POST'));
+show('2) resource manifest fetch',await s.json(`/api/v1/admin/panels/${P}/resource-manifests/fetch`,'POST'));
+const drafts=await s.json(`/api/v1/admin/panels/${P}/resource-manifests`);
+console.log('3) drafts:',JSON.stringify(drafts.body?.map(d=>({id:d.id,v:d.manifestVersion,st:d.workflowStatus,active:d.active}))));
+const draft=drafts.body[0];
+show('4) publish',await s.json(`/api/v1/admin/panels/${P}/resource-manifests/drafts/${draft.id}/publish`,'POST'));
+const arts=await s.json(`/api/v1/admin/panels/${P}/artifacts`);
+console.log('5) artifacts:',JSON.stringify(arts.body?.map(a=>({id:a.id,v:a.artifact_version,active:a.active,val:a.validation_status,rm:a.resource_manifest_id}))));
+save({...st,v1RevisionId:draft.id,v1ArtifactId:arts.body?.[0]?.id});

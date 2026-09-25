@@ -1,0 +1,10 @@
+import {read,check} from './fga.mjs';
+import {ids} from './grant.mjs';
+const A2='resource:component/e2e-hybrid-test-micro.section-a2';
+console.log('section-a2 parent tuples:',JSON.stringify(await read({object:A2,relation:'parent'})));
+console.log('page-c parent tuples   :',JSON.stringify(await read({object:'resource:page/e2e-hybrid-test-micro.page-c',relation:'parent'})));
+console.log('component-b1 parent    :',JSON.stringify(await read({object:'resource:component/e2e-hybrid-test-micro.component-b1',relation:'parent'})));
+const U='user:'+ids.canonical;
+console.log('check user can_view section-a2:',await check(U,'can_view',A2));
+console.log('check user can_view page-c    :',await check(U,'can_view','resource:page/e2e-hybrid-test-micro.page-c'));
+console.log('check user can_view page-b    :',await check(U,'can_view','resource:page/e2e-hybrid-test-micro.page-b'));

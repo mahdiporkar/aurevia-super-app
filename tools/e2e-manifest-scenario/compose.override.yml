@@ -1,0 +1,17 @@
+services:
+  aurevia-bff:
+    environment:
+      LEGACY_ALLOWED_HOSTS: "mock-legacy,test-legacy-service"
+      LEGACY_ALLOWED_PORTS: "8080,8092"
+      LEGACY_LOCAL_SECRETS_ENABLED: "false"
+      AUREVIA_LEGACY_FILE_SECRETS_ENABLED: "true"
+      AUREVIA_LEGACY_FILE_SECRETS_ROOT: "/run/e2e-secrets"
+    volumes:
+      - ../../.tmp/e2e-auth/secrets:/run/e2e-secrets:ro
+    networks: [public-services, public-data, bff-egress, operation-services]
+  operation-gateway:
+    volumes:
+      - ../mock-operation/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../e2e-auth/gateway-routes.conf:/etc/nginx/e2e-routes/test.conf:ro
+networks:
+  operation-services: {}

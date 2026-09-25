@@ -1,0 +1,18 @@
+import {admin,state} from './lib.mjs';
+import {userB} from './lib2.mjs';
+import {drain,ids} from './grant.mjs';
+const s=await admin(); const st=state(); const A=st.assets;
+const ISS='http://localhost:8180/realms/aurevia';
+const sub='e0e25ada-4493-411f-a7f9-00835d6af568';
+const forSubject=async()=>{const r=await s.json(`/api/v1/admin/subjects/${sub}/superset-assets?issuer=${encodeURIComponent(ISS)}`);
+  return {status:r.status,raw:JSON.stringify(r.body).slice(0,400)};};
+console.log('BEFORE grant:',JSON.stringify(await forSubject()));
+const g=await s.json(`/api/v1/admin/superset-assets/${A.opA}/grants`,'POST',{subjectType:'USER',subjectId:ids.userB,level:'VIEW'});
+console.log('GRANT Dashboard A ->',g.status,JSON.stringify(g.body).slice(0,120));
+await drain();
+console.log('AFTER grant :',JSON.stringify(await forSubject()));
+const b=await userB();
+const ctx=await b.json('/api/v1/me/manifest');
+const ext=Object.keys(ctx.body?.permissions||{}).filter(k=>k.includes('external_resource'));
+console.log('USER B context external resources:',JSON.stringify(ext));
+console.log('GRANT ID for revoke:',g.body?.id);

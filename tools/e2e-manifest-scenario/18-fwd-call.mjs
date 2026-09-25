@@ -1,0 +1,12 @@
+import {userB} from './lib2.mjs';
+import {grantTo,revokeAll,drain,ids} from './grant.mjs';
+const base='/api/proxy/e2e-hybrid-test-micro';
+await revokeAll(); await drain();
+let s=await userB();
+console.log('UNAUTHORIZED (no grant) GET whoami ->',JSON.stringify(await s.json(base+'/api/test/whoami')).slice(0,240));
+await grantTo(ids.pageA); await drain();
+s=await userB();
+const r=await s.json(base+'/api/test/whoami');
+console.log('AUTHORIZED   GET whoami ->',r.status,JSON.stringify(r.body));
+const d=await s.json(base+'/api/test/data');
+console.log('page-b op (no grant) GET data ->',d.status,JSON.stringify(d.body).slice(0,200));

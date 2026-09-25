@@ -14,6 +14,7 @@ test-results/
 .tmp/swagger/
 .tmp/superset-native/
 .tmp/pages-e2e/
+.tmp/e2e-manual/
 infra/superset-native/__pycache__/
 
 # Docker images

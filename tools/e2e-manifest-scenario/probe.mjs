@@ -1,0 +1,12 @@
+import {Session} from '../e2e-auth/session.mjs';
+import fs from 'node:fs';
+const pw=fs.readFileSync(process.env.TEMP+'/admpw.txt','utf8').trim();
+const s=new Session('http://localhost:8443');
+const me=await s.login('administrator',pw);
+console.log('LOGIN OK user=',me.username,'sub=',me.subject??me.sub??JSON.stringify(Object.keys(me)));
+const ctx=await s.json('/api/v1/me/manifest');
+console.log('manifest status',ctx.status);
+console.log('top keys',Object.keys(ctx.body||{}));
+const panels=await s.json('/api/v1/admin/panels');
+console.log('panels status',panels.status,'count',Array.isArray(panels.body)?panels.body.length:'n/a');
+if(Array.isArray(panels.body))panels.body.forEach(p=>console.log('  panel',p.slug,p.id,p.resourceDefinitionMode??p.resource_definition_mode));

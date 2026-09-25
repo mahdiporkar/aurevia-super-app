@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0",
+  "microfrontend": { "key": "e2e-hybrid-test-micro", "name": "E2E Hybrid Test Micro", "version": "2.0.0" },
+  "runtime": {
+    "remoteEntry": "http://host.docker.internal:3010/remoteEntry.js",
+    "remoteName": "aurevia_e2e_hybrid_test_micro",
+    "exposedModule": "./plugin",
+    "contractVersion": "1.0",
+    "apiBasePath": "/api/proxy/e2e-hybrid-test-micro"
+  },
+  "defaultRouteKey": "page-a",
+  "routes": [
+    { "key": "page-a", "path": "", "requiredResource": "page:e2e-hybrid-test-micro.page-a", "requiredAction": "view", "title": "Page A" },
+    { "key": "page-b", "path": "page-b", "requiredResource": "page:e2e-hybrid-test-micro.page-b", "requiredAction": "view", "title": "Page B" },
+    { "key": "page-c", "path": "page-c", "requiredResource": "page:e2e-hybrid-test-micro.page-c", "requiredAction": "view", "title": "Page C" }
+  ],
+  "navigation": [
+    { "key": "e2e.page-a", "type": "PAGE", "routeKey": "page-a", "title": "Page A", "order": 910 },
+    { "key": "e2e.page-b", "type": "PAGE", "routeKey": "page-b", "title": "Page B renamed", "order": 920 },
+    { "key": "e2e.page-c", "type": "PAGE", "routeKey": "page-c", "title": "Page C", "order": 930 }
+  ]
+}

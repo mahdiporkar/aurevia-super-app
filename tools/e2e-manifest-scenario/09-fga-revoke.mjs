@@ -1,0 +1,11 @@
+import {grantTo,revokeAll,drain,ids,ctxB} from './grant.mjs';
+import {read,check} from './fga.mjs';
+const U='user:'+ids.canonical, O='resource:page/e2e-hybrid-test-micro.page-a';
+await revokeAll();await drain();
+await grantTo(ids.pageA);await drain();
+console.log('GRANTED  tuples:',JSON.stringify(await read({object:O,user:U})));
+console.log('GRANTED  check can_view:',await check(U,'can_view',O));
+await revokeAll();await drain();
+console.log('REVOKED  tuples:',JSON.stringify(await read({object:O,user:U})));
+console.log('REVOKED  check can_view:',await check(U,'can_view',O));
+console.log('REVOKED  ctx:',JSON.stringify(await ctxB()));

@@ -1,0 +1,11 @@
+import {userB} from './lib2.mjs';
+import {grantTo,revokeAll,drain,ids} from './grant.mjs';
+await revokeAll(); await drain();
+let s=await userB();
+console.log('LEGACY no-grant ->',JSON.stringify(await s.json('/api/proxy/e2e-hybrid-legacy/api/test/whoami')).slice(0,200));
+await grantTo(ids.pageA); await drain();
+s=await userB();
+const r=await s.json('/api/proxy/e2e-hybrid-legacy/api/test/whoami');
+console.log('LEGACY authorized ->',r.status,JSON.stringify(r.body));
+const f=await s.json('/api/proxy/e2e-hybrid-test-micro/api/test/whoami');
+console.log('FORWARD same micro ->',f.status,JSON.stringify(f.body).slice(0,180));

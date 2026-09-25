@@ -1,0 +1,13 @@
+import {grantTo,revokeAll,ctxB,drain,ids} from './grant.mjs';
+import {execSync} from 'node:child_process';
+const fga=(o)=>execSync(`curl -s -X POST "http://localhost:8080/stores/01M33FMPQFJHE3509XJC58BS61/read" -H "Content-Type: application/json" -d '{"tuple_key":{"object":"${o}","user":"user:${ids.canonical}"}}'`).toString();
+await revokeAll(); await drain();
+await grantTo(ids.pageA); await drain();
+console.log('AFTER GRANT  ctx:',JSON.stringify((await ctxB()).permKeys));
+console.log('AFTER GRANT  fga tuples:',fga('resource:page/e2e-hybrid-test-micro.page-a').slice(0,200));
+const db=()=>execSync(`docker exec aurevia-e2e-auth-db-1 psql -U aurevia -d aurevia_auth -t -A -c "select count(*) from authorization_grant where subject_id='${ids.userB}' and status='ACTIVE';"`).toString().trim();
+console.log('AFTER GRANT  active db grants:',db());
+await revokeAll(); await drain();
+console.log('AFTER REVOKE ctx:',JSON.stringify((await ctxB())));
+console.log('AFTER REVOKE fga tuples:',fga('resource:page/e2e-hybrid-test-micro.page-a').slice(0,200));
+console.log('AFTER REVOKE active db grants:',db());

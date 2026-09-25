@@ -1,0 +1,7 @@
+# Publish on all host interfaces so Aurevia reaches these Superset servers over the host
+# network exactly as it would reach an external, separately operated Superset deployment.
+services:
+  superset-public:
+    ports: !override ["0.0.0.0:8089:8088"]
+  superset-operation:
+    ports: !override ["0.0.0.0:8088:8088"]

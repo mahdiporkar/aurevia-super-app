@@ -1,0 +1,13 @@
+import {admin,state} from './lib.mjs';
+import {drain,ids} from './grant.mjs';
+import {check} from './fga.mjs';
+const s=await admin(); const st=state(); const P=st.panelId;
+const arts=await s.json(`/api/v1/admin/panels/${P}/artifacts`);
+const v2=arts.body.find(a=>a.artifact_version==='2.0.0');
+const p=(await s.json('/api/v1/admin/panels')).body.find(x=>x.id===P);
+const r=await s.json(`/api/v1/admin/panels/${P}/artifacts/${v2.id}/activate?version=${p.version}`,'POST');
+console.log('ROLL FORWARD ->',r.status,JSON.stringify(r.body));
+await drain();
+const U='user:'+ids.canonical;
+console.log('page-c exists again:',await check(U,'can_view','resource:page/e2e-hybrid-test-micro.page-c'),'(user has no grant, expect false)');
+console.log('section-a2 under page-a:',await check(U,'can_view','resource:component/e2e-hybrid-test-micro.section-a2'),'(v2 moves it to page-b, expect false)');

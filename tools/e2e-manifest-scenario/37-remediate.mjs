@@ -1,0 +1,12 @@
+import {admin} from './lib.mjs';
+const s=await admin();
+const panels=(await s.json('/api/v1/admin/panels')).body;
+const p=panels.find(x=>x.slug==='test-sso');
+const revs=(await s.json(`/api/v1/admin/panels/${p.id}/resource-manifests`)).body;
+const arts=(await s.json(`/api/v1/admin/panels/${p.id}/artifacts`)).body;
+console.log('revisions:',JSON.stringify(revs.map(r=>({v:r.manifestVersion,st:r.workflowStatus,active:r.active}))));
+console.log('artifacts:',JSON.stringify(arts.map(a=>({v:a.artifact_version,active:a.active,rm:a.resource_manifest_id}))));
+const pub=revs.find(r=>r.workflowStatus==='PUBLISHED');
+const art=arts.find(a=>a.resource_manifest_id===pub.id)||arts[0];
+const r=await s.json(`/api/v1/admin/panels/${p.id}/artifacts/${art.id}/activate?version=${p.version}&resourceManifestId=${pub.id}`,'POST');
+console.log('REMEDIATION activate pair ->',r.status,JSON.stringify(r.body).slice(0,160));
