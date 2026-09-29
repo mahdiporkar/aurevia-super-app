@@ -1,10 +1,11 @@
 {
   "schemaVersion": "1.0",
-  "microfrontend": { "key": "reports", "name": "Reports", "version": "0.2.0" },
+  "microfrontend": { "key": "reports", "name": "Reports", "version": "0.3.0" },
   "runtime": { "remoteEntry": "http://localhost:3004/remoteEntry.js", "remoteName": "aurevia_reports", "exposedModule": "./bootstrap", "contractVersion": "1.0", "apiBasePath": "/api/v1" },
   "defaultRouteKey": "index",
   "routes": [
-    { "key": "index", "path": "", "requiredResource": "application:aurevia/reports", "requiredAction": "view", "title": "مرکز گزارش‌ها" }
+    { "key": "index", "path": "", "requiredResource": "application:aurevia/reports", "requiredAction": "view", "title": "مرکز گزارش‌ها" },
+    { "key": "view", "path": "view/:reportId", "requiredResource": "application:aurevia/reports", "requiredAction": "view", "title": "نمایش گزارش" }
   ],
   "navigation": [
     { "key": "reports.nav.root", "type": "GROUP", "title": "گزارش‌ها", "icon": "dashboard", "order": 30 },

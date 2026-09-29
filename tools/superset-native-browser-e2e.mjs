@@ -30,17 +30,54 @@ export async function verifyNativeSupersetInChrome({origin,username,password,pat
       +';document.querySelector(\'input[name="password"]\').value='+JSON.stringify(password)+';document.querySelector("form").requestSubmit();})()');
     await until('location.origin==='+JSON.stringify(origin),'Login did not return to Aurevia');
     await cdp.call('Page.navigate',{url:origin+'/reports'},sessionId);
-    const paths=[path,path.endsWith('/')?path.slice(0,-1):path+'/'];
-    const link='[...document.querySelectorAll("a")].find(a=>'+JSON.stringify(paths)+'.includes(new URL(a.href).pathname))';
-    await until('Boolean('+link+')',
-      'Reports MFE did not display the granted dashboard');
-    const reportUrl=await read(link+'.href');
-    const reportLinks=await read('[...document.querySelectorAll("a")].filter(a=>{const p=new URL(a.href).pathname;return p.startsWith("/superset/dashboard/")||p.startsWith("/explore/")}).length');
-    assert.equal(reportLinks,3,'Reports MFE did not display the three granted reports');
-    assert.equal(new URL(reportUrl).origin,origin);
-    start=cdp.events.length;await cdp.call('Page.navigate',{url:reportUrl},sessionId);
-    await until('document.body.innerText.includes("Aurevia Native BI Demo")','Superset dashboard did not render');
-    await until('document.body.innerText.includes("Finance")&&document.body.innerText.includes("IT")','Real department data did not render in the table chart');
+    const actionButtons='[...document.querySelectorAll(".ant-card-actions button")]';
+    await until(actionButtons+'.length>=3','Reports MFE did not display the granted reports');
+    const reportCards=await read(actionButtons+'.length');
+    assert.equal(reportCards,3,'Reports MFE did not display the three granted reports');
+    // Reports open inside Aurevia: the catalog must offer no external navigation.
+    assert.equal(await read('document.querySelectorAll(\'[target="_blank"]\').length'),0,
+      'Reports catalog still opens a report in a new browser tab');
+    assert.equal(await read('[...document.querySelectorAll("a")].filter(a=>{const p=new URL(a.href).pathname;'
+      +'return p.startsWith("/superset/")||p.startsWith("/explore/")||p.startsWith("/api/v1/superset-instances/")}).length'),0,
+      'Reports catalog still links the browser straight at Superset');
+    const catalogText=await read('document.body.innerText');
+    const pagesBefore=(await cdp.call('Target.getTargets')).targetInfos.filter(target=>target.type==='page').length;
+
+    // Resolve the granted dashboard from the authorized catalog, then open it the
+    // way a user does: by clicking its card, not by navigating to a report URL.
+    const asset=await read('fetch("/api/v1/reports",{headers:{Accept:"application/json"}})'
+      +'.then(response=>response.json()).then(list=>{const found=list.find(item=>'+JSON.stringify(paths)
+      +'.some(candidate=>new URL(item.url_path,location.origin).pathname.endsWith(candidate)));'
+      +'return found?{id:found.id,title:found.title,path:new URL(found.url_path,location.origin).pathname}:null})');
+    assert(asset,'Granted dashboard is missing from the authorized report catalog');
+    assert(catalogText.includes(asset.title),'Reports catalog did not render the granted dashboard');
+    start=cdp.events.length;
+    await read('[...document.querySelectorAll(".ant-card")].find(card=>card.innerText.includes('
+      +JSON.stringify(asset.title)+')).querySelector(".ant-card-actions button").click()');
+    await until('location.pathname==="/reports/view/"+encodeURIComponent('+JSON.stringify(asset.id)+')',
+      'Clicking a report did not move the Shell to the report viewer route');
+    // No new browser tab, and the Aurevia Shell is still the surrounding page.
+    assert.equal((await cdp.call('Target.getTargets')).targetInfos.filter(target=>target.type==='page').length,
+      pagesBefore,'Opening a report created a second browser tab');
+    assert(await read('Boolean(document.querySelector(".app-header")&&document.querySelector(".app-sidebar"))'),
+      'Aurevia Shell header/sidebar is not visible while the report is open');
+    await until('Boolean(document.querySelector("iframe"))','Report viewer did not embed an iframe');
+    const frameSource=await read('new URL(document.querySelector("iframe").src).pathname');
+    assert.equal(frameSource,asset.path,'Report viewer embedded an unexpected path');
+    assert.equal(await read('new URL(document.querySelector("iframe").src).origin'),origin,
+      'Report viewer embedded a cross-origin Superset URL');
+
+    // The embedded document is same-origin, but it is only readable once the
+    // frame has a body, so every in-frame probe degrades to false until then.
+    const inFrame=expression=>'(function(){try{const d=document.querySelector("iframe").contentDocument;'
+      +'if(!d||!d.body)return false;return ('+expression+');}catch(ignored){return false}})()';
+    await until(inFrame('d.body.innerText.includes("Aurevia Native BI Demo")'),
+      'Superset dashboard did not render inside the Aurevia viewer');
+    await until(inFrame('d.body.innerText.includes("Finance")&&d.body.innerText.includes("IT")'),
+      'Real department data did not render in the table chart');
+    // A second Superset login inside the frame would replace the dashboard with a form.
+    assert.equal(await read(inFrame('d.querySelectorAll(\'input[type="password"]\').length===0')),true,
+      'Embedded Superset asked the user to log in a second time');
     const events=cdp.events.slice(start).filter(event=>event.sessionId===sessionId);
     const requests=events.filter(event=>event.method==='Network.requestWillBeSent');
     const network=requests.filter(event=>new URL(event.params.request.url).protocol!=='data:');
@@ -60,10 +97,20 @@ export async function verifyNativeSupersetInChrome({origin,username,password,pat
     safeResponse(storage,[password]);assert(!storage.cookie.includes('AUREVIA_SESSION'),'BFF cookie is visible to page JavaScript');
     assert(!/access.?token|refresh.?token|id.?token/i.test(JSON.stringify(storage)),'OAuth tokens in report storage');
     assert(!events.some(event=>event.method==='Runtime.exceptionThrown'),'Report browser runtime exception');
-    await read('document.querySelector(".chart-container")?.scrollIntoView({block:"center"})');
+    await read('document.querySelector("iframe").contentDocument.querySelector(".chart-container")?.scrollIntoView({block:"center"})');
     const screenshot=await cdp.call('Page.captureScreenshot',{format:'png'},sessionId);
     mkdirSync('target/superset-native',{recursive:true});writeFileSync('target/superset-native/dashboard.png',Buffer.from(screenshot.data,'base64'));
-    return {reportsCatalogRendered:true,grantedReportLinks:reportLinks,dashboardRendered:true,tableRows:4,total:1150,chartDataResponses:queryResponses.length,
+
+    // Browser Back must return to the catalog without leaving Aurevia.
+    await read('history.back()');
+    await until('location.pathname==="/reports"&&'+actionButtons+'.length>=3',
+      'Browser Back did not return to the reports catalog');
+    assert.equal(await read('document.querySelectorAll("iframe").length'),0,
+      'Report viewer iframe survived the Back navigation');
+
+    return {reportsCatalogRendered:true,grantedReportLinks:reportCards,dashboardRendered:true,
+      embeddedInShell:true,newBrowserTab:false,secondSupersetLogin:false,backReturnsToCatalog:true,
+      tableRows:4,total:1150,chartDataResponses:queryResponses.length,
       networkRequests:network.length,sameOrigin:true,oauthHeaders:false,storageContainsCredentials:false};
   }catch(error){
     if(read)try{

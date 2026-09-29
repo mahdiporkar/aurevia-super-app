@@ -8,6 +8,7 @@ import org.springframework.security.web.server.util.matcher.NegatedServerWebExch
 import org.springframework.security.web.server.util.matcher.OrServerWebExchangeMatcher;
 import org.springframework.security.web.server.util.matcher.PathPatternParserServerWebExchangeMatcher;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.header.XFrameOptionsServerHttpHeadersWriter.Mode;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.web.server.authentication.RedirectServerAuthenticationEntryPoint;
 import org.springframework.security.web.server.authentication.logout.HttpStatusReturningServerLogoutSuccessHandler;
@@ -51,6 +52,11 @@ class SecurityConfig {
             CsrfWebFilter.DEFAULT_CSRF_MATCHER,
             new NegatedServerWebExchangeMatcher(new OrServerWebExchangeMatcher(
                 supersetProxy,namedSupersetProxy,integrationSupersetProxy)))))
+        // Spring Security defaults to X-Frame-Options: DENY, which blocked the
+        // Reports micro frontend from embedding a Superset dashboard through this
+        // same-origin tunnel. SAMEORIGIN keeps every cross-origin site from framing
+        // Aurevia; Nginx's frame-ancestors 'self' remains the modern equivalent.
+        .headers(headers -> headers.frameOptions(frame -> frame.mode(Mode.SAMEORIGIN)))
         .securityContextRepository(securityContexts)
         .oauth2Login(o -> o.authenticationSuccessHandler(loginSuccess))
         .logout(l -> l.logoutUrl("/auth/logout")

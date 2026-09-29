@@ -1,29 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Alert, Button, Card, Col, Empty, Input, Row, Skeleton, Space, Tag, Typography } from 'antd';
+import { Alert } from 'antd';
 import type { RemoteContext, RemoteModule } from '@aurevia/contracts';
 import { createJsonHttpClient } from '@aurevia/http-client';
-import { parseReportTags, safeReportPath } from './report-security';
+import type { ReportAsset } from './report-security';
+import { reportCatalogPath, reportViewerPath, splitReportLocation } from './report-routing';
+import { ReportsCatalog } from './ReportsCatalog';
+import { ReportViewer } from './ReportViewer';
 
 export const contractVersion = '1' as const;
 const reportsClient = createJsonHttpClient({ basePath: '/api/v1' });
+const VIEWER_ENTRY = 'aureviaReportViewer';
 
-type ReportAsset = {
-  id: string;
-  external_id: string;
-  asset_type: 'DASHBOARD' | 'CHART';
-  title: string;
-  url_path: string;
-  owner_external_id?: string;
-  tags_json?: string;
-};
-
-function ReportsCatalog() {
+function ReportsApp() {
   const [reports, setReports] = useState<ReportAsset[]>([]);
-  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [attempt, setAttempt] = useState(0);
+  const [location, setLocation] = useState(() => splitReportLocation(window.location.pathname));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -41,54 +35,59 @@ function ReportsCatalog() {
     return () => controller.abort();
   }, [attempt]);
 
-  const visibleReports = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase('fa');
-    if (!normalized) return reports;
-    return reports.filter((report) =>
-      `${report.title} ${report.owner_external_id ?? ''} ${report.tags_json ?? ''}`
-        .toLocaleLowerCase('fa')
-        .includes(normalized),
-    );
-  }, [query, reports]);
+  // Back/forward must return to the catalog, and a refresh on a viewer URL must
+  // reopen the same report. Both fall out of reading the location on popstate.
+  useEffect(() => {
+    const onPopState = () => setLocation(splitReportLocation(window.location.pathname));
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
-  return <Space direction="vertical" size={18} style={{ width: '100%' }}>
-    <Card>
-      <Row gutter={[16, 16]} align="middle">
-        <Col flex="auto">
-          <Typography.Title level={3} style={{ marginBottom: 4 }}>مرکز گزارش‌ها</Typography.Title>
-          <Typography.Text type="secondary">داشبوردها و گزارش‌هایی که برای حساب شما مجوز مشاهده دارند</Typography.Text>
-        </Col>
-        <Col><Tag color="green">Superset متصل</Tag></Col>
-      </Row>
-      <Input.Search allowClear size="large" aria-label="جستجوی گزارش" placeholder="نام گزارش، مالک یا برچسب..." style={{ marginTop: 18, maxWidth: 620 }} onChange={(event) => setQuery(event.target.value)} />
-    </Card>
+  const openReport = useCallback((report: ReportAsset) => {
+    const path = reportViewerPath(location.basePath, report.id);
+    // The marker records that this session pushed the viewer entry itself, so
+    // Back can be a real history step here and a replace on a cold deep link.
+    window.history.pushState({ [VIEWER_ENTRY]: true }, '', path + window.location.search);
+    setLocation(splitReportLocation(path));
+  }, [location.basePath]);
 
-    {error && <Alert showIcon type="error" message="دریافت کاتالوگ گزارش‌ها ناموفق بود" description={error}
-      action={<Button onClick={() => setAttempt(value => value + 1)}>تلاش مجدد</Button>} />}
+  const backToCatalog = useCallback(() => {
+    if ((window.history.state as Record<string, unknown> | null)?.[VIEWER_ENTRY]) {
+      // Keep the browser's Back stack consistent with the toolbar action instead
+      // of pushing a second catalog entry on top of it.
+      window.history.back();
+      return;
+    }
+    const path = reportCatalogPath(location.basePath);
+    window.history.replaceState({}, '', path + window.location.search);
+    setLocation(splitReportLocation(path));
+  }, [location.basePath]);
 
-    {loading ? <Row gutter={[16, 16]}>
-      {[1, 2, 3].map((item) => <Col xs={24} md={12} xl={8} key={item}><Card><Skeleton active /></Card></Col>)}
-    </Row> : visibleReports.length === 0 ? <Card><Empty description="گزارش تخصیص‌یافته‌ای پیدا نشد" /></Card> : <Row gutter={[16, 16]}>
-      {visibleReports.map((report) => {
-        const tags = parseReportTags(report.tags_json);
-        const reportPath = safeReportPath(report.url_path);
-        return <Col xs={24} md={12} xl={8} key={report.id}>
-          <Card hoverable title={report.title} extra={<Tag color={report.asset_type === 'DASHBOARD' ? 'blue' : 'purple'}>{report.asset_type === 'DASHBOARD' ? 'داشبورد' : 'گزارش'}</Tag>} actions={[
-            <Button type="link" key="open" href={reportPath} disabled={!reportPath} target="_blank" rel="noopener noreferrer">باز کردن در Superset</Button>,
-          ]}>
-            <Space direction="vertical">
-              <Typography.Text type="secondary">مالک: {report.owner_external_id || 'تیم گزارشات'}</Typography.Text>
-              <Space wrap>{tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Space>
-            </Space>
-          </Card>
-        </Col>;
-      })}
-    </Row>}
-  </Space>;
+  const selected = useMemo(
+    () => location.reportId ? reports.find((report) => report.id === location.reportId) : undefined,
+    [location.reportId, reports],
+  );
+
+  if (location.reportId && !loading && !error && !selected) {
+    // The catalog only contains assets this subject is authorized to view, so an
+    // unknown id is reported as unavailable rather than embedded optimistically.
+    return <Alert showIcon type="warning" message="گزارش مورد نظر در دسترس نیست"
+      description="این گزارش وجود ندارد یا برای حساب شما مجوز مشاهده ندارد." />;
+  }
+
+  if (selected) return <ReportViewer report={selected} onBack={backToCatalog} />;
+
+  return <ReportsCatalog
+    reports={reports}
+    loading={loading || Boolean(location.reportId)}
+    error={error}
+    onRetry={() => setAttempt(value => value + 1)}
+    onOpen={openReport}
+  />;
 }
 
 export const mount: RemoteModule['mount'] = (element: HTMLElement, _context: RemoteContext) => {
   const root = createRoot(element);
-  root.render(<ReportsCatalog />);
+  root.render(<ReportsApp />);
   return () => root.unmount();
 };

@@ -1,3 +1,13 @@
+export type ReportAsset = {
+  id: string;
+  external_id: string;
+  asset_type: 'DASHBOARD' | 'CHART';
+  title: string;
+  url_path: string;
+  owner_external_id?: string;
+  tags_json?: string;
+};
+
 export function parseReportTags(value?: string): string[] {
   if (!value) return [];
   try {

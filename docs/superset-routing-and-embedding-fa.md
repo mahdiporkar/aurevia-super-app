@@ -93,14 +93,23 @@ Chart:     /explore/?slice_id={chartId}
 
 URL نهایی BFF ممکن است prefix `/api/integrations/superset/{code}` داشته باشد. UI باید همان `url_path` معتبر برگشتی BFF را مصرف کند، نه URL مستقیم میزبان عملیاتی.
 
-پیاده‌سازی فعلی `apps/mfe-reports/src/bootstrap.tsx` گزارش را با `target="_blank"` باز می‌کند. iframe هنوز طراحی هدف است؛ نمونه توسعه آینده:
+گزارش داخل خود Aurevia نمایش داده می‌شود و هیچ tab جدیدی باز نمی‌شود. `ReportsCatalog` کارت‌ها را نشان می‌دهد و `ReportViewer` همان `url_path` معتبرشده با `safeReportPath` را در یک iframe same-origin render می‌کند. Header و Sidebar شل در تمام مدت دیده می‌شوند.
 
-```tsx
-<iframe src={report.url_path} title={report.title}
-  style={{ width: '100%', height: 'calc(100vh - 180px)', border: 0 }} />
+```text
+Shell
+ └── Reports MFE
+       ├── ReportsCatalog          /reports
+       └── ReportViewer            /reports/view/{assetId}
+             └── iframe  →  url_path  →  BFF  →  OpenFGA  →  Operation Superset
 ```
 
-برای viewer، origin و prefix URL محدود، CSP و frame policy هماهنگ و کنترل BFF/OpenFGA حفظ شود. مخفی‌کردن کارت یا iframe کنترل مجوز نیست.
+مسیر viewer یک route واقعی در MF manifest است (`view/:reportId`) تا refresh، deep link و Back مرورگر کار کنند؛ شل میکروفرانت را فقط روی مسیری mount می‌کند که manifest آن را اعلام کرده باشد. این route همان `requiredResource` و `requiredAction` مسیر لندینگ را دارد و دسترسی را گسترده نمی‌کند.
+
+ارتفاع iframe از فاصله واقعی container تا پایین viewport محاسبه می‌شود، نه با عدد ثابت، تا تغییر layout شل آن را نشکند.
+
+viewer شناسه گزارش را در کاتالوگ مجازشده جست‌وجو می‌کند؛ شناسه ناشناس «در دسترس نیست» می‌گیرد. این کنترل UI است و جای مجوز را نمی‌گیرد: دستکاری URL iframe به داشبورد دیگر همچنان در BFF با OpenFGA رد می‌شود. مخفی‌کردن کارت یا iframe کنترل مجوز نیست.
+
+framing same-origin به این دلیل کار می‌کند که BFF فقط allow-list پاسخ را forward می‌کند و `X-Frame-Options`/CSP خود Superset به مرورگر نمی‌رسد؛ سیاست مؤثر از Nginx می‌آید و `frame-ancestors 'self'` و `X-Frame-Options SAMEORIGIN` است. هیچ تغییری برای embedding در این سیاست لازم نبود.
 
 ## APIهای root-relative و CSRF
 
