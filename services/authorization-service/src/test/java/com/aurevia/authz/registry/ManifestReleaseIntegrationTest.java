@@ -206,6 +206,115 @@ class ManifestReleaseIntegrationTest {
     assertPair(v1,a1);
   }
 
+  @Test void testMultiModuleThreePrincipalsRemainIsolatedAcrossPublishAndRollback() throws Exception {
+    // These are the exact contracts shipped by the runnable test MFE.
+    var v1Payload=demoContract("resource-manifest.json");
+    UUID v1=manifests.stageJson(panel,v1Payload,"test").id();
+    assertThat(manifests.stageJson(panel,v1Payload,"test").id()).isEqualTo(v1);
+    UUID a1=demoArtifact("1.0.0",v1,"mf-manifest.json");
+    manifests.publish(panel,v1,"test");drain();
+    assertMultiTree(3);
+    assertPair(v1,a1);
+    Map<String,UUID> originalIds=new java.util.LinkedHashMap<>();
+    for(String key:List.of("module:"+slug,"module:"+slug+".payroll","module:"+slug+".attendance"))
+      originalIds.put(key,resource(key));
+
+    String[] suffixes={"",".payroll",".attendance"};
+    String[][] pages={{"employee-list","employee-detail"},{"salary","payroll-report"},{"daily-attendance","attendance-report"}};
+    List<String> subjects=new ArrayList<>();
+    List<UUID> users=new ArrayList<>();
+    for(int index=0;index<3;index++) {
+      String external=UUID.randomUUID().toString();
+      UUID principal=identities.sync(new LoginIdentityRequest("test",ISSUER,external,
+          slug+"-"+index,"User "+index,null,List.of(),null,null,null,Map.of())).userId();
+      subjects.add(external);users.add(principal);
+      grantTo(principal,"module:"+slug+suffixes[index],"view");
+    }
+    drain();
+    for(int index=0;index<3;index++) {
+      var context=authorization.manifest(subjects.get(index),ISSUER);
+      assertThat(context.permissions()).containsKey("module:"+slug+suffixes[index]);
+      // Normal view does NOT inherit downwards; no authorized PAGE means no UI runtime entry.
+      assertThat(context.uiCatalog().modules()).noneMatch(m->m.moduleKey().equals(slug));
+      assertThat(context.permissions()).doesNotContainKey("application:aurevia/"+slug);
+      assertThat(context.resourceTree()).filteredOn(r->r.resourceKey().equals("application:aurevia/"+slug))
+          .singleElement().satisfies(r->assertThat(r.actions()).isEmpty());
+      for(String page:pages[index])
+        assertThat(authorization.check(new CheckRequest(subjects.get(index),ISSUER,
+            object("page:"+slug+"."+page),"view",Map.of(),"module-view-only")).decision().result()).isEqualTo("DENY");
+      for(int other=0;other<3;other++)if(other!=index)
+        assertThat(context.permissions()).doesNotContainKey("module:"+slug+suffixes[other]);
+      for(String page:pages[index])grantTo(users.get(index),"page:"+slug+"."+page,"view");
+    }
+    drain();
+    for(int index=0;index<3;index++)assertIsolatedContext(subjects.get(index),suffixes[index],pages[index]);
+
+    UUID v2=manifests.stageJson(panel,demoContract("resource-manifest.v2.json"),"test").id();
+    // Existing active artifact is immutably associated with V1.
+    assertThatThrownBy(()->manifests.publish(panel,v2,"test")).hasMessageContaining("artifact");
+    UUID a2=demoArtifact("2.0.0",v2,"mf-manifest.v2.json");
+    manifests.publish(panel,v2,"test");drain();
+    assertMultiTree(4);assertPair(v2,a2);
+    grantTo(users.getFirst(),"module:"+slug+".benefits","view");drain();
+    assertThat(authorization.manifest(subjects.getFirst(),ISSUER).permissions())
+        .containsKey("module:"+slug+".benefits");
+    manifests.activate(panel,v1,"test",a1);drain();
+    assertMultiTree(3);assertPair(v1,a1);
+    assertThat(status("module:"+slug+".benefits")).isEqualTo("DEPRECATED");
+    originalIds.forEach((key,id)->assertThat(resource(key)).isEqualTo(id));
+    for(int index=0;index<3;index++)assertIsolatedContext(subjects.get(index),suffixes[index],pages[index]);
+    assertThat(authorization.manifest(subjects.getFirst(),ISSUER).permissions())
+        .doesNotContainKey("module:"+slug+".benefits");
+  }
+
+  private com.fasterxml.jackson.databind.JsonNode demoContract(String file) throws Exception {
+    return json.readTree(com.aurevia.authz.support.MultiModuleFixture.read(file).replace("test-multi-module",slug));
+  }
+  private UUID demoArtifact(String version,UUID revision,String file) throws Exception {
+    return artifacts.publish(panel,"test",new ArtifactRequest(version,"http://localhost:3013/remoteEntry.js",
+        "aurevia_test_multi_module","./plugin","1.0",null,demoContract(file).toString(),revision)).id();
+  }
+  private void grantTo(UUID principal,String key,String action) {
+    UUID actionId=db.sql("select id from action where action_key=:key").param("key",action).query(UUID.class).single();
+    access.grant(new GrantCommand(null,"USER",principal,resource(key),actionId,null),"test");
+  }
+  private void assertMultiTree(int modules) {
+    assertThat(db.sql("select count(*) from panel where id=:id").param("id",panel).query(Long.class).single()).isEqualTo(1);
+    var tree=db.sql("select id,type::text,parent_id,panel_id,resource_key from resource where panel_id=:id and status='ACTIVE'")
+        .param("id",panel).query().listOfRows();
+    assertThat(tree).filteredOn(r->r.get("type").equals("APPLICATION")).hasSize(1);
+    assertThat(tree).filteredOn(r->r.get("type").equals("MODULE")).hasSize(modules)
+        .allSatisfy(r->{assertThat(r.get("panel_id")).isEqualTo(panel);
+          assertThat(r.get("parent_id")).isEqualTo(resource("application:aurevia/"+slug));});
+    assertThat(tree).filteredOn(r->r.get("type").equals("PAGE")).hasSize(6);
+    Map<String,String> parents=Map.of("employee-list","","employee-detail","","salary",".payroll",
+        "payroll-report",".payroll","daily-attendance",".attendance","attendance-report",".attendance");
+    parents.forEach((page,suffix)->assertThat(parent("page:"+slug+"."+page)).isEqualTo(resource("module:"+slug+suffix)));
+  }
+  private void assertIsolatedContext(String external,String suffix,String[] pages) {
+    var context=authorization.manifest(external,ISSUER);
+    var expected=List.of("module:"+slug+suffix,"page:"+slug+"."+pages[0],"page:"+slug+"."+pages[1]);
+    assertThat(context.permissions().keySet()).containsExactlyInAnyOrderElementsOf(expected);
+    assertThat(context.resourceTree()).filteredOn(r->r.resourceKey().equals("application:aurevia/"+slug))
+        .singleElement().satisfies(r->assertThat(r.actions()).isEmpty());
+    assertThat(context.resourceTree()).filteredOn(r->r.type().equals("MODULE"))
+        .extracting(r->r.resourceKey()).containsExactly("module:"+slug+suffix);
+    assertThat(context.panels()).extracting(p->p.id()).contains(panel);
+    assertThat(context.uiCatalog().modules()).filteredOn(m->m.moduleKey().equals(slug))
+        .singleElement().satisfies(m->{
+          assertThat(m.routes()).extracting(r->r.id()).containsExactlyInAnyOrder(pages);
+          assertThat(m.menus()).extracting(r->r.routeId()).containsExactlyInAnyOrder(pages);
+          assertThat(m.navigation()).filteredOn(n->n.type().equals("GROUP")).hasSize(1);
+        });
+    for(String denied:List.of("",".payroll",".attendance"))if(!denied.equals(suffix))
+      assertThat(authorization.check(new CheckRequest(external,ISSUER,object("module:"+slug+denied),
+          "view",Map.of(),"multi-module")).decision().result()).isEqualTo("DENY");
+    for(String page:List.of("employee-list","employee-detail","salary","payroll-report","daily-attendance","attendance-report"))
+      assertThat(authorization.check(new CheckRequest(external,ISSUER,object("page:"+slug+"."+page),
+          "view",Map.of(),"multi-module-page")).decision().result())
+          .isEqualTo(java.util.Arrays.asList(pages).contains(page)?"ALLOW":"DENY");
+  }
+
   private UUID stage(String version,boolean next) {
     List<ManifestResource> values=new ArrayList<>();
     values.add(node("module:"+slug+".other","MODULE",null,List.of("view"),null));

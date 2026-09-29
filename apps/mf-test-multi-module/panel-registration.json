@@ -1,0 +1,20 @@
+{
+  "code": "TEST_MULTI_MODULE",
+  "nameFa": "آزمایش چند ماژول",
+  "nameEn": "TEST_MULTI_MODULE",
+  "slug": "test-multi-module",
+  "serviceSlug": "test-multi-module",
+  "remoteName": "aurevia_test_multi_module",
+  "defaultRouteId": "employee-list",
+  "remoteEntry": "http://localhost:3013/remoteEntry.js",
+  "exposedModule": "./plugin",
+  "routeBasePath": "/test-multi-module",
+  "semanticVersion": "1.0.0",
+  "contractVersion": "1.0",
+  "resourceDefinitionMode": "HYBRID",
+  "classification": "REAL",
+  "mfManifestUrl": "http://localhost:3013/mf-manifest.json",
+  "resourceManifestUrl": "http://localhost:3013/resource-manifest.json",
+  "active": true,
+  "sortOrder": 130
+}

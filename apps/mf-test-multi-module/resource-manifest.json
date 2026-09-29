@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "1.0",
+  "module": {
+    "key": "test-multi-module",
+    "name": "TEST_MULTI_MODULE",
+    "version": "1.0.0"
+  },
+  "resources": [
+    {
+      "key": "module:test-multi-module",
+      "type": "MODULE",
+      "name": "Employee",
+      "actions": [
+        "view",
+        "admin"
+      ]
+    },
+    {
+      "key": "page:test-multi-module.employee-list",
+      "type": "PAGE",
+      "parentKey": "module:test-multi-module",
+      "name": "employee-list",
+      "actions": [
+        "view"
+      ]
+    },
+    {
+      "key": "page:test-multi-module.employee-detail",
+      "type": "PAGE",
+      "parentKey": "module:test-multi-module",
+      "name": "employee-detail",
+      "actions": [
+        "view"
+      ]
+    },
+    {
+      "key": "module:test-multi-module.payroll",
+      "type": "MODULE",
+      "name": "Payroll",
+      "actions": [
+        "view",
+        "admin"
+      ]
+    },
+    {
+      "key": "page:test-multi-module.salary",
+      "type": "PAGE",
+      "parentKey": "module:test-multi-module.payroll",
+      "name": "salary",
+      "actions": [
+        "view"
+      ]
+    },
+    {
+      "key": "page:test-multi-module.payroll-report",
+      "type": "PAGE",
+      "parentKey": "module:test-multi-module.payroll",
+      "name": "payroll-report",
+      "actions": [
+        "view"
+      ]
+    },
+    {
+      "key": "module:test-multi-module.attendance",
+      "type": "MODULE",
+      "name": "Attendance",
+      "actions": [
+        "view",
+        "admin"
+      ]
+    },
+    {
+      "key": "page:test-multi-module.daily-attendance",
+      "type": "PAGE",
+      "parentKey": "module:test-multi-module.attendance",
+      "name": "daily-attendance",
+      "actions": [
+        "view"
+      ]
+    },
+    {
+      "key": "page:test-multi-module.attendance-report",
+      "type": "PAGE",
+      "parentKey": "module:test-multi-module.attendance",
+      "name": "attendance-report",
+      "actions": [
+        "view"
+      ]
+    }
+  ]
+}

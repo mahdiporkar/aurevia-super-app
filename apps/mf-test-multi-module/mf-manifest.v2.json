@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "1.0",
+  "microfrontend": {
+    "key": "test-multi-module",
+    "name": "TEST_MULTI_MODULE",
+    "version": "2.0.0"
+  },
+  "runtime": {
+    "remoteEntry": "http://localhost:3013/remoteEntry.js",
+    "remoteName": "aurevia_test_multi_module",
+    "exposedModule": "./plugin",
+    "contractVersion": "1.0"
+  },
+  "defaultRouteKey": "employee-list",
+  "routes": [
+    {
+      "key": "employee-list",
+      "path": "employee/employee-list",
+      "requiredResource": "page:test-multi-module.employee-list",
+      "requiredAction": "view",
+      "title": "employee-list"
+    },
+    {
+      "key": "employee-detail",
+      "path": "employee/employee-detail",
+      "requiredResource": "page:test-multi-module.employee-detail",
+      "requiredAction": "view",
+      "title": "employee-detail"
+    },
+    {
+      "key": "salary",
+      "path": "payroll/salary",
+      "requiredResource": "page:test-multi-module.salary",
+      "requiredAction": "view",
+      "title": "salary"
+    },
+    {
+      "key": "payroll-report",
+      "path": "payroll/payroll-report",
+      "requiredResource": "page:test-multi-module.payroll-report",
+      "requiredAction": "view",
+      "title": "payroll-report"
+    },
+    {
+      "key": "daily-attendance",
+      "path": "attendance/daily-attendance",
+      "requiredResource": "page:test-multi-module.daily-attendance",
+      "requiredAction": "view",
+      "title": "daily-attendance"
+    },
+    {
+      "key": "attendance-report",
+      "path": "attendance/attendance-report",
+      "requiredResource": "page:test-multi-module.attendance-report",
+      "requiredAction": "view",
+      "title": "attendance-report"
+    }
+  ],
+  "navigation": [
+    {
+      "key": "employee",
+      "type": "GROUP",
+      "title": "Employee",
+      "order": 0
+    },
+    {
+      "key": "employee-list",
+      "type": "PAGE",
+      "parentKey": "employee",
+      "routeKey": "employee-list",
+      "title": "employee-list",
+      "order": 0
+    },
+    {
+      "key": "employee-detail",
+      "type": "PAGE",
+      "parentKey": "employee",
+      "routeKey": "employee-detail",
+      "title": "employee-detail",
+      "order": 1
+    },
+    {
+      "key": "payroll",
+      "type": "GROUP",
+      "title": "Payroll",
+      "order": 1
+    },
+    {
+      "key": "salary",
+      "type": "PAGE",
+      "parentKey": "payroll",
+      "routeKey": "salary",
+      "title": "salary",
+      "order": 0
+    },
+    {
+      "key": "payroll-report",
+      "type": "PAGE",
+      "parentKey": "payroll",
+      "routeKey": "payroll-report",
+      "title": "payroll-report",
+      "order": 1
+    },
+    {
+      "key": "attendance",
+      "type": "GROUP",
+      "title": "Attendance",
+      "order": 2
+    },
+    {
+      "key": "daily-attendance",
+      "type": "PAGE",
+      "parentKey": "attendance",
+      "routeKey": "daily-attendance",
+      "title": "daily-attendance",
+      "order": 0
+    },
+    {
+      "key": "attendance-report",
+      "type": "PAGE",
+      "parentKey": "attendance",
+      "routeKey": "attendance-report",
+      "title": "attendance-report",
+      "order": 1
+    }
+  ]
+}
