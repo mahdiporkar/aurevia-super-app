@@ -185,14 +185,14 @@ try{
       for(const suffix of ['artifacts','resource-manifests','navigation-definitions'])await b.response(start,'/api/v1/admin/panels/'+panel.id+'/'+suffix);
       await b.until('Boolean(document.querySelector(".ant-modal"))','Artifact details missing');await b.click('.ant-modal-close');return {artifact:true,manifests:true,navigation:true,...await b.clean(start)};
     });
-    await test('WORKFLOW-SUPERSET-HEALTH','/admin/superset-instances','Run native operation health through the public mapping',async()=>{
-      const start=await b.navigate('/admin/superset-instances',['/api/v1/admin/superset-instances']);
+    await test('WORKFLOW-SUPERSET-HEALTH','/admin/reports/instances','Run native operation health through the public mapping',async()=>{
+      const start=await b.navigate('/admin/reports/instances',['/api/v1/admin/superset-instances']);
       await b.text('سلامت','.remote-surface tr[data-row-key="'+nativeRegistration.instances.public.id+'"]');
       await b.response(start,'/api/integrations/superset/'+nativeRegistration.instances.public.code+'/health');
       return {operationHealthViaBff:200,...await b.clean(start)};
     });
-    await test('WORKFLOW-AUTH-PROFILE','/admin/outbound-auth','Validate legacy profile, obtain a token on the server and inspect cache',async()=>{
-      const start=await b.navigate('/admin/outbound-auth',['/api/v1/admin/outbound-auth-profiles']);
+    await test('WORKFLOW-AUTH-PROFILE','/admin/routes/auth','Validate legacy profile, obtain a token on the server and inspect cache',async()=>{
+      const start=await b.navigate('/admin/routes/auth',['/api/v1/admin/outbound-auth-profiles']);
       const profile=(await adminApi('/outbound-auth-profiles')).find(p=>p.code==='e2e-legacy'&&p.auth_mode==='LEGACY_SERVICE_TOKEN'&&p.active);assert(profile);
       const scope='.remote-surface tr[data-row-key="'+profile.id+'"]';
       for(const [label,suffix] of [['اعتبارسنجی اتصال','connection-test'],['تست توکن','token-test'],['Cache','cache-status']]){
@@ -200,9 +200,9 @@ try{
       }
       return {connectionValidated:true,tokenTest:true,cacheChecked:true,...await b.clean(start)};
     });
-    await test('WORKFLOW-IDENTITY','/admin/identity','Create a role, assign it, revoke it and deactivate the fixture',async()=>{
+    await test('WORKFLOW-IDENTITY','/admin/users/roles','Create a role, assign it, revoke it and deactivate the fixture',async()=>{
       let role;const users=await adminApi('/users'),subject=users.find(u=>u.username==='e2e.none');assert(subject);
-      const start=await b.navigate('/admin/identity',['/api/v1/admin/roles']);
+      const start=await b.navigate('/admin/users/roles',['/api/v1/admin/roles']);
       try{
         await b.text('نقش جدید');await b.until('Boolean(document.querySelector(".ant-modal #roleKey"))','Role form missing');await b.delay(350);
         await b.fill('.ant-modal #roleKey',runId);await b.fill('.ant-modal #nameFa','نقش آزمون '+runId);await b.fill('.ant-modal #nameEn','E2E '+runId);
@@ -225,9 +225,9 @@ try{
           assert.equal((await adminApi('/roles')).find(r=>r.id===role.id).status,'INACTIVE','Role fixture was not deactivated');}
       }
     });
-    await test('WORKFLOW-CONNECTION','/admin/outbound-connections','Create, edit and deactivate an approved connection',async()=>{
+    await test('WORKFLOW-CONNECTION','/admin/routes/connections','Create, edit and deactivate an approved connection',async()=>{
       let connection;const template=(await adminApi('/outbound-connections')).find(c=>c.active);assert(template);
-      const ref='connection://e2e/'+runId,start=await b.navigate('/admin/outbound-connections',['/api/v1/admin/outbound-connections']);
+      const ref='connection://e2e/'+runId,start=await b.navigate('/admin/routes/connections',['/api/v1/admin/outbound-connections']);
       try{
         await b.text('اتصال جدید');await b.until('Boolean(document.querySelector(".ant-modal #connectionRef"))','Connection form missing');await b.delay(350);
         await b.fill('.ant-modal #name',runId);await b.fill('.ant-modal #connectionRef',ref);await b.fill('.ant-modal #baseUrl',template.base_url);

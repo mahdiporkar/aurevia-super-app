@@ -61,15 +61,17 @@ try {
     coalesce((select e.subject from external_identity e join app_user u on u.id=e.user_id where e.issuer='${issuer}' and e.subject='${bootstrapSub}' and u.status='ACTIVE'),'') || '|' ||
     (select count(*) from schema_version where component='first-administrator');`;
   const state = command(['exec', '-T', 'auth-db', 'psql', '-U', 'aurevia', '-d', 'aurevia_auth', '-Atc', sql]).split(/\r?\n/).at(-1).split('|');
-  if (Number(state[0]) < 79) failures.push(`Flyway is only at V${state[0]}; V79 or newer is required`);
+  if (Number(state[0]) < 83) failures.push(`Flyway is only at V${state[0]}; V83 or newer is required`);
   if (state[1] !== '0') failures.push(`${state[1]} OpenFGA outbox events are dead-lettered`);
   if (state[2] !== '0') failures.push(`${state[2]} OpenFGA outbox events are still pending; retry after a few seconds`);
   if (state[11] !== '1') failures.push('First administrator bootstrap has not completed (schema_version first-administrator marker missing)');
   if (!state[3]) failures.push('bootstrap administrator (AUREVIA_BOOTSTRAP_ADMIN_SUB) is not linked to an active canonical subject');
   else administratorUser=`user:${state[3]}`;
-  if (state[4] !== '0.6.0') failures.push(`ADMIN active artifact is ${state[4] || 'missing'}; expected 0.6.0`);
+  if (state[4] !== '0.7.0') failures.push(`ADMIN active artifact is ${state[4] || 'missing'}; expected 0.7.0`);
   if (state[5] !== '1.0') failures.push(`ADMIN manifest contract is ${state[5] || 'missing'}; expected 1.0`);
-  if (state[6] !== '19') failures.push(`ADMIN manifest exposes ${state[6] || '0'} routes; expected 19`);
+  // 19 administrative pages, one landing route per multi-tab domain, and the
+  // legacy redirect routes that keep previously published admin URLs resolving.
+  if (state[6] !== '40') failures.push(`ADMIN manifest exposes ${state[6] || '0'} routes; expected 40`);
   if (state[7] !== '0') failures.push(`ADMIN manifest contains ${state[7]} absolute route path(s)`);
   if (state[8] !== '/api/v1/admin') failures.push(`ADMIN runtime apiBasePath is ${state[8] || 'missing'}`);
   if (state[9] !== 'false') failures.push('ADMIN artifact must not embed a deployment-specific routePrefix');

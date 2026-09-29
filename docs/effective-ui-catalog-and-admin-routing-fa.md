@@ -107,7 +107,7 @@ Authorization Service برای هر درخواست کاربر این ترتیب 
           },
           {
             "id": "proxy-routes",
-            "path": "proxy-routes/routes",
+            "path": "routes/routes",
             "title": "Proxy Routes",
             "resource": "proxy.route",
             "action": "admin"
@@ -122,11 +122,11 @@ Authorization Service برای هر درخواست کاربر این ترتیب 
             "order": 10
           },
           {
-            "id": "proxy-routes-menu",
-            "routeId": "proxy-routes",
-            "title": "Proxy Routes",
-            "icon": "branches",
-            "order": 51
+            "id": "routes-menu",
+            "routeId": "routes-home",
+            "title": "مسیرها و اتصال‌ها",
+            "icon": "api",
+            "order": 50
           }
         ]
       }
@@ -142,57 +142,105 @@ Authorization Service برای هر درخواست کاربر این ترتیب 
 تعریف داخلی Admin برای مثال این است:
 
 ```text
-proxy-routes/routes
+routes/routes
 ```
 
 registration اول:
 
 ```text
 routePrefix = management
-runtime URL = /management/proxy-routes/routes
+runtime URL = /management/routes/routes
 ```
 
 registration دوم بدون تغییر MFE:
 
 ```text
 routePrefix = governance
-runtime URL = /governance/proxy-routes/routes
+runtime URL = /governance/routes/routes
 ```
 
-در standalone همان تعریف داخلی به صورت `/proxy-routes/routes` کار می‌کند. `BrowserRouter` و `historyApiFallback` refresh و deep link را نگه می‌دارند. در حالت embedded، Shell مسیر `/{routePrefix}/*` را می‌سازد و `HostRuntime.navigation` prefix را به navigation داخلی اضافه می‌کند. Back، Forward، bookmark و بازکردن در tab جدید از history واقعی router استفاده می‌کنند، نه state شماره تب.
+در standalone همان تعریف داخلی به صورت `/routes/routes` کار می‌کند. `BrowserRouter` و `historyApiFallback` refresh و deep link را نگه می‌دارند. در حالت embedded، Shell مسیر `/{routePrefix}/*` را می‌سازد و `HostRuntime.navigation` prefix را به navigation داخلی اضافه می‌کند. Back، Forward، bookmark و بازکردن در tab جدید از history واقعی router استفاده می‌کنند، نه state شماره تب.
 
-## تب‌های واقعی کشف‌شده و route جدید
+## دامنه‌های اداری، تب‌ها و routeها
 
-| بخش قبلی | تب تو‌در‌تو قبلی | route داخلی جدید |
+Sidebar شل یک ورودی برای هر **دامنه اداری** دارد، نه یک ورودی برای هر عملیات. عملیات‌های
+هر دامنه تب‌های همان صفحه‌اند و هر تب URL مستقل خودش را دارد.
+
+| دامنه (ورودی Sidebar) | تب | route داخلی |
 |---|---|---|
-| راهنمای فرم‌ها | — | `/operator-guide` |
-| دسترسی مبتنی بر OU | OUهای سازمانی | `/ou-access/ous` |
-| دسترسی مبتنی بر OU | Access Groupها | `/ou-access/groups` |
-| دسترسی مبتنی بر OU | دسترسی Microfrontend | `/ou-access/applications` |
-| دسترسی مبتنی بر OU | بررسی دسترسی User | `/ou-access/explain` |
-| استودیوی دسترسی | — | `/access-studio` |
-| میکروفرانت‌ها | — | `/panels` |
-| راهبری Proxy | Service Targets | `/proxy-routes/targets` |
-| راهبری Proxy | Proxy Routes | `/proxy-routes/routes` |
-| راهبری Proxy | Route Operations | `/proxy-routes/operations` |
-| اتصال‌های Legacy | — | `/outbound-connections` |
-| پروفایل‌های احراز هویت سرویس‌ها | — | `/outbound-auth` |
-| آزمایشگاه اتصال | — | `/integration-test` |
-| محیط‌های Superset | — | `/superset-instances` |
-| گروه‌ها و نقش‌ها | — | `/identity` |
-| لاگ‌ها | API Logs | `/logs/api` |
-| لاگ‌ها | Audit Logs | `/logs/audit` |
-| گزارش‌ها و داشبوردها | — | `/superset` |
+| راهنما | — (تک‌صفحه‌ای) | `/operator-guide` |
+| دسترسی سازمانی و مجوزها | واحدهای سازمانی | `/access/ous` |
+| دسترسی سازمانی و مجوزها | گروه‌ها | `/access/groups` |
+| دسترسی سازمانی و مجوزها | برنامه‌ها | `/access/applications` |
+| دسترسی سازمانی و مجوزها | منابع و مجوزها | `/access/resources` |
+| دسترسی سازمانی و مجوزها | تحلیل دسترسی | `/access/explain` |
+| کاربران و نقش‌ها | کاربران | `/users/accounts` |
+| کاربران و نقش‌ها | نقش‌ها و گروه‌ها | `/users/roles` |
+| میکروفرانت‌ها | — (تک‌صفحه‌ای) | `/panels` |
+| مسیرها و اتصال‌ها | مقصدها | `/routes/targets` |
+| مسیرها و اتصال‌ها | مسیرها | `/routes/routes` |
+| مسیرها و اتصال‌ها | عملیات API | `/routes/operations` |
+| مسیرها و اتصال‌ها | اتصال‌ها | `/routes/connections` |
+| مسیرها و اتصال‌ها | احراز هویت | `/routes/auth` |
+| مسیرها و اتصال‌ها | تست اتصال | `/routes/test` |
+| گزارش‌ها | محیط‌ها | `/reports/instances` |
+| گزارش‌ها | داشبوردها و دسترسی | `/reports/assets` |
+| پایش و حسابرسی | لاگ API | `/logs/api` |
+| پایش و حسابرسی | لاگ راهبری | `/logs/audit` |
 
-تمام content، فرم، table، modal، action و API قبلی در page متناظر حفظ شده است. ظاهر tab-like برای navigation باقی مانده، اما `location` و route منبع حقیقت صفحه فعال هستند.
+ترتیب تب‌ها از workflow واقعی پیکربندی می‌آید، نه الفبا: ابتدا Service Target، سپس Route
+که به آن اشاره می‌کند، سپس Operationهای آن Route؛ و در سمت خروجی ابتدا Connection، سپس
+Auth Profile و در پایان تست اتصال. در گزارش‌ها نیز Instance پیش از Asset و تخصیص دسترسی
+می‌آید.
+
+تمام content، فرم، table، modal، action و API قبلی در page متناظر حفظ شده است. تب یک
+navigation واقعی است: `location` منبع حقیقت تب فعال است، نه state داخلی کامپوننت، بنابراین
+refresh، Back/Forward و bookmark کار می‌کنند.
+
+### مجوز هر تب مستقل است
+
+هر تب همچنان route مستقل خودش با `requiredResource`/`requiredAction` خودش است و کاتالوگ
+مؤثر آن را جداگانه فیلتر می‌کند. تب‌های نمایش‌داده‌شده از همان routeهای مجازشده ساخته
+می‌شوند، پس ادغام صفحه‌ها هیچ عملیاتی را برای کاربر غیرمجاز آشکار نمی‌کند. ورود به مسیر
+دامنه (مثلاً `/routes`) به **اولین تب مجاز همان کاربر** هدایت می‌شود؛ تب پیش‌فرض ثابت
+نیست.
+
+هر دامنهٔ چندتبی یک route لندینگ (`<domain>-home`) منتشر می‌کند تا Sidebar یک URL پایدار
+برای آن دامنه داشته باشد. مجوز این route، مجوز ورود به دامنه است و در جدول resourceهای
+ناهمگون، محافظه‌کارانه انتخاب شده است.
+
+### URLهای قبلی
+
+URLهای منتشرشدهٔ قبلی همچنان route منتشرشده‌اند و به محل جدید redirect می‌شوند؛ هر کدام
+دقیقاً همان `requiredResource`/`requiredAction` مقصدش را اعلام می‌کند، پس مسیر قدیمی
+دسترسی تازه‌ای نمی‌دهد.
+
+| URL قبلی | مقصد جدید |
+|---|---|
+| `/ou-access` | `/access` |
+| `/ou-access/ous` | `/access/ous` |
+| `/ou-access/groups` | `/access/groups` |
+| `/ou-access/applications` | `/access/applications` |
+| `/ou-access/explain` | `/access/explain` |
+| `/access-studio` | `/access/resources` |
+| `/identity` | `/users/roles` |
+| `/proxy-routes` | `/routes` |
+| `/proxy-routes/targets` | `/routes/targets` |
+| `/proxy-routes/routes` | `/routes/routes` |
+| `/proxy-routes/operations` | `/routes/operations` |
+| `/outbound-connections` | `/routes/connections` |
+| `/outbound-auth` | `/routes/auth` |
+| `/integration-test` | `/routes/test` |
+| `/superset-instances` | `/reports/instances` |
+| `/superset` | `/reports/assets` |
 
 با `routePrefix=management` مسیرهای نمونه زیر می‌شوند:
 
 ```text
-/management/ou-access/groups
-/management/proxy-routes/operations
+/management/access/groups
+/management/routes/operations
 /management/logs/audit
-/management/superset
+/management/reports/assets
 ```
 
 ## منبع واحد route در Admin MFE
@@ -214,7 +262,7 @@ runtime URL = /governance/proxy-routes/routes
 ```json
 {
   "id": "proxy-operations",
-  "path": "proxy-routes/operations",
+  "path": "routes/operations",
   "resource": "proxy.operation",
   "action": "admin"
 }
@@ -227,8 +275,8 @@ Authorization Service زوج بالا را با semantics موجود به permis
 ## default و مسیر نامعتبر
 
 - `/` به `defaultRouteId` می‌رود فقط اگر آن route در پاسخ مؤثر وجود داشته باشد.
-- در غیر این صورت اولین route مجاز انتخاب می‌شود؛ بنابراین کاربری که فقط Superset را دارد به `/superset` می‌رود.
-- `/ou-access`، `/proxy-routes` و `/logs` به اولین child مجاز همان بخش می‌روند.
+- در غیر این صورت اولین route مجاز انتخاب می‌شود؛ بنابراین کاربری که فقط Superset را دارد به `/reports/assets` می‌رود.
+- مسیر هر دامنه (`/access`، `/users`، `/routes`، `/reports`، `/logs`) به اولین تب مجاز همان کاربر می‌رود.
 - مسیر ناشناخته به صفحه نامرتبط redirect نمی‌شود و fallback مشخص دریافت می‌کند.
 
 ## سازگاری و کد legacy باقی‌مانده
