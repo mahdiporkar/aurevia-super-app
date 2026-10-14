@@ -160,8 +160,15 @@ export function OutboundAuthProfiles({ api }: { api: Api }) {
             <Form.Item name="scope" label="Scope"><Input /></Form.Item>
             <Form.Item name="audience" label="Audience"><Input /></Form.Item>
             <Form.Item name="tokenResponsePointer" label="Token JSON Pointer" rules={required}><Input /></Form.Item>
-            <Form.Item name="expiresInResponsePointer" label="Expires JSON Pointer" rules={required}><Input /></Form.Item>
-            <Form.Item name="tokenTypeResponsePointer" label="Token Type Pointer" rules={required}><Input /></Form.Item>
+            <Form.Item name="expiresInResponsePointer" label="Expires JSON Pointer">
+              <Input placeholder="Optional — JWT exp is used when empty" />
+            </Form.Item>
+            <Form.Item
+              name="tokenTypeResponsePointer"
+              label="Token Type Pointer"
+            >
+              <Input placeholder="Optional — Scheme is used when empty" />
+            </Form.Item>
             <Form.Item name="authorizationScheme" label="Scheme" rules={required}><Input /></Form.Item>
             <Form.Item name="expirySkewSeconds" label="Expiry Skew"><InputNumber min={5} max={600} /></Form.Item>
             <Form.Item name="connectTimeoutMs" label="Connect Timeout"><InputNumber min={100} /></Form.Item>
