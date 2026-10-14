@@ -88,6 +88,14 @@ services:
       AUTHORIZATION_URL: "http://authorization-service:8082"
       AUTH_INTERNAL_USER: "${AUTH_INTERNAL_USER:-bff}"
       AUTH_INTERNAL_PASSWORD: "${AUTH_INTERNAL_PASSWORD:-change-me}"
+      
+      LEGACY_ENVIRONMENT: "${LEGACY_ENVIRONMENT:-local}"
+      LEGACY_ALLOWED_HOSTS: "${LEGACY_ALLOWED_HOSTS}"
+      LEGACY_ALLOWED_PORTS: "${LEGACY_ALLOWED_PORTS}"
+      LEGACY_ALLOW_INSECURE_LOCAL: "${LEGACY_ALLOW_INSECURE_LOCAL:-false}"
+      LEGACY_LOCAL_SECRETS_ENABLED: "false"
+      AUREVIA_LEGACY_FILE_SECRETS_ENABLED: "true"
+      AUREVIA_LEGACY_FILE_SECRETS_ROOT: "/run/secrets"
       # =========================
       # Primary authentication is runtime configuration, never registry data.
       # =========================
@@ -118,6 +126,8 @@ services:
       # Optional secondary providers only; primary OIDC never reads this resolver.
       IDENTITY_PROVIDER_SECRET_ROOT: "${IDENTITY_PROVIDER_SECRET_ROOT:-}"
     extra_hosts: ["host.docker.internal:host-gateway"]
+     volumes:
+      - ../../secrets/legacy:/run/secrets:ro
     depends_on:
       redis: {condition: service_healthy}
       authorization-service: {condition: service_healthy}
