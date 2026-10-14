@@ -71,7 +71,8 @@ services:
       mock-finance: {condition: service_started}
       mock-legacy: {condition: service_started}
       mock-oauth: {condition: service_started}
-    networks: [operation-services, bff-egress]
+    networks: [operation-services, bff-egress,operation-external]
     # Deliberately no host port: only the BFF network can reach this gateway.
 networks:
   operation-services: {internal: true}
+  operation-external: {driver: bridge}
