@@ -24,7 +24,105 @@ import org.springframework.web.server.ResponseStatusException;
  @Transactional public ProfileView updateProfile(UUID id,long version,ProfileCommand raw,String actor){ProfileCommand command=normalize(raw);ProfileView before=profile(id);if(repository.updateProfile(id,version,command,actor)!=1)throw new OptimisticLockingFailureException("VERSION_CONFLICT");ProfileView after=profile(id);audit.success("OUTBOUND_AUTH","auth.profile.updated",null,null,"OUTBOUND_AUTH_PROFILE",id.toString(),command.code(),"UPDATE",safe(before),safe(after));return after;}
  @Transactional public ProfileView updateProfileStatus(UUID id,long version,boolean active,String actor){if(repository.updateProfileStatus(id,version,active,actor)!=1)throw new OptimisticLockingFailureException("VERSION_CONFLICT");audit.success("OUTBOUND_AUTH",active?"auth.profile.activated":"auth.profile.deactivated",null,null,"OUTBOUND_AUTH_PROFILE",id.toString(),id.toString(),"STATUS",null,Map.of("active",active));return profile(id);}
  private static String connectionOrigin(ConnectionCommand c){String ref=connectionReference(c.connectionRef());if(c.name()==null||c.name().isBlank())throw new IllegalArgumentException("Connection name is required");URI uri;try{uri=URI.create(c.baseUrl().trim()).normalize();}catch(RuntimeException e){throw new IllegalArgumentException("Invalid connection URL",e);}if(!Set.of("http","https").contains(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null||uri.getQuery()!=null||uri.getFragment()!=null||!(uri.getPath().isEmpty()||"/".equals(uri.getPath())))throw new IllegalArgumentException("Connection URL must be an HTTP(S) origin");if(c.tlsRequired()&&!"https".equals(uri.getScheme()))throw new IllegalArgumentException("TLS-required connection must use HTTPS");return uri.getScheme()+"://"+uri.getHost()+(uri.getPort()<0?"":":"+uri.getPort());}
- private static ProfileCommand normalize(ProfileCommand p){String mode=upper(p.authMode(),50),format=upper(p.requestFormat(),50),transport=upper(p.credentialTransport(),50);if(!MODES.contains(mode)||!FORMATS.contains(format)||!TRANSPORTS.contains(transport))throw new IllegalArgumentException("Unsupported outbound authentication option");String connection=reference(p.tokenConnectionRef(),"connection://"),endpoint=endpoint(p.tokenEndpointPath()),secret=reference(p.credentialSecretRef(),"secret://");if("LEGACY_SERVICE_TOKEN".equals(mode)){if(connection.isEmpty()||endpoint.isEmpty()||secret.isEmpty()||!"INTERNAL_LEGACY_HEADER".equals(transport))throw new IllegalArgumentException("Legacy profiles require connection, endpoint path, secret reference, and internal transport");}else{if(!"USER_AUTHORIZATION_HEADER".equals(transport))throw new IllegalArgumentException("Forward profiles require user authorization transport");connection="";endpoint="";secret="";}return new ProfileCommand(code(p.code()),limit(p.name(),255),nullable(p.description(),1000),mode,connection,endpoint,format,secret,nullable(p.scope(),1000),nullable(p.audience(),1000),pointer(p.tokenResponsePointer()),pointer(p.expiresInResponsePointer()),pointer(p.tokenTypeResponsePointer()),scheme(p.authorizationScheme()),transport,p.expirySkewSeconds(),p.connectTimeoutMs(),p.responseTimeoutMs(),p.maxTokenResponseSize(),p.active());}
+ private static ProfileCommand normalize(ProfileCommand p) {
+    String mode = upper(p.authMode(), 50);
+
+    if (!MODES.contains(mode)) {
+      throw new IllegalArgumentException("Unsupported outbound authentication mode");
+    }
+
+    if ("FORWARD_USER_TOKEN".equals(mode)) {
+      return new ProfileCommand(
+        code(p.code()),
+        limit(p.name(), 255),
+        nullable(p.description(), 1000),
+        mode,
+
+        "",                         // tokenConnectionRef
+        "",                         // tokenEndpointPath
+        "FORM_URLENCODED",          // requestFormat
+        "",                         // credentialSecretRef
+        "",                         // scope
+        "",                         // audience
+
+        "/access_token",            // tokenResponsePointer
+        "",                         // expiresInResponsePointer
+        "",                         // tokenTypeResponsePointer
+        "Bearer",                   // authorizationScheme
+        "USER_AUTHORIZATION_HEADER",
+
+        30,                         // expirySkewSeconds
+        3000,                       // connectTimeoutMs
+        10000,                      // responseTimeoutMs
+        1048576,                    // maxTokenResponseSize
+        p.active()
+      );
+    }
+
+    // LEGACY_SERVICE_TOKEN
+    String format = upper(p.requestFormat(), 50);
+    String transport = upper(p.credentialTransport(), 50);
+
+    if (!FORMATS.contains(format)) {
+      throw new IllegalArgumentException("Unsupported Legacy request format");
+    }
+
+    if (!TRANSPORTS.contains(transport)) {
+      throw new IllegalArgumentException("Unsupported credential transport");
+    }
+
+    String connection = reference(p.tokenConnectionRef(), "connection://");
+    String endpoint = endpoint(p.tokenEndpointPath());
+    String secret = reference(p.credentialSecretRef(), "secret://");
+
+    if (connection.isEmpty()
+      || endpoint.isEmpty()
+      || secret.isEmpty()
+      || !"INTERNAL_LEGACY_HEADER".equals(transport)) {
+      throw new IllegalArgumentException(
+        "Legacy profiles require connection, endpoint path, secret reference, and internal transport");
+    }
+
+    if (p.expirySkewSeconds() < 5 || p.expirySkewSeconds() > 600) {
+      throw new IllegalArgumentException("Expiry skew must be between 5 and 600 seconds");
+    }
+
+    if (p.connectTimeoutMs() < 100 || p.connectTimeoutMs() > 30000) {
+      throw new IllegalArgumentException("Connect timeout must be between 100 and 30000 ms");
+    }
+
+    if (p.responseTimeoutMs() < 100 || p.responseTimeoutMs() > 120000) {
+      throw new IllegalArgumentException("Response timeout must be between 100 and 120000 ms");
+    }
+
+    if (p.maxTokenResponseSize() < 1024 || p.maxTokenResponseSize() > 5242880) {
+      throw new IllegalArgumentException(
+        "Max token response size must be between 1024 and 5242880 bytes");
+    }
+
+    return new ProfileCommand(
+      code(p.code()),
+      limit(p.name(), 255),
+      nullable(p.description(), 1000),
+      mode,
+      connection,
+      endpoint,
+      format,
+      secret,
+      nullable(p.scope(), 1000),
+      nullable(p.audience(), 1000),
+      pointer(p.tokenResponsePointer()),
+      optionalPointer(p.expiresInResponsePointer()),
+      optionalPointer(p.tokenTypeResponsePointer()),
+      scheme(p.authorizationScheme()),
+      transport,
+      p.expirySkewSeconds(),
+      p.connectTimeoutMs(),
+      p.responseTimeoutMs(),
+      p.maxTokenResponseSize(),
+      p.active()
+    );
+  }
  private static String connectionReference(String v){String s=v==null?"":v.trim();if(!CONNECTION_REF.matcher(s).matches())throw new IllegalArgumentException("Invalid connection reference");return s;}
  private static String endpoint(String v){String s=nullable(v,1000);if(s.isEmpty())return s;if(!s.startsWith("/")||s.contains("://")||s.contains("..")||s.contains("%")||s.contains("\\")||s.contains("?")||s.contains("#")||s.contains("//"))throw new IllegalArgumentException("Invalid token endpoint path");return s;}
  private static String pointer(String v){String s=limit(v,255);if(!s.matches("/(?:[A-Za-z0-9_-]+)(?:/(?:[A-Za-z0-9_-]+))*"))throw new IllegalArgumentException("Invalid JSON pointer");return s;}
