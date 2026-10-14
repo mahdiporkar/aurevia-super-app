@@ -93,9 +93,9 @@ services:
       LEGACY_ALLOWED_HOSTS: "${LEGACY_ALLOWED_HOSTS}"
       LEGACY_ALLOWED_PORTS: "${LEGACY_ALLOWED_PORTS}"
       LEGACY_ALLOW_INSECURE_LOCAL: "${LEGACY_ALLOW_INSECURE_LOCAL:-false}"
-      LEGACY_LOCAL_SECRETS_ENABLED: "false"
-      AUREVIA_LEGACY_FILE_SECRETS_ENABLED: "true"
-      AUREVIA_LEGACY_FILE_SECRETS_ROOT: "/run/secrets"
+      LEGACY_LOCAL_SECRETS_ENABLED: "true"
+      LEGACY_LOCAL_SECRETS_JSON: '${LEGACY_LOCAL_SECRETS_JSON}'
+      AUREVIA_LEGACY_FILE_SECRETS_ENABLED: "false"
       # =========================
       # Primary authentication is runtime configuration, never registry data.
       # =========================
